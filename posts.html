@@ -8,7 +8,7 @@ make-smaller-titles: true
   <div class="row index all-posts">
 
     <h1 class="header author-header">{{ site.author_name }}</h1>
-    <h2 class="header" itemprop="headline">All posts</h2>
+    <h2 class="header" itemprop="headline"All posts</h2>
     <h2 class="header categories" itemprop="headline"><small>grouped by
 
       <div class="dropdown btn-group">
@@ -33,7 +33,11 @@ make-smaller-titles: true
       {% endif %}
 
           <li>
+            {% if post.medium_link %}
+            <a href="{{ post.medium_link }}?source=brevzin.github.io"><i class="fa fa-medium"></i> {{ post.title }}</a>
+            {% else %}
             <a href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+            {% endif %}
             <small class="hidden-xs">{{ post.date | date: "%B %-d, %Y" }}</small>
           </li>
       {% if forloop.last %}

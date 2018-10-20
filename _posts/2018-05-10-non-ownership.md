@@ -6,6 +6,7 @@ series: Regular-Span
 tags:
  - c++
  - c++20
+medium_link: https://medium.com/p/d35cd490d402
 ---
 
 Read it [on Medium](https://medium.com/p/d35cd490d402?source=brevzin.github.io).
