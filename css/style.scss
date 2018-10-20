@@ -697,7 +697,6 @@ ul {
 
 				code {
 					font-family: 'Anonymous Pro';
-					font-size: 15px;
 					background-color: $darker;
 					color: $white;
 					padding: 0.5em;
@@ -915,4 +914,8 @@ th{
 td{
     padding: 2px;
     border:1px solid $dark-blue;;
+}
+
+pre code {
+    font-size: 18px;
 }

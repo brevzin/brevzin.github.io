@@ -34,7 +34,9 @@ I’m not going to post that solution here - instead I’m going to do this pure
 Step #1. How would we write that? We need a function that takes two arguments (of possibly different types) and just returns the result of `<=>` if that’s valid. That’s just standard trailing-return-type based SFINAE:
 
 ```cpp
-auto step1 = [](auto const& a, auto const& b) -> decltype(a <=> b) {
+auto step1 = [](auto const& a, auto const& b)
+        -> decltype(a <=> b)
+{
     return a <=> b;
 };
 ```
@@ -171,7 +173,7 @@ auto ref_case = boost::hof::match(
     [](Strategy&& p, auto&&... args)
         BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...)),
     [](Strategy const&& p, auto&&... args)
-        BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...))        
+        BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...))
 );
 ```
 
@@ -200,7 +202,7 @@ constexpr inline auto process = boost::hof::fix(
       [](auto, Strategy&& p, auto&&... args)
         BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...)),
       [](auto, Strategy const&& p, auto&&... args)
-        BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...))        
+        BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...))
     ),
     // smart pointer case
     [](auto self, auto&& this_, auto&&... args)
@@ -224,7 +226,7 @@ constexpr inline auto process = boost::hof::fix(
       [](auto, Strategy&& p, auto&&... args)
         BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...)),
       [](auto, Strategy const&& p, auto&&... args)
-        BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...))        
+        BOOST_HOF_RETURNS(std::move(p).process(FWD(args)...))
     ),
     // dereference case
     [](auto self, auto&& this_, auto&&... args)
@@ -235,18 +237,18 @@ constexpr inline auto process = boost::hof::fix(
 Of course, I’m not going to write a 17-line thing whenever I need to do something like this. To make this practical, I will have to resort to writing a macro:
 
 ```cpp
-#define CLASS_MEMBER(T, mem) boost::hof::fix(boost::hof::first_of(  \
-    boost::hof::match(                                              \
-        [](auto, T& s, auto&&... args)                              \
-            BOOST_HOF_RETURNS(s.mem(FWD(args)...)),                 \
-        [](auto, T&& s, auto&&... args)                             \
-            BOOST_HOF_RETURNS(std::move(s).mem(FWD(args)...)),      \
-        [](auto, T const&& s, auto&&... args)                       \
-            BOOST_HOF_RETURNS(std::move(s).mem(FWD(args)...)),      \
-        [](auto, T const& s, auto&&... args)                        \
-            BOOST_HOF_RETURNS(s.mem(FWD(args)...))),                \
-    [](auto self, auto&& this_, auto&&... args)                     \
-        BOOST_HOF_RETURNS(self(*FWD(this_), FWD(args)...))          \
+#define CLASS_MEMBER(T, mem) boost::hof::fix(boost::hof::first_of(\
+    boost::hof::match(                                            \
+        [](auto, T& s, auto&&... args)                            \
+            BOOST_HOF_RETURNS(s.mem(FWD(args)...)),               \
+        [](auto, T&& s, auto&&... args)                           \
+            BOOST_HOF_RETURNS(std::move(s).mem(FWD(args)...)),    \
+        [](auto, T const&& s, auto&&... args)                     \
+            BOOST_HOF_RETURNS(std::move(s).mem(FWD(args)...)),    \
+        [](auto, T const& s, auto&&... args)                      \
+            BOOST_HOF_RETURNS(s.mem(FWD(args)...))),              \
+    [](auto self, auto&& this_, auto&&... args)                   \
+        BOOST_HOF_RETURNS(self(*FWD(this_), FWD(args)...))        \
     ))
 ```
 
@@ -296,7 +298,8 @@ constexpr inline auto invoke = boost::hof::first_of(
           BOOST_HOF_RETURNS((FWD(t1).*f)(FWD(args)...)),
         [](auto, auto&& f, auto&& t1)
           BOOST_HOF_RETURNS(FWD(t1).*f),
-        [](auto self, auto&& f, std::reference_wrapper<auto> t1, auto&&... args)
+        [](auto self, auto&& f, std::reference_wrapper<auto> t1,
+            auto&&... args)
           BOOST_HOF_RETURNS(self(FWD(f), t1.get(), FWD(args)...)),
         [](auto self, auto&& f, auto&& t1, auto&&... args)
           BOOST_HOF_RETURNS(self(FWD(f), *FWD(t1), FWD(args)...))

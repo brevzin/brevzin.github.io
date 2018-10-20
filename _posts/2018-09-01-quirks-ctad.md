@@ -28,7 +28,8 @@ public:
 private: 
     Func func; 
 };
-for_each(vi.begin(), vi.end(), Foo([&](int i){...})); // Foo<some_lambda_type>
+for_each(vi.begin(), vi.end(),
+    Foo([&](int i){...})); // Foo<some_lambda_type>
 ```
 
 No types explicitly specified here. No need for using `make_*()`, even for lambdas.
@@ -57,11 +58,13 @@ When we use `auto`, there’s no expectation that this is a type at all. But whe
 We’ll get this same issue in C++20 with the adoption of Concepts. And the [YAACD paper](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1141r0.html) actually points to CTAD as a reason for supporting `Concept name = ...` over `Concept auto name = ...`:
 
 > In variable declarations, omitting the auto also seems reasonable:
+> <p></p>
 > 
 ```cpp
 Constraint x = f2();
 ```
 > Note, in particular, that we already have a syntax that does (partial) deduction but doesn’t make that explicit in the syntax:
+> <p></p>
 > 
 ```cpp
 std::tuple x = foo();
@@ -110,7 +113,7 @@ This conflict becomes clearer in this example:
 // The tuple case
 std::tuple a(1);    // unquestionably, tuple<int>
 
-std::tuple b(a, a); // unquestionably, tuple<tuple<int>, tuple<int>>
+std::tuple b(a, a); // unquestionably, tuple<tuple<int>,tuple<int>>
 std::tuple c(a);    // ??
 
 // The vector case
