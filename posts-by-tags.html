@@ -12,7 +12,7 @@ make-smaller-titles: true
     <h2 class="header categories" itemprop="headline"><small>grouped by
 
       <div class="dropdown btn-group">
-        <button class="btn btn-categories dropdown-toggle btn-xs" type="button" data-toggle="dropdown">Categories
+        <button class="btn btn-categories dropdown-toggle btn-xs" type="button" data-toggle="dropdown">Tags
           <span class="caret"></span>
         </button>
         <ul class="dropdown-menu">
@@ -21,22 +21,25 @@ make-smaller-titles: true
       </div>
 
     </small></h2>
-      {% for category in site.categories %}
+    {% for tag_pair in site.tags %}
+      {% assign tag = tag_pair | first %}
+      {% assign posts = tag_pair | last %}
       <div class="col-md-12 content-panel articles">
-        <h2 id="{{ category | first }}-ref">{{ category | first }}</h2>
+        <a name="{{tag | downcase | replace:" ","-"}}"></a> <h2 id="{{ tag }}-ref">{{ tag }}</h2>
         <ul>
-          {% for posts in category %}
             {% for post in posts %}
               <li>
+                {% if post.medium_link %}
+                <a href="{{ post.medium_link }}?source=brevzin.github.io"><i class="fa fa-medium"></i> {{ post.title }}</a>
+                {% else %}
                 <a href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+                {% endif %}
                 <small class="hidden-xs">{{ post.date | date: "%B %-d, %Y" }}</small>
               </li>
-            {% endfor %}
           {% endfor %}
-
         </ul>
       </div>
-      {% endfor %}
+    {% endfor %}
 
   </div>
 </div>

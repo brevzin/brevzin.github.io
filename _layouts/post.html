@@ -95,7 +95,9 @@ layout: default
         <div class="tags">
           <small>
           <i class="fa fa-tags"></i>
-            {{ page.tags | join: ', ' }}
+            {% for tag in page.tags %}
+            <span style="margin:2px"><a href="{{ site.baseurl }}/posts-by-tags/#{{ tag | downcase | replace:" ","-" }}">{{tag}}</a></span>
+            {% endfor %}
           </small>
         </div>
         {% endif %}

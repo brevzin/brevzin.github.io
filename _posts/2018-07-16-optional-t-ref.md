@@ -5,6 +5,7 @@ category: c++
 tags:
  - c++
  - c++20
+ - optional
 medium_link: https://medium.com/p/74bf5958b81
 ---
 
