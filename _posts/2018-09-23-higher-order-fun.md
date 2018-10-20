@@ -33,7 +33,7 @@ I’m not going to post that solution here - instead I’m going to do this pure
 
 Step #1. How would we write that? We need a function that takes two arguments (of possibly different types) and just returns the result of `<=>` if that’s valid. That’s just standard trailing-return-type based SFINAE:
 
-```c++
+```cpp
 auto step1 = [](auto const& a, auto const& b) -> decltype(a <=> b) {
     return a <=> b;
 };
@@ -41,14 +41,14 @@ auto step1 = [](auto const& a, auto const& b) -> decltype(a <=> b) {
 
 Except I don’t like repeating things. It’s very common to want to write a lambda that just returns a particular expression but is constrained on that expression being valid. This was the primary motivation for [P0573](https://wg21.link/p0573). Many people have their own macro especially for this case. In Boost.HOF, it’s spelled [`BOOST_HOF_RETURNS`](https://www.boost.org/doc/libs/1_68_0/libs/hof/doc/html/include/boost/hof/returns.html):
 
-```c++
+```cpp
 auto step1 = [](auto const& a, auto const& b)
     BOOST_HOF_RETURNS(a <=> b);
 ```
 
 Step #2. How would we write *just* the second part? Let’s not worry about the fall-back procedure yet. Let’s just write the correct body and the correct constraints. Since we’re writing a function that’s only meaningful for `<=>`, we might as well use all of C++20, including Concepts. Concepts make writing this constraint much easier, even with slightly simplified `concept`s for the ordering constraints (I’m focusing here on playing with functions and less on correct concept writing). Indeed, Step #3 is roughly the same as Step #2 so let’s put them both together:
 
-```c++
+```cpp
 template <typename T, typename U>
 concept EqualityComparable = requires(T const& a, U const& b) {
     { a == b } -> bool;
@@ -80,7 +80,7 @@ Ok great. We have our three steps, how do we put them together? What we need is 
 
 Turns out, there’s an app for that in Boost.HOF. It is called [`first_of`](https://www.boost.org/doc/libs/1_68_0/libs/hof/doc/html/include/boost/hof/first_of.html). All we need to do is pass in our functions, which we’ve already created, and we’re... done:
 
-```c++
+```cpp
 template <typename T, typename U>
 concept EqualityComparable = requires(T const& a, U const& b) {
     { a == b } -> bool;
@@ -126,7 +126,7 @@ Now let’s go wild. One problem that everyone runs into sooner or later with C+
 
 But not all the cases. There is one case that I wanted to walk through here, which is this: I want to call a member function (that is a template or overloaded or ...), but either the class instance will be passed into me (so I can’t just write `BOOST_HOF_LIFT(obj.mem)` or equivalent) or I do have the class instance but I am getting it from a function that my function object needs to own. The motivation example of the paper proposing [`bind_front()`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0356r3.html) is:
 
-```c++
+```cpp
 bind_front(&Strategy::process, createStrategy())
 ```
 
@@ -145,7 +145,7 @@ Daunting.
 
 As before, let’s just break it down into small pieces. Let’s start with the pointer case. We can’t have the class instance argument be deduced (i.e. have type `auto`) because we want to ensure that we are calling `Strategy::process` and not `SomeOtherThingEntirely::process`. We could deduce a pointer and check that this pointer is convertible to `Strategy const*`, but I’m just going to take the easy road here and write two functions: one for `Strategy*` and one for `Strategy const*`. We could use `first_of` here and ensure that we write the non-const overload first, but these cases are mutually exclusive so we’ll use best-match instead of first-match. In HOF, that is spelled [`match`](https://www.boost.org/doc/libs/1_68_0/libs/hof/doc/html/include/boost/hof/match.html):
 
-```c++
+```cpp
 #define FWD(x) static_cast<decltype(x)&&>(x);
 
 auto pointer_case = boost::hof::match(
@@ -160,7 +160,7 @@ Okay, cool. Now, let’s do the reference case. Here, I am deliberately not dedu
 
 We need to write out the four cases, which is a bit repetitive. Using `match` instead of `first_of` means we don’t have to carefully reason about what the right order is:
 
-```c++
+```cpp
 #define FWD(x) static_cast<decltype(x)&&>(x);
 
 auto ref_case = boost::hof::match(
@@ -181,7 +181,7 @@ What we want to do is say that if `p.operator->()` is a pointer to some kind of 
 
 Rather than showing this final step separately, I’m going to show this all put together. Note that the pointer and reference cases gained an extra argument which they do not use:
 
-```c++
+```cpp
 constexpr inline auto process = boost::hof::fix(
   boost::hof::first_of(
     // pointer case
@@ -212,7 +212,7 @@ Now that’s already pretty cool to me. Here’s this fairly complex requirement
 
 Indeed, as Paul points out, rather than three cases (pointer, reference, smart pointer), we can simplify this further to only have two cases: reference and dereference:
 
-```c++
+```cpp
 constexpr inline auto process = boost::hof::fix(
   boost::hof::first_of(
     // reference case
@@ -234,7 +234,7 @@ constexpr inline auto process = boost::hof::fix(
 
 Of course, I’m not going to write a 17-line thing whenever I need to do something like this. To make this practical, I will have to resort to writing a macro:
 
-```c++
+```cpp
 #define CLASS_MEMBER(T, mem) boost::hof::fix(boost::hof::first_of(  \
     boost::hof::match(                                              \
         [](auto, T& s, auto&&... args)                              \
@@ -253,7 +253,7 @@ Of course, I’m not going to write a 17-line thing whenever I need to do someth
 
 And now, the motivating example for `bind_front()` becomes:
 
-```c++
+```cpp
 bind_front(CLASS_MEMBER(Strategy, process), createStrategy())
 ```
 
@@ -265,7 +265,7 @@ Pretty cool stuff!
 
 As a bonus, here is an implementation of `std::invoke()`:
 
-```c++
+```cpp
 constexpr inline auto invoke = boost::hof::first_of(
     [](auto&& f, auto&& t1, auto&&... args)
         BOOST_HOF_RETURNS((FWD(t1).*f)(FWD(args)...)),
@@ -288,7 +288,7 @@ This is basically a literal translation of [\[func.require\]]( http://eel.is/c++
 
 Alternatively, we can group the two reference_wrapper cases and the two dereference cases together:
 
-```c++
+```cpp
 constexpr inline auto invoke = boost::hof::first_of(
     boost::hof::fix(
       boost::hof::first_of(
