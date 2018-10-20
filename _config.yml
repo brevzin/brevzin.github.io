@@ -4,7 +4,6 @@ email: barry.revzin@gmail.com
 description: "Barry's C++ Blog"
 baseurl: ""
 url: ""
-title_description: "Just a blog about C++"
 title_image: "https://avatars1.githubusercontent.com/u/13238276?s=460&v=4"
 google_analytics: "UA-127711000-1"
 github_repository: https://github.com/BRevzin
