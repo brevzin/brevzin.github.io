@@ -19,7 +19,7 @@ xing_link:
 facebook_link:
 
 # Footer
-footer_center: "&copy; 2017 <a href=\"https://twitter.com/BarryRevzin\">Barry Revzin</a>"
+footer_left: "&copy; 2017 <a href=\"https://twitter.com/BarryRevzin\">Barry Revzin</a>"
 footer_right: "<a href=\"https://github.com/jacobtomlinson/carte-noire\">Carte Noir</a> theme by <a href=\"https://twitter.com/_JacobTomlinson\">Jacob Tomlinson</a>"
 
 # Build settings
