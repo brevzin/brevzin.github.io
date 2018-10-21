@@ -158,7 +158,7 @@ template <typename T,
 U bind(F, vector<T>);
 ```
 
-I ... guess that's clear? Maybe?
+Is that clear? Note that the fact that this function returns some kind of `vector` is an extremely important part of its interface, but you cannot tell here because we're returning `U`. We could go a very circuitous route in order to really make it explicit - by returning <code class="language-cpp">vector&lt;typename U::value_type&gt;</code>. But I'm not sure that would be better.
 
 ### `sequence` over a `Range` of `expected<T,E>`
 
