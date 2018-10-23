@@ -25,28 +25,28 @@ But it turns out, even in C++20 with Concepts, it's not really possible.
 
 This post will go through several examples of functions that you just cannot declare in this kind of clear, effective way. The examples I'm taking are all from the function programming domain - I'm not choosing them because FP is particularly complex, I'm actually choosing them because they're actually _not_ complex but the tools we have at our disposal make them seem so.
 
-### `fmap` over `vector<T>`
+### <code class="language-cpp">fmap</code> over <code class="language-cpp">vector&lt;T&gt;</code>
 
 What we want to do is to write a function template that takes:
-- a `vector<T>`, for any `T`
-- a function that you can call with a `T` and, when you do, gives you back some type `U`. From here on out, I'll appropriate Haskell's syntax here and say that we want a function like `T -> U`.
+- a <code class="language-cpp">vector&lt;T&gt;</code>, for any <code class="language-cpp">T</code>
+- a function that you can call with a `T` and, when you do, gives you back some type `U`. From here on out, I'll appropriate Haskell's syntax here and say that we want a function like <code class="language-cpp">T -> U</code>.
 
-and returns a `vector<U>`. In Python, this function is called `map()`. In C++, it's the `transform()` algorithm. How do we declare this in C++20?
+and returns a <code class="language-cpp">vector&lt;U&gt;</code>. In Python, this function is called <code class="language-cpp">map()</code>. In C++, it's the <code class="language-cpp">transform()</code> algorithm. How do we declare this in C++20?
 
 Let me first start with a lot of non-solutions. 
 
-Many people will try to write the following. I have seen it dozens of times on StackOverflow. I have seen it in blogs about function programming. I have seen it in talks. I have seen it in a book. I think this is such a common thing to reach for because it just looks so obviously correct. What's the easiest way to write a function `T -> U`? This:
+Many people will try to write the following. I have seen it dozens of times on StackOverflow. I have seen it in blogs about function programming. I have seen it in talks. I have seen it in a book. I think this is such a common thing to reach for because it just looks so obviously correct. What's the easiest way to write a function <code class="language-cpp">T -> U</code>? This:
 
 ```cpp
 template <typename T, typename U>
 vector<U> fmap(function<U(T)>, vector<T>);
 ```
 
-To really quickly explain why this is wrong: template deduction doesn’t allow for conversions. If I wanted to pass a function pointer or a lambda into this, that would fail, because that function pointer/lambda is not literally a `std::function`. Hence deduction fails. Even if it did work, it’d also be very inefficient, since we’re imposing type erasure in a place where we don’t actually need it.
+To really quickly explain why this is wrong: template deduction doesn’t allow for conversions. If I wanted to pass a function pointer or a lambda into this, that would fail, because that function pointer/lambda is not literally a <code class="language-cpp">std::function</code>. Hence deduction fails. Even if it did work, it’d also be very inefficient, since we’re imposing type erasure in a place where we don’t actually need it.
 
 But on the other hand, there is something very nice about that right? We have this clear `T` to `U` relationship up there, which we really want. It's very clear where the types are coming from. I completely understand why so many people reach for this. Even, ahem, Ben in that talk.
 
-Using `std::function` is out. But Concepts does give us a better way to constrain types, and Ranges gives us a concept that we can use here: `Invocable`. This leads us to the next non-solution:
+Using <code class="language-cpp">std::function</code> is out. But Concepts does give us a better way to constrain types, and Ranges gives us a concept that we can use here: `Invocable`. This leads us to the next non-solution:
 
 ```cpp
 template <typename T, Invocable<T> F>
@@ -61,7 +61,7 @@ template <typename T, typename F>
 auto fmap(F, vector<T>);
 ```
 
-This works, in the sense that it correctly and properly constrains our arguments. But... we're just returning `auto`. What does this function actually do? It could do _anything_. Don't believe me? There are quite a lot of algorithms that take a range and a unary function (which is all we know about this callable). This could be `all_of()` (or `any_of()`/`none_of()`). This could be `find_if()`. Or `count_if()`. Or `for_each()`. Or ... The point is, we want our declarations to convey complete information about the function and this just doesn't. This lack is part of why I am generally skeptical about `auto` returns in many cases.
+This works, in the sense that it correctly and properly constrains our arguments. But... we're just returning <code class="language-cpp">auto</code>. What does this function actually do? It could do _anything_. Don't believe me? There are quite a lot of algorithms that take a range and a unary function (which is all we know about this callable). This could be <code class="language-cpp">all_of()</code> (or <code class="language-cpp">any_of()</code>/<code class="language-cpp">none_of()</code>). This could be <code class="language-cpp">find_if()</code>. Or <code class="language-cpp">count_if()</code>. Or <code class="language-cpp">for_each()</code>. Or ... The point is, we want our declarations to convey complete information about the function and this just doesn't. This lack is part of why I am generally skeptical about <code class="language-cpp">auto</code> returns in many cases.
 
 The next non-solution isn't actually valid C++20 code yet, it is just a proposal. [P1168](https://wg21.link/p1168) allows for using class template argument deduction in the return type. Which would allow:
 
@@ -70,7 +70,7 @@ template <typename T, Invocable<T> F>
 vector auto fmap(F, vector<T>);
 ```
 
-This is better, but to me is still insufficient. What kind of `vector` does it return? This could still be an algorithm like `filter()` if it returned a `vector<T>` (though presumably we'd actually use `T` in that case). It could also be monadic `bind()` if the function `F` returned some `vector<U>` (instead of `U`) and the full function template did as well. It's not as clear as it could be. 
+This is better, but to me is still insufficient. What kind of `vector` does it return? This could still be an algorithm like <code class="language-cpp">filter()</code> if it returned a <code class="language-cpp">vector&lt;T&gt;</code> (though presumably we'd actually use `T` in that case). It could also be monadic <code class="language-cpp">bind()</code> if the function `F` returned some <code class="language-cpp">vector&lt;U&gt;</code> (instead of `U`) and the full function template did as well. It's not as clear as it could be. 
 
 What's the actual solution?
 
@@ -81,7 +81,7 @@ template <typename T, Invocable<T> F>
 vector<invoke_result_t<F,T>> fmap(F, vector<T>);
 ```
 
-This is kind of a mouthful, and isn't really that clear. The ultimate problem is that Concepts are just predicates. A `concept` takes a bunch of types (or values or templates) and just tells you yes or no (plus some other details for subsumption purposes). That's it. In our example here, we want to have a function `T -> U`. Concepts can give us the `T ->` part. That's just a check. But it cannot give us the `-> U` part, that's a more complex query. For that we need type traits - in this case `invoke_result`. It's pretty unsatisfying that we need two different tools to pick out the two different parts. And you just have to a priori know where to find these tools. 
+This is kind of a mouthful, and isn't really that clear. The ultimate problem is that Concepts are just predicates. A <code class="language-cpp">concept</code> takes a bunch of types (or values or templates) and just tells you yes or no (plus some other details for subsumption purposes). That's it. In our example here, we want to have a function <code class="language-cpp">T -> U</code>. Concepts can give us the <code class="language-cpp">T -></code> part. That's just a check. But it cannot give us the <code class="language-cpp">-> U</code> part, that's a more complex query. For that we need type traits - in this case `invoke_result`. It's pretty unsatisfying that we need two different tools to pick out the two different parts. And you just have to a priori know where to find these tools. 
 
 Even more so because `invoke_result` is specified to be SFINAE-friendly, so the use of the concept behaves, in some sense, like a glorified comment. I might even write the above as:
 
@@ -95,15 +95,18 @@ In some sense, that's better than the concepts solution. Which seems wrong - con
 
 Let's go deeper.
 
-### `fmap` over a `Range`
+### <code class="language-cpp">fmap</code> over a <code class="language-cpp">Range</code>
 
-Whenever we talk informally about algorithms taking ranges, we tend to say that it takes a `Range` of `T`s and then does something with those `T`s. But we can't say `Range` of `T`s in the same way that we can't say `T -> U`. We can only say `Range`. 
+Whenever we talk informally about algorithms taking ranges, we tend to say that it takes a `Range` of `T`s and then does something with those `T`s. But we can't say `Range` of `T`s in the same way that we can't say <code class="language-cpp">T -> U</code>. We can only say `Range`. 
 
-How, then, do we generalize our `fmap` example above to take an arbitrary range of `T`s instead of specifically a `vector<T>`? We could write this:
+How, then, do we generalize our <code class="language-cpp">fmap()</code> example above to take an arbitrary range of `T`s instead of specifically a <code class="language-cpp">vector&lt;T&gt;</code>? We could write this:
 
 ```cpp
-template <Range R, Invocable<iter_value_t<iterator_t<R>>> F>
-vector<invoke_result_t<F, iter_value_t<iterator_t<R>>>> fmap(F, R);
+template <Range R,
+    Invocable<iter_value_t<iterator_t<R>>> F>
+vector<invoke_result_t<
+    F, iter_value_t<iterator_t<R>>
+>> fmap(F, R);
 ```
 
 Though we'd probably want to pull out that commonality:
@@ -127,14 +130,14 @@ vector<U> fmap(F, R);
 
 This is very unsatisfying to me. 
 
-### `bind` over `vector<T>`
+### <code class="language-cpp">bind</code> over <code class="language-cpp">vector&lt;T&gt;</code>
 
-Let's take a different algorithm. Monadic `bind()` doesn't have a direct analogue in the C++ standard library, and I'm not going to go into all the functional programming and category theory details behind it. Suffice it to say that we want a function that takes:
+Let's take a different algorithm. Monadic <code class="language-cpp">bind()</code> doesn't have a direct analogue in the C++ standard library, and I'm not going to go into all the functional programming and category theory details behind it. Suffice it to say that we want a function that takes:
 
-- a `vector<T>`, for any `T`
-- a function `T -> vector<U>`
+- a <code class="language-cpp">vector&lt;T&gt;</code>, for any `T`
+- a function <code class="language-cpp">T -> vector&lt;U&gt;</code>
 
-And returns `vector<U>`. The two differences with `fmap` are that the function must return some kind of `vector` (instead of anything) and that the return type is the return type of the callable (instead of being a `vector` of its return type). In other words, `fmap` taking a `vector<int>` and a `int -> vector<double>` returns a `vector<vector<double>>` while `bind` returns a `vector<double>`. There's that extra unwrapping step that happens (which in Haskell is called `join`).
+And returns <code class="language-cpp">vector&lt;U&gt;</code>. The two differences with <code class="language-cpp">fmap()</code> are that the function must return some kind of `vector` (instead of anything) and that the return type is the return type of the callable (instead of being a `vector` of its return type). In other words, <code class="language-cpp">fmap</code> taking a <code class="language-cpp">vector&lt;int&gt;</code> and a <code class="language-cpp">int -> vector&lt;double&gt;</code> returns a <code class="language-cpp">vector&lt;vector&lt;double&gt;&gt;</code> while <code class="language-cpp">bind()</code> returns a <code class="language-cpp">vector&lt;double&gt;</code>. There's that extra unwrapping step that happens (which in Haskell is called <code class="language-cpp">join()</code>).
 
 Now we need two layers of constraints. Which is fine, Concepts can constrain very well:
 
@@ -160,9 +163,9 @@ U bind(F, vector<T>);
 
 Is that clear? Note that the fact that this function returns some kind of `vector` is an extremely important part of its interface, but you cannot tell here because we're returning `U`. We could go a very circuitous route in order to really make it explicit - by returning <code class="language-cpp">vector&lt;typename U::value_type&gt;</code>. But I'm not sure that would be better.
 
-### `sequence` over a `Range` of `expected<T,E>`
+### <code class="language-cpp">sequence</code> over a <code class="language-cpp">Range</code> of <code class="language-cpp">expected&lt;T,E&gt;</code>
 
-Okay, one more. There's a function in Haskell called `sequence`. In C++ terms, it takes a `vector<expected<T,E>>` and returns a `expected<vector<T>, E>`. That declaration in C++ is easy:
+Okay, one more. There's a function in Haskell called <code class="language-cpp">sequence()</code>. In C++ terms, it takes a <code class="language-cpp">vector&lt;expected&lt;T,E&gt;&gt;</code> and returns a <code class="language-cpp">expected&lt;vector&lt;T&gt;, E&gt;</code>. That declaration in C++ is easy:
 
 ```cpp
 template <typename T, typename E>
@@ -191,7 +194,7 @@ What I think we really need is two things:
 
 You can see in these examples that concepts often have more information associated with them than just a predicate. `Invocable` is closely associated with the actual result of that invocation - you almost always really need that extra type. `Range` is closely associated with the value type that this range is over - you almost always need that too. It would be great if we could express that relationship directly, so you don't just need to magically know how you could get that information.
 
-You can also see in these examples that it would be really helpful to do template-style pattern matching as part of the constraint process. The difference between the `vector` and `Range` version of `sequence()`, for instance, is all about the difference between being able to pattern-match on `vector<expected<T,E>>` versus having to very explicitly spell out what this means for the `Range` version.
+You can also see in these examples that it would be really helpful to do template-style pattern matching as part of the constraint process. The difference between the `vector` and `Range` version of <code class="language-cpp">sequence()</code>, for instance, is all about the difference between being able to pattern-match on <code class="language-cpp">vector&lt;expected&lt;T,E&gt;&gt;</code> versus having to very explicitly spell out what this means for the `Range` version.
 
 I would love to see something like this:
 
@@ -218,7 +221,7 @@ I don't know how to get there syntactically. There are lots of pieces that you n
 
 - Concepts need to be able to declare associated types.
 - Template declarations need an easy way to pull out those associated types.
-- That pulling out process needs to be able to either introduce new names or use existing names somehow (hypothetically `Predicate<T>` could be spelled `Invocable<T>` whose `result_type` is `Boolean` - and you need a way to differentiate between using the concept `Boolean` and introducing a new name).
+- That pulling out process needs to be able to either introduce new names or use existing names somehow (hypothetically <code class="language-cpp">Predicate&lt;T&gt;</code> could be spelled <code class="language-cpp">Invocable&lt;T&gt;</code> whose `result_type` is `Boolean` - and you need a way to differentiate between using the concept `Boolean` and introducing a new name).
 - And that pulling out process needs to itself be a kind of constraint that you can add
 
 I have no good proposal for any of these. But I'm hoping that somebody reads this, agrees that this is a real problem, and comes up with one!
