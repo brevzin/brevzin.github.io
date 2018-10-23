@@ -7,9 +7,9 @@ tags:
  - c++17
 --- 
 
-Before C++17, template deduction [basically] worked in two situations: deduction function parameters in function templates and deducing `auto` for variables/return types in functions. There was no mechanism to deduce template parameters in class templates.
+Before C++17, template deduction [basically] worked in two situations: deduction function parameters in function templates and deducing <code class="language-cpp">auto</code> for variables/return types in functions. There was no mechanism to deduce template parameters in class templates.
 
-The result of that was— whenever you used a class template, you either had to (1) explicitly specify the template parameters or (2) write a helper `make_*` function that does the deduction for you. In the former case, it’s either repetitive/error-prone (if we’re just providing exactly the types of our arguments) or impossible (if our argument is a lambda). In the latter case, we have to know what those helpers are... they’re not always named `make_*`. The standard has `make_pair`, `make_tuple`, and `make_move_iterator`... but also `inserter` and `back_inserter` for instance.
+The result of that was— whenever you used a class template, you either had to (1) explicitly specify the template parameters or (2) write a helper <code class="language-cpp">make_*()</code> function that does the deduction for you. In the former case, it’s either repetitive/error-prone (if we’re just providing exactly the types of our arguments) or impossible (if our argument is a lambda). In the latter case, we have to know what those helpers are... they’re not always named <code class="language-cpp">make_*()</code>. The standard has <code class="language-cpp">make_pair()</code>, <code class="language-cpp">make_tuple()</code>, and <code class="language-cpp">make_move_iterator()</code>... but also <code class="language-cpp">inserter()</code> and <code class="language-cpp">back_inserter()</code> for instance.
 
 Class template argument deduction changed that by allowing class template arguments to be deduced by way of either the constructors of the primary class templates or deduction guides. The end result is that we can write code like:
 
@@ -32,7 +32,7 @@ for_each(vi.begin(), vi.end(),
     Foo([&](int i){...})); // Foo<some_lambda_type>
 ```
 
-No types explicitly specified here. No need for using `make_*()`, even for lambdas.
+No types explicitly specified here. No need for using <code class="language-cpp">make_*()</code>, even for lambdas.
 
 <hr />
 
@@ -51,11 +51,11 @@ std::pair c(1, 2);
 std::pair d(1, 2.0);
 ```
 
-When we use `auto`, there’s no expectation that this is a type at all. But when we use the name of a primary class template, we have to stop and think for a bit. Sure, with `std::pair` it’s obvious that this isn’t a type - this is a well-known class template. But with user-defined types, it may not be so obvious. In the above example, `c` and `d` look like they’re objects of type `std::pair` - and thus are of the same type. But they’re actually objects of type `std::pair<int,int>` and `std::pair<int,double>` respectively.
+When we use <code class="language-cpp">auto</code>, there’s no expectation that this is a type at all. But when we use the name of a primary class template, we have to stop and think for a bit. Sure, with <code class="language-cpp">std::pair</code> it’s obvious that this isn’t a type - this is a well-known class template. But with user-defined types, it may not be so obvious. In the above example, `c` and `d` look like they’re objects of type <code class="language-cpp">std::pair</code> - and thus are of the same type. But they’re actually objects of type <code class="language-cpp">std::pair&lt;int,int&gt;</code> and <code class="language-cpp">std::pair&lt;int,double&gt;</code> respectively.
 
 (**update**: it was correctly pointed out by /u/cpp_learner that this is not the first such case due to the existence of arrays of unknown bound. However, I suspect that CTAD will be used far, far more often than that so I think it’s at least far to say that (a) this will be the first _commonly used_ time that this holds and (b) arrays of unknown bounds are more obviously placeholder types than names of class templates).
 
-We’ll get this same issue in C++20 with the adoption of Concepts. And the [YAACD paper](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1141r0.html) actually points to CTAD as a reason for supporting `Concept name = ...` over `Concept auto name = ...`:
+We’ll get this same issue in C++20 with the adoption of Concepts. And the [YAACD paper](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1141r0.html) actually points to CTAD as a reason for supporting <code class="language-cpp">Concept name = ...</code> over <code class="language-cpp">Concept auto name = ...</code>:
 
 > In variable declarations, omitting the auto also seems reasonable:
 > 
@@ -76,7 +76,7 @@ The second quirk is, to me, a much bigger issue and one that is meaningfully dif
 
 The motivation for CTAD as expressed in every draft of the paper is very much: I want to construct a specialization of a class template without having to explicitly specify the template parameters - just deduce them for me so I don’t have to write helper factories or look up what they are. That is, I want to _construct a new thing_.
 
-The motivation for Concepts is broader, but specifically in the context of constrained variable declarations is: I want to construct an object whose type I don’t care about, but rather than using `auto`, I want to express a more specific set of requirements for this type. That is, I’m still using the existing type, I’m just adding an _annotation_.
+The motivation for Concepts is broader, but specifically in the context of constrained variable declarations is: I want to construct an object whose type I don’t care about, but rather than using <code class="language-cpp">auto</code>, I want to express a more specific set of requirements for this type. That is, I’m still using the existing type, I’m just adding an _annotation_.
 
 At least that’s how I think about it.
 
@@ -101,37 +101,46 @@ std::tuple x = foo();
 auto y = foo();
 ```
 
-What is the intent behind the declaration of variable `x`? Are we constructing a new thing (the CTAD goal) or are we using `std::tuple` as annotation to ensure that `x` is in fact a `tuple` (the Concepts goal)?
+What is the intent behind the declaration of variable `x`? Are we constructing a new thing (the CTAD goal) or are we using <code class="language-cpp">std::tuple</code> as annotation to ensure that `x` is in fact a `tuple` (the Concepts goal)?
 
-STL makes the point that most programmers would expect `x` and `y` to have the same meaning. But this kind of annotation wasn’t the goal of CTAD. CTAD was about creating new things - which suggests that while `y` is clearly a `tuple<int>`, `x` needs to be a `tuple<tuple<int>>`. That is, after all, what we’re asking for. We’re creating a new class template specialization based on our arguments?
+STL makes the point that most programmers would expect `x` and `y` to have the same meaning. But this kind of annotation wasn’t the goal of CTAD. CTAD was about creating new things - which suggests that while `y` is clearly a <code class="language-cpp">tuple&lt;int&gt;</code>, `x` needs to be a <code class="language-cpp">tuple&lt;tuple&lt;int&gt;&gt;</code>. That is, after all, what we’re asking for. We’re creating a new class template specialization based on our arguments?
 
 This conflict becomes clearer in this example:
 
 ```cpp
 // The tuple case
-std::tuple a(1);    // unquestionably, tuple<int>
+// unquestionably, tuple<int>
+std::tuple a(1);
 
-std::tuple b(a, a); // unquestionably, tuple<tuple<int>,tuple<int>>
-std::tuple c(a);    // ??
+// unquestionably, tuple<tuple<int>,tuple<int>>
+std::tuple b(a, a);
 
+// ??
+std::tuple c(a);
+
+/////////////////////////////////////////////////
 // The vector case
-std::vector x{1};    // unquestionably, vector<int>
+// unquestionably, vector<int>
+std::vector x{1};
 
-std::vector y{x, x}; // unquestionably, vector<vector<int>>
-std::vector z{x};    // ??
+// unquestionably, vector<vector<int>>
+std::vector y{x, x};
+
+// ??
+std::vector z{x};
 ```
 
-This is the point that Casey made. Is `c` a `tuple<int>` or a `tuple<tuple<int>>`? Is `z` a `vector<int>` or a `vector<vector<int>>`?
+This is the point that Casey made. Is `c` a <code class="language-cpp">tuple&lt;int&gt;</code> or a <code class="language-cpp">tuple&lt;tuple&lt;int&gt;&gt;</code>? Is `z` a <code class="language-cpp">vector&lt;int&gt;</code> or a <code class="language-cpp">vector&lt;vector&lt;int&gt;&gt;</code>?
 
-In C++17, if we’re using CTAD with a copy, the copy takes precedence. This means that the single-argument case effectively follows a different set of rules than the multi-argument case. In C++17, `c` is a `tuple<int>` and `z` is a `vector<int>`, each just copy-constructing its argument.
+In C++17, if we’re using CTAD with a copy, the copy takes precedence. This means that the single-argument case effectively follows a different set of rules than the multi-argument case. In C++17, `c` is a <code class="language-cpp">tuple&lt;int&gt;</code> and `z` is a <code class="language-cpp">vector&lt;int&gt;</code>, each just copy-constructing its argument.
 
-In other words, to Casey’s point, the type of `tuple(args...)` depends not only on the number of arguments but also their type. That is:
+In other words, to Casey’s point, the type of <code class="language-cpp">tuple(args...)</code> depends not only on the number of arguments but also their type. That is:
 
-- If `sizeof...(args) != 1`: `tuple<decay_t<decltype(args)>...>`
-- Otherwise, if `args0` is not a specialization of tuple: `tuple<decay_t<decltype(arg0)>>`
-- Else, `decay_t<decltype(arg0)>`
+- If <code class="language-cpp">sizeof...(args) != 1</code>: <code class="language-cpp">tuple&lt;decay_t&lt;decltype(args)&gt;...&gt;</code>
+- Otherwise, if `args0` is not a specialization of tuple: <code class="language-cpp">tuple&lt;decay_t&lt;decltype(arg0)&gt;&gt;</code>
+- Else, <code class="language-cpp">decay_t&lt;decltype(arg0)&gt;</code>
 
-That’s decidedly not simple. (Also there's another case where we deduce from `std::pair`).
+That’s decidedly not simple. (Also there's another case where we deduce from <code class="language-cpp">std::pair</code>).
 
 I think this is an unfortunate and unnecessary clash - especially in light of the imminent arrival of Concepts, that would allow us to easily distinguish between the two cases:
 
@@ -140,18 +149,29 @@ template <typename T, template <typename...> class Z>
 concept Specializes = ...;
 
 // The tuple case
-tuple a(1);              // unquestionably, tuple<int>
+// unquestionably, tuple<int>
+tuple a(1);
 
-tuple b(a, a);           // unquestionably, tuple<tuple<int>, tuple<int>>
-tuple c(a);              // tuple<tuple<int>>
-Specializes<tuple> d(a); // tuple<int>
+// unquestionably, tuple<tuple<int>, tuple<int>>
+tuple b(a, a);
+// tuple<tuple<int>>
+tuple c(a);
+// tuple<int>
+Specializes<tuple> d(a);
 
+/////////////////////////////////////////////////
 // The vector case
-vector x{1};              // unquestionably, vector<int>
+// unquestionably, vector<int>
+vector x{1};
 
-vector y{x, x};           // unquestionably, vector<vector<int>>
-vector z{x};              // vector<vector<int>>
-Specializes<vector> w{x}; // vector<int>
+// unquestionably, vector<vector<int>>
+vector y{x, x};
+
+// vector<vector<int>>
+vector z{x};
+
+// vector<int>
+Specializes<vector> w{x};
 ```
 
 Here, we would use each language feature for the thing it does best: constructing new things for CTAD, and constraining existing things for Concepts.
