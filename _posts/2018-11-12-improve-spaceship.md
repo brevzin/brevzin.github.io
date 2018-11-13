@@ -212,7 +212,7 @@ partial_ordering partial_from_less(T const& lhs, T const& rhs)
 {
     if (lhs < rhs) return partial_ordering::less;
     if (rhs < lhs) return partial_ordering::greater;
-    return partial_ordering::unordered;        
+    return partial_ordering::equivalent;
 }
 
 template <typename T, typename U>
@@ -225,8 +225,8 @@ struct pair {
     
     // legacy version
     bool operator<(pair const& rhs) const {
-        if (auto cmp = partial_from_less(first, rhs.first); cmp < 0 || cmp > 0) {
-            return cmp < 0;
+        if (auto cmp = partial_from_less(first, rhs.first); cmp != 0) {
+            return cmp;
         }
         return second < rhs.second;
     }
@@ -374,7 +374,7 @@ cat_with_fallback<T> operator<=>(vector<T> const& lhs, vector<T> const& rhs)
     size_t min_size = min(lhs.size(), rhs.size());
     for (size_t i = 0; i != min_size; ++i) {
         if (auto cmp = with_fallback{lhs[i]} <=> with_fallback{rhs[i]};
-                cmp < 0 || cmp > 0)
+                cmp != 0)
         {
             return cmp;
         }
