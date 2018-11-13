@@ -374,7 +374,7 @@ cat_with_fallback<T> operator<=>(vector<T> const& lhs, vector<T> const& rhs)
     size_t min_size = min(lhs.size(), rhs.size());
     for (size_t i = 0; i != min_size; ++i) {
         if (auto cmp = with_fallback{lhs[i]} <=> with_fallback{rhs[i]};
-                cmp != 0)
+                cmp < 0 || cmp > 0)
         {
             return cmp;
         }
