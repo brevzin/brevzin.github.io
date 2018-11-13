@@ -349,7 +349,7 @@ struct pair {
     
     bool operator==(pair const&) const = default;
     
-    common_comparison_category<
+    common_comparison_category_t<
         cat_with_fallback<T>,
         cat_with_fallback<U>
     > operator<=>(pair const&) const = default;
