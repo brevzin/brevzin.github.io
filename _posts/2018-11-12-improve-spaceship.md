@@ -387,6 +387,6 @@ Note that this is _almost_ as short as the initial example. Just instead of dire
 
 So here we are, actually using `<=>`{:.language-cpp} to implement `pair` and `vector`, and actually being able to default `<=>`{:.language-cpp} in the cases that should be defaulted - without having to resort to the core language guessing at semantics. 
 
-There are obviously many details left to consider (like what _exactly_ this synthetic `<=>`{:.language-cpp} should do and how), but this is the direction I'm currently leaning towards pursuing in Kona. I consider this to be a much better direction than the one I came to San Diego with in P1186, and I am grateful to Core for having rejected that paper.
+There are obviously many details left to consider (like what _exactly_ this synthetic `<=>`{:.language-cpp} should do and how, and what to do about `nonordered` results), but this is the direction I'm currently leaning towards pursuing in Kona. I consider this to be a much better direction than the one I came to San Diego with in P1186, and I am grateful to Core for having rejected that paper.
 
 Good idea? Bad idea? Intriguing? Would love to hear thoughts.
