@@ -135,9 +135,13 @@ struct pair {
 
 And this works... if `T` and `U` are both spaceship-able. My `pair<int, int>`{:.language-cpp}s are orderable, but not my `pair<int, Ordered>`{:.language-cpp}s. 
 
-The argument I made in [P1186](https://wg21.link/p1186r0) was as follows: in order to implement `<=>`{:.language-cpp} for any of these types, you'd have to fallback to `std::compare_3way()`{:.language-cpp} sufficiently often that you'd basically use it unconditionally to minimize cognitive overhead. And there isn't much of another choice - if you conditionally provide `<=>`{:.language-cpp}, you'd have to also conditionally provide `<`{:.language-cpp}, which would in turn end up pessimizing `<`{:.language-cpp} because that implementation wouldn't use `<=>`{:.language-cpp}. The end result of that is: the only place you could use `<=>`{:.language-cpp} would be to implement `std::compare_3way()`{:.language-cpp}. As a result, in order to make `<=>`{:.language-cpp} actually useful, we need to lift that library magic into the language. 
+The argument I made in [P1186](https://wg21.link/p1186r0) was as follows: in order to implement `<=>`{:.language-cpp} for any of these types, you'd have to fallback to `std::compare_3way()`{:.language-cpp} sufficiently often that you'd basically use it unconditionally to minimize cognitive overhead. And there isn't much of another choice - if you conditionally provide `<=>`{:.language-cpp}, you'd have to also conditionally provide `<`{:.language-cpp} (so that pre-`<=>`{:.language-cpp} types still work), which would in turn end up pessimizing `<`{:.language-cpp} because that implementation wouldn't use `<=>`{:.language-cpp}. 
 
-In other words, we redefine `a <=> b`{:.language-cpp} to fall-back to trying `<`{:.language-cpp} and `==`{:.language-cpp} if those are both valid (and assume `strong_ordering`) or fall-back further to trying just `==`{:.language-cpp} if that's valid (and assume `strong_equality`). This allows just defaulting `<=>`{:.language-cpp} for both `pair` and `Aggr` to do the right thing. 
+To see why this is a pessimization, consider a type like `string`{:.language-cpp} that would have an efficient `<=>`{:.language-cpp}. Invoking `s1 <=> s2`{:.language-cpp} would have to walk the `string` (at most) one time. But if we're doing `operator<`{:.language-cpp} in the context of, for instance, comparing the first element of a `pair`, we'd have to try potentially both `s1 < s2`{:.language-cpp} and `s2 < s1`{:.language-cpp}. In the worst case (when `s1 == s2`{:.language-cpp}), this ends up walking both `string`s twice. That's a lot more work. 
+
+The end result of that is: the only place you could use `<=>`{:.language-cpp} would be to implement `std::compare_3way()`{:.language-cpp}. In order to make `<=>`{:.language-cpp} actually useful, we need to lift that library magic into the language. 
+
+The proposal in P1186 was to redefine `a <=> b`{:.language-cpp} to fall-back to trying `<`{:.language-cpp} and `==`{:.language-cpp} if those are both valid (and assume `strong_ordering`) or fall-back further to trying just `==`{:.language-cpp} if that's valid (and assume `strong_equality`). This allows just defaulting `<=>`{:.language-cpp} for both `pair` and `Aggr` to do the right thing. 
 
 The downside is that we're assuming semantics based on syntax. Just because you write `<`{:.language-cpp} and `==`{:.language-cpp} for your type does not mean you have a strong ordering. You might just have a partial ordering. Just because you write `==`{:.language-cpp} does not mean you have strong equality (despite Tony's protestations that [`weak_equality` is harmful](http://open-std.org/JTC1/SC22/WG21/docs/papers/2018/p1307r0.pdf)). 
 
@@ -163,6 +167,7 @@ struct pair {
     T first;
     U second;
     
+    // provide <=> if T and U have <=>
     common_comparison_category_t<
         compare_3way_type_t<T>, // see P1187
         compare_3way_type_t<U>
@@ -171,6 +176,7 @@ struct pair {
         return second <=> rhs.second;
     }
     
+    // provide < if T and U have <
     auto operator<(pair const& rhs) const
         -> decltype(first < rhs.first && second < rhs.second)
     {
@@ -181,9 +187,9 @@ struct pair {
 };
 ```
 
-That is, `pair` conditionally provides `<=>`{:.language-cpp} and also conditionally provides `<`{:.language-cpp}. This means that an expression like `p1 < p2`{:.language-cpp} would invoke `operator<`{:.language-cpp} (since if `<=>`{:.language-cpp} exists, `<`{:.language-cpp} does too), which would be a pessimization due to the extra invocation of `<`{:.language-cpp}. 
+That is, `pair` conditionally provides `<=>`{:.language-cpp} and also conditionally provides `<`{:.language-cpp}. This means that an expression like `p1 < p2`{:.language-cpp} would invoke `operator<`{:.language-cpp} (since if `<=>`{:.language-cpp} exists, `<`{:.language-cpp} does too). But we want to avoid that happening because it's a pessimization (as described earlier).
 
-But that's not really the right choice. In reality, you could write something like the following (which is, admittedly, quite verbose, but better to start correct):
+But that's not really the right choice. We do want to conditionally provide `<`{:.language-cpp} and `<=>`{:.language-cpp}, but it is possible to avoid the potential pitfall with `<`{:.language-cpp} by writing something like the following (which is, admittedly, quite verbose, but better to start correct):
 
 ```cpp
 template <typename T>
@@ -195,7 +201,6 @@ template <typename T, typename Cat>
 concept ThreeWayComparableAs = ThreeWayComparable<T> && requires(T const t) {
     { t <=> t } -> Cat;
 };
-
 
 // We need a partial_ordering - which can either come from <=> or 
 // can be synthesized from two calls to <. That is enough for pair
@@ -245,7 +250,9 @@ struct pair {
 
 Alright, what's going on here. The promise of `<=>`{:.language-cpp} was that instead of writing 6 comparison operators, we only have to write 1. But up here, I'm writing 10. If our types _both_ provide `<=>`{:.language-cpp}, all the defaults are fine. But if they don't, we need to fall-back to unconstrained versions (the constrained ones are to ensure that `<`{:.language-cpp} forwards to `<=>`{:.language-cpp} to avoid the pessimization I mentioned earlier). 
 
-The unconstrained `<`{:.language-cpp} uses this `partial_from_less()`{:.language-cpp} function template - which itself has fall-backs. It tries to call `<=>`{:.language-cpp}, but otherwise does `<`{:.language-cpp} twice - again to avoid the pessimization of `<`{:.language-cpp}. This allows a partial opt-in to `<=>`{:.language-cpp}. As far as I'm aware, this implementation maintains the current behavior for all types, does not lie about its comparison category, and is as efficient as possible.
+The unconstrained `<`{:.language-cpp} could have simply invoked `<`{:.language-cpp} in both directions, like it does for `pair`{:.language-cpp} today. However, it's possible that we have a `T`{:.language-cpp} that provides `<=>`{:.language-cpp}, even if `U`{:.language-cpp} does not, in which case we want to take advantage of the potential optimization by using `T`{:.language-cpp}'s `<=>`{:.language-cpp}. That's what `partial_from_less()`{:.language-cpp} is doing here - it's a... partial.... opt-in to `<=>`{:.language-cpp} (the choice of requiring a `partial_ordering` instead of a `weak_ordering` doesn't matter too much in this context).
+
+As far as I'm aware, this implementation maintains the current behavior for all types, does not lie about its comparison category (it only provides `<=>`{:.language-cpp} if both `T` and `U` do), and is as efficient as possible.
 
 But it's so verbose.
 
@@ -287,7 +294,7 @@ struct Aggr {
 };
 ```
 
-I have to list all my members, but with this fairly light-weight library helper (and CTAD extension by way of either the [P0960](https://wg21.link/p0960) or [P1021](https://wg21.link/p1021)), all I have to do is list my members, and this does the right thing without me having to manually compute the comparison category. With the above implementation of `assume_strong`, I even get some nice forward compatibility:
+I have to list all my members, but with this fairly light-weight library helper (and CTAD extension by way of either the [P0960](https://wg21.link/p0960) or [P1021](https://wg21.link/p1021)), but at least I only have to list them once and this does the right thing without me having to manually compute the comparison category. With the above implementation of `assume_strong`, I even get some nice forward compatibility:
 - when `Ordered` adds `<=>`{:.language-cpp}, I pick it up for free - `Aggr` will be optimal
 - if `Ordered` adds `<=>`{:.language-cpp} in a way that ends up _not_ being `strong_ordering`, I get a compile error. Also great!
 
@@ -302,7 +309,9 @@ The first thing that jumped into mind for me was attempting to reduce the number
 - `<`{:.language-cpp}, manual
 - `<`{:.language-cpp}, constrained and defaulted
 
-The other 6 operators are either constrained and defaulted, or redirect to `<`{:.language-cpp}. Maybe we could add fall-backs there? That is, have `p > q`{:.language-cpp} fall-back to `q < p`{:.language-cpp}. That is easy to do, since those two are surely equivalent. But you run into problems with `p <= q`{:.language-cpp}. For a weak order, that is equivalent to `!(q < p)`{:.language-cpp}. But for a partial order, you'd need `p == q || p < q`{:.language-cpp}. How do you know which to choose? The former is obviously more performant, the latter is more correct - but picking the former is assuming semantics on a type. Exactly the problem I ran into initially with P1186.
+The other 6 operators are either constrained and defaulted, or redirect to `<`{:.language-cpp}. Maybe we could add fall-backs there? That is, have `p > q`{:.language-cpp} fall-back to `q < p`{:.language-cpp}. That is easy to do, since those two are surely equivalent.
+
+But we run into problems with `p <= q`{:.language-cpp}. For a weak order, that is equivalent to `!(q < p)`{:.language-cpp}. But for a partial order, you'd need `p == q || p < q`{:.language-cpp}. How do you know which to choose? The former is obviously more performant, the latter is more correct - but picking the former is assuming semantics on a type. Exactly the problem I ran into initially with P1186.
 
 ### A different kind of default
 
@@ -332,7 +341,7 @@ stuct Aggr {
 };
 ```
 
-When specifying a type for defaulted `<=>`{:.language-cpp}, the language could check that each member is spaceship-able. If it is, then use that `<=>`{:.language-cpp} and ensure that it fits the category. Otherwise, synthesize what the user asked for from the operators provided. If `Ordered` did not have a `<`{:.language-cpp}, this would be ill-formed. In this way, the core language isn't guessing - it's doing what it's told. And when `Ordered` does provide its own `<=>`{:.language-cpp} and it ends up being `partial_ordering` instead, this becomes a compile error. Great!
+When specifying a type for defaulted `<=>`{:.language-cpp}, the language could check that each member is spaceship-able. If it is, then use that `<=>`{:.language-cpp} and ensure that it fits the category. Otherwise, synthesize what the user asked for from the operators provided. If `Ordered` did not have a `<`{:.language-cpp} or `==`{:.language-cpp}, this would be ill-formed. In this way, the core language isn't guessing - it's doing what it's told. And when `Ordered` does provide its own `<=>`{:.language-cpp} and it ends up being `partial_ordering` instead, this becomes a compile error. Great! For this situation, the user is stating their own semantics - neither the language nor the library has to guess at anything. 
 
 Can we use something like this to help define `pair`? Turns out, yeah. Richard Smith suggests that we can make a type trait like `cat_with_fallback<T>`{:.language-cpp}, whose type is:
 - `decltype(t <=> t)`{:.language-cpp} if that exists
@@ -356,7 +365,11 @@ struct pair {
 };
 ```
 
-Here, the library (rather than the core language) is guessing at type semantics, and it's doing so pessimistically. All `pair` needs is partial ordering, so that's what it goes for. The defaulted comparisons are sufficient in this case. 
+Here, the library (rather than the core language) is guessing at type semantics, and it's doing so pessimistically. However, `partial_ordering` probably isn't the right assumption for the library types. For a `pair`, `p1 <= p2`{:.language-cpp} invokes `!(p2 < p1)`{:.language-cpp}. That is, it requires a total order, even if it's not specified as such. For all the containers, `<`{:.language-cpp} is [required](http://eel.is/c++draft/containers#tab:containers.optional.operations) to be a total order. So a better choice for `cat_with_fallback` for the library could be:
+- `decltype(t <=> t)`{:.language-cpp} if that exists
+- `weak_ordering`{:.language-cpp} if `decltype(t < t)`{:.language-cpp} is `bool`{:.language-cpp}
+- `void`{:.language-cpp} otherwise
+
 
 Ok, well, that's a simple example. What about something more complex like `std::vector<T>`{:.language-cpp}? We can do that too:
 
@@ -383,10 +396,10 @@ cat_with_fallback<T> operator<=>(vector<T> const& lhs, vector<T> const& rhs)
 }
 ```
 
-Note that this is _almost_ as short as the initial example. Just instead of directly `<=>`{:.language-cpp}-ing the elements of the two `vector`s, I'm doing it on `with_fallback`s. This is again a pessimistic fall-back to assuming just partial ordering, but that's sufficient to implement this optimally for both cases.
+Note that this is _almost_ as short as the initial example. Just instead of directly `<=>`{:.language-cpp}-ing the elements of the two `vector`s, I'm doing it on `with_fallback`s. This is again a pessimistic fall-back to assuming just a partial or weak ordering, but that's sufficient to implement this optimally for both cases.
 
-So here we are, actually using `<=>`{:.language-cpp} to implement `pair` and `vector`, and actually being able to default `<=>`{:.language-cpp} in the cases that should be defaulted - without having to resort to the core language guessing at semantics. 
+So here we are, actually using `<=>`{:.language-cpp} to implement `pair` and `vector` (mostly), and actually being able to default `<=>`{:.language-cpp} in the cases that should be defaulted. It's not as nice as P1186 simply being able to use `lhs[i] <=> rhs[i]`{:.language-cpp}, but we avoid having to resort to the core language guessing at semantics. 
 
-There are obviously many details left to consider (like what _exactly_ this synthetic `<=>`{:.language-cpp} should do and how, and what to do about `nonordered` results), but this is the direction I'm currently leaning towards pursuing in Kona. I consider this to be a much better direction than the one I came to San Diego with in P1186, and I am grateful to Core for having rejected that paper.
+There are obviously many details left to consider (like what _exactly_ this synthetic `<=>`{:.language-cpp} should do and how, which comparison category should the library "guess" - `partial` vs `weak` vs `strong`), but this is the direction I'm currently leaning towards pursuing in Kona. I consider this to be a much better direction than the one I came to San Diego with in P1186, and I am grateful to Core for having rejected that paper.
 
 Good idea? Bad idea? Intriguing? Would love to hear thoughts.
