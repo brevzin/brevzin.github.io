@@ -231,7 +231,7 @@ struct pair {
     // legacy version
     bool operator<(pair const& rhs) const {
         if (auto cmp = partial_from_less(first, rhs.first); cmp != 0) {
-            return cmp;
+            return cmp < 0;
         }
         return second < rhs.second;
     }
