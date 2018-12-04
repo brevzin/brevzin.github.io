@@ -42,7 +42,7 @@ template<class T>
     Range<T> && Semiregular<T> && enable_view<T>;
 ```
 
-where the default value of `enable_view<T>`{:.language-cpp} as a heuristic is based on part on: "Otherwise, if both `T`{:.language-cpp} and `const T`{:.language-cpp} model `Range`{:.language-cpp} and `iter_reference_t<iterator_t<T>>`{:.language-cpp} is not the same type as `iter_reference_t<iterator_t<const T>>`{:.language-cpp}, `false`{:.language-cpp}. [ Note: Deep const-ness implies element ownership, whereas shallow const-ness implies reference semantics. — end note ]". In other words, if a `Range`{:.language-cpp} has deep const-ness, it is _not_ a `View`{:.language-cpp} (with one exception: `single_view<T>{:.language-cpp}` is a view with deep constness).
+where the default value of `enable_view<T>`{:.language-cpp} is based in part on the heuristic: "Otherwise, if both `T`{:.language-cpp} and `const T`{:.language-cpp} model `Range`{:.language-cpp} and `iter_reference_t<iterator_t<T>>`{:.language-cpp} is not the same type as `iter_reference_t<iterator_t<const T>>`{:.language-cpp}, `false`{:.language-cpp}. [ Note: Deep const-ness implies element ownership, whereas shallow const-ness implies reference semantics. — end note ]". In other words, if a `Range`{:.language-cpp} has deep const-ness, it is _not_ a `View`{:.language-cpp} (with one exception: `single_view<T>`{:.language-cpp} is a view with deep constness).
 
 ### `span<T>`{:.language-cpp} vs `ContiguousRange auto const&`{:.language-cpp}
 
@@ -128,7 +128,7 @@ g(v); // perfectly okay: assigns v[0] to 42
 
 We want to express that we only want read-only access to the elements - we said `int const`{:.language-cpp} and not `int`{:.language-cpp} - but we can't actually enforce that in the body. I can pass in a non-const `vector` and then modify its elements just fine. There is nothing stopping me. As a result, there's very little semantic information that you can deduce from the signature of `g` compared to the signature of `f` - `f` is _much_ more expressive. 
 
-One way to solve this particular subproblem is to have a concept that checks the `value_type` and one that checks the `reference`. That is, take a `ContiguousRangeWithValue<int> auto const&`{:.language-cpp} for the const case and a `ContiguousRangeWithReference<int> auto&&`{:.language-cpp} for the non-const case. This is both quite complex and the difference between these cases is really subtle and beginner-ostile. And it is still insufficient - if the contiguous range in question has shallow const (such as `span`), this approach still wouldn't ensure that the function body only has constant access.
+One way to solve this particular subproblem is to have a concept that checks the `value_type` and one that checks the `reference`. That is, take a `ContiguousRangeWithValue<int> auto const&`{:.language-cpp} for the const case and a `ContiguousRangeWithReference<int> auto&&`{:.language-cpp} for the non-const case. This is both quite complex and the difference between these cases is really subtle and beginner-hostile. And it is still insufficient - if the contiguous range in question has shallow const (such as `span`), this approach still wouldn't ensure that the function body only has constant access.
 
 Let's assume that we come up with the correct `ContiguousRangeOf` concept that checks the right things for us. That still doesn't mean that this version is easy to use. Consider some simple function that just wants to assign one element:
 
