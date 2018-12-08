@@ -6,6 +6,7 @@ series: Regular-Span
 tags:
  - c++
  - c++20
+ - span
 medium_link: https://medium.com/p/6d7e828dd44
 ---
 
