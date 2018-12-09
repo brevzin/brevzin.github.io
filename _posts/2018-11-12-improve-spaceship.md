@@ -206,7 +206,7 @@ concept ThreeWayComparableAs = ThreeWayComparable<T> && requires(T const t) {
 // can be synthesized from two calls to <. That is enough for pair
 template <ThreeWayComparableAs<partial_ordering> T>
 auto partial_from_less(T const& lhs, T const& rhs) {
-    return <=> rhs;
+    return lhs <=> rhs;
 }
 
 template <ThreeWayComparable T>
