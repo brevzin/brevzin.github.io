@@ -2,6 +2,7 @@
 layout: post
 title: "Improvements to <=>"
 category: c++
+series: operator<=>
 tags:
  - c++
  - c++20
