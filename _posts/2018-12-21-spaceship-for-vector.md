@@ -350,6 +350,8 @@ compare_3way_type_t<T> operator<=>(vector<T> const& lhs,
 #endif
 ```
 
-In C++17, we think of the six two-way comparison functions here as being constrained. In the sense that these functions have static preconditions that, if unmet, lead to these operators being removed from the overload set (i.e. SFINAE). But with the introduction of Concepts in C++20, the term _constrained_ refers specifically to the use of Concepts (whether named concepts or `requires`{:.language-cpp} clauses). In C++20, those six comparison functions are considered to be _not_ be constrained. The new `operator<=>`{:.language-cpp} on the other hand, is constrained - and hence is more constrained than any of the other binary operators. This ensures that when `operator<=>`{:.language-cpp} is a viable candidate (i.e. when `ThreeWayComparable<T>`{:.language-cpp} holds), that it is the best viable candidate. 
+In C++17, we think of the six two-way comparison functions here as being constrained. In the sense that these functions have static preconditions that, if unmet, lead to these operators being removed from the overload set (i.e. SFINAE).
+
+But with the introduction of Concepts in C++20, the term _constrained_ refers specifically to the use of Concepts (whether named concepts or `requires`{:.language-cpp} clauses). In C++20, those six comparison functions are considered to be _not_ be constrained. The new `operator<=>`{:.language-cpp} on the other hand, is constrained - and hence is more constrained than any of the other binary operators. This ensures that when `operator<=>`{:.language-cpp} is a viable candidate (i.e. when `ThreeWayComparable<T>`{:.language-cpp} holds), that it is the best viable candidate. 
 
 The above implementation does the right thing. In C++17, there will not be an `operator<=>`{:.language-cpp} declared. In C++20, there will be, and it will be used in precisely the cases we want it to be.
