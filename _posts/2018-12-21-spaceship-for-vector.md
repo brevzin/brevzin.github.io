@@ -96,12 +96,15 @@ template <typename T, typename Cat=std::partial_ordering>
     { a <=> b } -> compares-as<Cat>;
   };
 
-template <typename T, typename U, typename Cat=std::partial_ordering>
+template <typename T, typename U,
+          typename Cat=std::partial_ordering>
   concept ThreeWayComparableWith = 
     ThreeWayComparable<T, Cat> &&
     ThreeWayComparable<U, Cat> &&
     CommonReference<CREF<T>, CREF<U>> &&
-    ThreeWayComparable<common_reference_t<CREF<T>, CREF<U>>, Cat> &&
+    ThreeWayComparable<
+      common_reference_t<CREF<T>, CREF<U>>,
+      Cat> &&
     requires(CREF<T> t, CREF<U> u) {
       { t <=> u } -> compares-as<Cat>;
       { u <=> t } -> compares-as<Cat>;
@@ -191,16 +194,16 @@ struct vector {
     compare_3way_type_t<T> operator<=>(vector<T> const&) const
         requires ThreeWayComparable<T>;
     bool operator< (vector<T> const&) const
-        requires Cpp17LessThanComparable<T> && ThreeWayComparable<T>
+      requires Cpp17LessThanComparable<T> && ThreeWayComparable<T>
         = default;
     bool operator<=(vector<T> const&) const
-        requires Cpp17LessThanComparable<T> && ThreeWayComparable<T>
+      requires Cpp17LessThanComparable<T> && ThreeWayComparable<T>
         = default;
     bool operator> (vector<T> const&) const
-        requires Cpp17LessThanComparable<T> && ThreeWayComparable<T>
+      requires Cpp17LessThanComparable<T> && ThreeWayComparable<T>
         = default;
     bool operator>=(vector<T> const&) const
-        requires Cpp17LessThanComparable<T> && ThreeWayComparable<T>
+      requires Cpp17LessThanComparable<T> && ThreeWayComparable<T>
         = default;
 };
 ```
@@ -338,8 +341,9 @@ operator>=(vector<T> const& lhs, vector<T> const& rhs) {
     return !(lhs < rhs);
 }
 
-// use a feature-test macro to conditionally preprocess this operator
-// I am not sure at the moment what the correct macro is for operator<=>
+// use the feature-test macro to conditionally preprocess
+// the spaceship operator (I am not sure at the moment what
+// the correct macro is for operator<=>)
 #if __cpp_spaceship
 template <ThreeWayComparable T>
 compare_3way_type_t<T> operator<=>(vector<T> const& lhs,
