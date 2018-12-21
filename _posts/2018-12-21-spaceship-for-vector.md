@@ -119,7 +119,7 @@ The heterogeneous comparison concept follows the pattern of the other standard l
 
 To start with, we _must_ keep `operator==`{:.language-cpp} as is. It's not going anywhere and it's correct. After [P1185R0](https://wg21.link/p1185r0) (also described in the last post), it cannot be replaced with `operator<=>`{:.language-cpp}. Even if we choose to unconditionally provide `<=>`{:.language-cpp}, we need still to provide `operator==`{:.language-cpp} too. `a == b`{:.language-cpp} never calls `a <=> b`{:.language-cpp} implicitly.
 
-But we can easily drop `operator!=`{:.language-cpp}. By default, `a != b`{:.language-cpp} will rewrite to `!(a == b)`{:.language-cpp} (technically to `(a == b) ? false : true`{:.language-cpp} to sidestep the language having to deal with `operator!()`{:.language-cpp} and only require a contextual conversion to `bool`{:.language-cpp} - I preferred to write the conditional operator than `!static_cast<bool>(a == b)`{:.language-cpp}...). That is precisely what our operator does, and that is precisely what all `operator!=`{.language-cpp}s should do, so we don't need it to write it. Ever again.
+But we can easily drop `operator!=`{:.language-cpp}. By default, `a != b`{:.language-cpp} will rewrite to `!(a == b)`{:.language-cpp} (technically to `(a == b) ? false : true`{:.language-cpp} to sidestep the language having to deal with `operator!()`{:.language-cpp} and only require a contextual conversion to `bool`{:.language-cpp} - I preferred to write the conditional operator than `!static_cast<bool>(a == b)`{:.language-cpp}...). That is precisely what our operator does, and that is precisely what all `operator!=`{:.language-cpp}s should do, so we don't need it to write it. Ever again.
 
 That drops us to 5 operators.
 
