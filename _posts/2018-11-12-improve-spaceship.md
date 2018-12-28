@@ -19,7 +19,9 @@ Consider a type like `std::vector<T>`{:.language-cpp}. Since the promise of `<=>
 
 ```cpp
 template<typename T>
-strong_ordering operator<=>(vector<T> const& lhs, vector<T> const& rhs) {
+strong_ordering operator<=>(vector<T> const& lhs,
+                            vector<T> const& rhs)
+{
     size_t min_size = min(lhs.size(), rhs.size());
     for (size_t i = 0; i != min_size; ++i) {
         if (auto const cmp = lhs[i] <=> rhs[i]; cmp != 0) {
@@ -129,7 +131,9 @@ struct pair {
     T first;
     U second;
     
-    bool operator==(pair const&) const = default; // thanks to P1185
+    // thanks to P1185
+    bool operator==(pair const&) const = default;
+
     auto operator<=>(pair const&) const = default;
 };
 ```
@@ -199,9 +203,10 @@ concept ThreeWayComparable = requires (T const t) {
 };
 
 template <typename T, typename Cat>
-concept ThreeWayComparableAs = ThreeWayComparable<T> && requires(T const t) {
-    { t <=> t } -> Cat;
-};
+concept ThreeWayComparableAs = ThreeWayComparable<T> &&
+    requires(T const t) {
+        { t <=> t } -> Cat;
+    };
 
 // We need a partial_ordering - which can either come from <=> or 
 // can be synthesized from two calls to <. That is enough for pair
@@ -231,7 +236,9 @@ struct pair {
     
     // legacy version
     bool operator<(pair const& rhs) const {
-        if (auto cmp = partial_from_less(first, rhs.first); cmp != 0) {
+        if (auto cmp = partial_from_less(first, rhs.first);
+                cmp != 0) 
+        {
             return cmp < 0;
         }
         return second < rhs.second;
@@ -242,10 +249,18 @@ struct pair {
     
     // <=> version, all defaulted
     auto operator<=>(pair const&) const = default;
-    bool operator<(pair const&) const requires ThreeWayComparable<T> && ThreeWayComparable<U> = default;
-    bool operator>(pair const&) const requires ThreeWayComparable<T> && ThreeWayComparable<U> = default;
-    bool operator<=(pair const&) const requires ThreeWayComparable<T> && ThreeWayComparable<U> = default;
-    bool operator>=(pair const&) const requires ThreeWayComparable<T> && ThreeWayComparable<U> = default;
+    bool operator<(pair const&) const
+      requires ThreeWayComparable<T> && ThreeWayComparable<U>
+        = default;
+    bool operator>(pair const&) const
+      requires ThreeWayComparable<T> && ThreeWayComparable<U>
+        = default;
+    bool operator<=(pair const&) const
+      requires ThreeWayComparable<T> && ThreeWayComparable<U>
+        = default;
+    bool operator>=(pair const&) const
+      requires ThreeWayComparable<T> && ThreeWayComparable<U>
+        = default;
 };
 ```
 
@@ -288,7 +303,10 @@ struct Aggr {
     
     auto operator<=>(Aggr const& rhs) const {
         auto tied = [](Aggr const& a) {
-            return make_tuple(ref(a.i), ref(a.c), assume_strong{a.o});
+            return make_tuple(
+                ref(a.i),
+                ref(a.c),
+                assume_strong{a.o});
         };
         return tied(*this) <=> tied(rhs);
     }
