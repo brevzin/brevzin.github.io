@@ -2,6 +2,7 @@
 layout: post
 title: "What is unified function call syntax anyway?"
 category: c++
+series: ufcs
 tags:
  - c++
  - c++17
