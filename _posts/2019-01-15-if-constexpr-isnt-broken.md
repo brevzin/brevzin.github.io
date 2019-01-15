@@ -49,6 +49,20 @@ struct RobinHashTable {
 };
 ```
 
+or to avoid traits:
+
+```cpp
+static constexpr auto get_type() {
+    if constexpr (maxLength < 0xFFFE) {
+        return type<uint16_t>;
+    } else {
+        return type<uint32_t>;
+    }
+}
+
+using CellIdx = decltype(get_type())::type;
+```
+
 And this kind of nagging "But... we can already do this?" thought followed me throughout the rest of his talk. So I thought I'd go through his checked numerics type, `Checked<T, Hook>`{:.language-cpp} in C++ terms, and see how well we could implement it (the D code can be found [here](https://github.com/D/phobos/blob/18c424816a1ab4271b801b3cb4d200fff299df2b/std/experimental/checkedint.d)). Do we have to go through a lot of gymnastics? How painful is it really? 
 
 ### Enabling classes or functions
@@ -89,7 +103,7 @@ if (isIntegral!Rhs || isFloatingPoint!Rhs || is(Rhs == bool))
 }
 ```
 
-can be :
+can be written as (note that in C++, `bool`{:.language-cpp} satisfies `Integral`):
 
 ```cpp
 template <typename F, typename Rhs>
@@ -248,7 +262,7 @@ Checked() requires requires { Hook::template defaultValue<T>() }
 { }
 ```
 
-Here we have a new kind of awkwardness with the necessary duplication of `requires requires`{:.language-cpp} (necessary due to parsing ambiguity), and the same awkwardness with the `template`{:.language-cpp} keyword, but it works. The other form in which this kind of initialization appears is a little easier for us to deal with:
+Here we have a new kind of awkwardness with the necessary duplication of `requires requires`{:.language-cpp} (which I've always assumed was necessary due to parsing ambiguity... but I'm not entirely sure), and the same awkwardness with the `template`{:.language-cpp} keyword, but it works. The other form in which this kind of initialization appears is a little easier for us to deal with:
 
 ```d
 static if (hasMember!(Hook, "max"))
@@ -426,7 +440,9 @@ Basically the same again, cool. Actual to my mind this is quite a bit better - I
 
 ### Conclusion
 
-There are a few things that D's approach to Design by Introspection via `static if`{:.language-d} does better than we can do in C++. It's clearly superior at manipulating members conditionally. It's a lot less typing to do ad hoc introspection by name. But most of the differences between the D code in `Checked` and the C++20 equivalents I'm presenting here are basically just... spelling. In a couple spots, the bare minimum of gymnastics. 
+There are a few things that D's approach to Design by Introspection via `static if`{:.language-d} does better than we can do in C++. It's clearly superior at manipulating members conditionally. It's a lot less typing to do ad hoc introspection by name. You only need to learn one feature - `if`{:.language-d} - and use it in every place that you might want conditional code. In C++, we have `requires`{:.language-cpp} or named concepts in some places, `if constexpr`{:.language-cpp} in others, `[[no_unique_address]]` or traits in yet others. The amount of things you have to know in C++ is arguably a bit larger. 
+
+But most of the differences between the D code in `Checked` and the C++20 equivalents I'm presenting here are basically just... spelling. In a couple spots, the bare minimum of gymnastics. 
 
 And maybe we decide that it's worth having a real way to spell conditional members in C++, and maybe that way is something like:
 
