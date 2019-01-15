@@ -63,7 +63,7 @@ static constexpr auto get_type() {
 using CellIdx = decltype(get_type())::type;
 ```
 
-And this kind of nagging "But... we can already do this?" thought followed me throughout the rest of his talk. So I thought I'd go through his checked numerics type, `Checked<T, Hook>`{:.language-cpp} in C++ terms, and see how well we could implement it (the D code can be found [here](https://github.com/D/phobos/blob/18c424816a1ab4271b801b3cb4d200fff299df2b/std/experimental/checkedint.d)). Do we have to go through a lot of gymnastics? How painful is it really? 
+And this kind of nagging "But... we can already do this?" thought followed me throughout the rest of his talk. So I thought I'd go through his checked numerics type, `Checked<T, Hook>`{:.language-cpp} in C++ terms, and see how well we could implement it (the D code can be found [here](https://github.com/dlang/phobos/blob/23f600ac78591391f7009beb1367fb97bf65496c/std/experimental/checkedint.d)). Do we have to go through a lot of gymnastics? How painful is it really? 
 
 ### Enabling classes or functions
 
