@@ -124,7 +124,7 @@ There were a bunch of papers in this space, hopefully this is the full list:
 - [N4165](https://wg21.link/n4165) (Sutter, Oct 2014): CS2, OR1 (member syntax finds non-members only, try the member syntax, then try the non-member syntax).
 - [N4174](https://wg21.link/n4174) (Stroustrup, Oct 2014): This was more an exploration of the space, but argues for OR3 (member priority for non-member syntax).
 - [N4474](https://wg21.link/n4474) (Stroustrup and Sutter, Apr 2015): CS3, OR1 (each syntax can find the other, prefer the used syntax).
-- [P0079R0](htpps://wg21.link/p0079r0) (Coe and Orr, Sep 2015): CS4, OR1.
+- [P0079R0](https://wg21.link/p0079r0) (Coe and Orr, Sep 2015): CS4, OR1.
 - [P0131R0](https://wg21.link/p0131r0) (Stroustrup, Sep 2015): Just a discussion of concerns presented with UFCS as a whole. 
 - [P0251R0](https://wg21.link/p0251r0) (Stroustrup and Sutter, Feb 2016): CS1, OR1 (non-member finds member only) 
 - [P0301R0](https://wg21.link/p0301r0) (Maurer, Mar 2016): Wording paper for P0251. CS1, OR1.
