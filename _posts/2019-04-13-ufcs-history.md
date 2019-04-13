@@ -130,7 +130,7 @@ There were a bunch of papers in this space, hopefully this is the full list:
 - [P0301R0](https://wg21.link/p0301r0) (Maurer, Mar 2016): Wording paper for P0251. CS1, OR1.
 - [P0301R1](https://wg21.link/p0301r1) (Maurer, Mar 2016): This paper actually introduces a new function call introducer such that `.f(x, y)`{:.language-cpp} is the merged overload set (OR2+) of `f(x, y)`{:.language-cpp} and `x.f(y)`{:.language-cpp}, with `.x.f(y)`{:.language-cpp} being equivalent to `.f(x, y)`{:.language-cpp}.
 
-As you can see, there are lots of _different_ proposals here. One of them (P0301R0) for a vote in the Jacksonville meeting in March 2016 (non-member call syntax finds member functions only). You can see the results of that vote in the [minutes](https://wg21.link/n4586). The initial vote was:
+As you can see, there are lots of _different_ proposals here. One of them (P0301R0) went up for a vote in the Jacksonville meeting in March 2016 (non-member call syntax finds member functions only). You can see the results of that vote in the [minutes](https://wg21.link/n4586). The initial vote was:
 
 <table style="text-align:center">
 <tr><th>For</th><th>Abstain</th><th>Against</th></tr>
