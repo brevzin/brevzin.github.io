@@ -103,7 +103,7 @@ x.h(0);
 ```
 These overload resolution options aren't completely orthogonal to the candidate set rules, since OR3 doesn't apply with CS2 - since that one only makes sense if the non-member call syntax can find member functions.
 
-A fun example, of why changing overload resolution is hard, courtesy of Herb Sutter (assuming non-member syntax can find member functions... a similar example can be constructed in the reverse):
+A fun example, of why changing overload resolution is hard, courtesy of Herb Sutter (assuming non-member syntax can find member functions):
 
 ```cpp
 struct X { void f(); }; // 1
@@ -114,6 +114,20 @@ f(x); // today: calls 2 (it's the only candidate)
       // OR2:   error ambiguous
       // OR2+:  calls 1
       // OR3:   calls 1
+```
+
+A reverse example (assuming member syntax can find non-member functions):
+
+```cpp
+struct Y {
+   template <typename T> void g(T); // 1
+};
+void g(Y, int); // 2
+
+y.g(42); // today: calls 1 (it's the only candidate)
+         // OR1: calls 1
+         // OR2: calls 2
+         // OR3: calls 1
 ```
 
 ### History of Papers
