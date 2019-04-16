@@ -141,6 +141,7 @@ There were a bunch of papers in this space, hopefully this is the full list:
 - [P0079R0](https://wg21.link/p0079r0) (Coe and Orr, Sep 2015): CS4, OR1.
 - [P0131R0](https://wg21.link/p0131r0) (Stroustrup, Sep 2015): Just a discussion of concerns presented with UFCS as a whole. 
 - [P0251R0](https://wg21.link/p0251r0) (Stroustrup and Sutter, Feb 2016): CS1, OR1 (non-member finds member only) 
+- [isocpp.org blog](https://isocpp.org/blog/2016/02/a-bit-of-background-for-the-unified-call-proposal): A post written by Stroustrup itself containing a bunch of history of this feature set and justification for pursuing CS1, OR1.
 - [P0301R0](https://wg21.link/p0301r0) (Maurer, Mar 2016): Wording paper for P0251. CS1, OR1.
 - [P0301R1](https://wg21.link/p0301r1) (Maurer, Mar 2016): This paper actually introduces a new function call introducer such that `.f(x, y)`{:.language-cpp} is the merged overload set (OR2+) of `f(x, y)`{:.language-cpp} and `x.f(y)`{:.language-cpp}, with `.x.f(y)`{:.language-cpp} being equivalent to `.f(x, y)`{:.language-cpp}.
 
