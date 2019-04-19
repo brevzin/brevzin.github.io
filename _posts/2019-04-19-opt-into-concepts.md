@@ -1,0 +1,426 @@
+---
+layout: post
+title: "Opting into Concepts"
+category: c++
+tags:
+ - c++
+ - concepts
+pubdraft: yes
+--- 
+
+When we write types, we sometimes find ourselves wanting to write functionality that opts in to a particular concept (which, with C++20, will also become `concept`{:.language-cpp}). For the purposes of this post, I want to focus specifically on those cases where the type author is very clearly intending to opt-in to a known concept -- as opposed to writing logic that happens to satisfy a concept that the type author may not even have been aware of. The most familiar and easily recognizable examples of what I mean are:
+
+- Printable (I want to make it possible `std::cout`{:.language-cpp} my type)
+- EqualityComparable and Ordered (I want to make it possible to compare my type using `==`{:.language-cpp} or `<`{:.language-cpp})
+- Range (I want to be able to iterate over my type)
+
+Now these are all well-established concepts, they all must be opted into, and we are pretty explicit when we opt into them.  While we know how to make our types satisfy those concepts today, let's just throw that knowledge out temporarily. C++ actually provides a lot of ways for us to create new concepts for type authors to opt into, and I thought it'd be interesting to go through what those methods are and what the properties of those methods are, and see what we can do with the above four and what kinds of insights we can glean.
+
+### Inheritance
+
+The classic, object-oriented approach to this is of course: inheritance. The concept author writes a class that has some pure `virtual`{:.language-cpp} member functions in it, and type authors inherit from those interfaces and fill in as appropriate. We could provide a `Printable` interface like so (let's simplify `std::ostream`{:.language-cpp} for the sake of example):
+
+```cpp
+namespace std {
+    struct ostream;
+
+    struct Printable {
+        virtual void print(ostream&) const = 0;
+    };
+
+    struct ostream {
+        ostream& operator<<(Printable const& p) {
+            p.print(*this);
+            return *this;
+        }
+        
+        // other types, etc.
+        ostream& operator<<(char);
+        ostream& operator<<(int);
+        // ...
+    };
+}
+```
+
+Now, if I want to make a type that is `std::cout`{:.language-cpp}-able, I must inherit from `std::Printable`{:.language-cpp} and implement `print`:
+
+```cpp
+class SeqNum : public std::Printable
+{
+public:
+    void print(std::ostream& os) const override {
+        os << "SeqNum(" << value << ")";
+    }
+private:
+    int value;
+};
+```
+
+This isn't what most people would consider to be modern C++, and isn't the way we solve this problem today, but it does work. Let's consider the salient features of this approach.
+
+It's a very **explicit** opt-in, the only way for `SeqNum` to satisfy `std::Printable`{:.language-cpp} is to inherit from it. That's not going to happen by accident. It's also **intrusive** - you have to modify the class itself to add this behavior, both because you need to inherit and to add member functions. An intrusive approach is inherently extremely limiting - can't satisfy concepts for any fundamental types or arrays, or any types you don't own. 
+
+However, this gives us the benefit that the operations we need to customize are **checked early**. If we got the signature to `print()`{:.language-cpp} wrong, that would be a compiler error at the point of definition. If we forgot to customize a functino entirely, that would be a compile error when we try to construct a `SeqNum` - with a clearly enumerated list of virtual functions we missed.
+
+Let's pick a different concept: equality comparable. Here's how we might implement that a classical, object-oriented interface (there may be a better way to do this, specifically, but hopefully this is sufficiently illustrative):
+
+```cpp
+template <typename T>
+struct Eq {
+    virtual bool operator==(T const& rhs) const {
+        return equals(rhs);
+    }
+    virtual bool operator!=(T const& rhs) const {
+        return !equals(rhs);
+    }
+private:
+    virtual bool equals(T const& rhs) const = 0;
+};
+```
+which we would similarly opt-in to with our `SeqNum` type like:
+```cpp
+class SeqNum : public Eq<SeqNum>
+{
+private:
+    bool equals(SeqNum const& rhs) const override {
+        return value == rhs.value;
+    }
+    int value;
+};
+```
+
+What the inheritance approach gives us here additionally are **default functions** that we can call with nice syntax. To opt-in to the concept `Eq`, we have to provide one customization point - `equals()`{:.language-cpp} - which we do in order to get two nice, useful functions - `==`{:.language-cpp} and `!=`{:.language-cpp}. This can easily stack as well:
+
+```cpp
+typename <typename T>
+struct Ord : Eq {
+    virtual bool operator<(T const& rhs) const {
+        return compare(rhs) < 0;
+    }
+    virtual bool operator>(T const& rhs) const {
+        return compare(rhs) > 0;
+    }
+    virtual bool operator<=(T const& rhs) const {
+        return compare(rhs) <= 0;
+    }
+    virtual bool operator>=(T const& rhs) const {
+        return compare(rhs) >= 0;
+    }    
+private:
+    virtual int compare(T const& rhs) const = 0;
+};
+```
+
+Now, if I want all six comparisons, I **explicitly** and **intrusively** inherit from `Ord<T>`{:.language-cpp}, I get the compiler to ensure that I did everything right because my work is **checked early**. And for my efforts, I get six **default functions** that I can use with nice syntax.
+
+This gets much more awkward when concepts need to be more parameterized. Take `Range`. The C++ abstraction is that we need a `begin()` and an `end()` - which as of C++17 can be different types. I guess that would be something like:
+
+```cpp
+template <typename Iterator, typename Sentinel = Iterator>
+struct ConstRange {
+    virtual Iterator begin() const = 0;
+    virtual Sentinel end() const = 0;
+};
+
+template <typename Iterator, typename Sentinel = Iterator>
+struct Range {
+    virtual Iterator begin() = 0;
+    virtual Sentinel end() = 0;
+};
+
+template <typename T>
+class MyVec : public Range<T*>
+            , public ConstRange<T const*>
+{
+public:
+    T*       begin()       override { return begin_; }
+    T const* begin() const override { return begin_; }
+    T*       end()         override { return end_; }
+    T const* end()   const override { return end_; }
+    
+private:
+    T* begin_;
+    T* end_;
+    T* capacity_;
+};
+```
+
+This may look a bit silly (or at least jarring), but there is one nice thing that we would be able to do with this model: have the chaining we all want. In the same way `Eq` provides `==`{:.language-cpp} and `!=`{:.language-cpp}, `Range` could provide tons of adapters:
+
+```cpp
+template <typename Iterator, typename Sentinel = Iterator>
+struct Range {
+    using value_type = value_type_t<Iterator>;
+    virtual Iterator begin() = 0;
+    virtual Sentinel end() = 0;
+    
+    auto filter(Predicate<value_type> auto&&) const;
+    auto transform(Invocable<value_type> auto&&) const;
+    auto take(size_t ) const;
+    auto drop(size_t ) const;
+    auto take_while(Predicate<value_type> auto&&) const;
+    auto drop_while(Predicate<value_type> auto&&) const;
+    auto accumulate() const;
+    // ...
+};
+```
+
+And now any `Range` at all can do things like `rng.filter(f).transform(g).take(5).accumulate()`. Don't think too hard about the performance of such a model just yet. 
+
+### Template Specialization
+
+A different approach entirely to how to specify concepts would be rather than requiring that a type inherit from some base class that it instead specialize some template. If this sounds a little unfamiliar at first, there are actually multiple examples of this in the standard library - this is how you opt-in to being Hashable with `std::hash`{:.language-cpp} and how you opt-in to being TupleLike for standard bindings with `std::tuple_size`{:.language-cpp} and `std::tuple_element`{:.language-cpp}.
+
+Going back to `Printable`, that might be implemented like:
+
+```cpp
+namespace std {
+    template <typename T>
+    struct Printable;
+    
+    // some specializations out of the box
+    template <> struct Printable<char> { /* ... */ };
+    template <> struct Printable<int>  { /* ... */ };
+    // ...
+
+    struct ostream {        
+        template <typename T>
+        ostream& operator<<(T const& p) {
+            Printable<T>::print(*this, p);
+            return *this;
+        }
+    };
+}
+```
+
+which we would opt in like:
+
+```cpp
+struct SeqNum {
+    int value;
+};
+
+template <>
+struct std::Printable<SeqNum> {
+    static void print(std::ostream& os, SeqNum const& s) {
+        os << "SeqNum(" << s.value << ")";
+    }
+};
+```
+
+How does this approach compare to the inheritance approach? Yes, it removes the virtual dispatch but I'm not super concerned with that at this point. This is still an **explicit** opt-in - you have to manually specialize the type which acts like the concept. But a key difference is that it's **unobtrusive** - I don't need to modify `SeqNum` itself to get this functionality, I can do so externally. This is an enormous benefit!
+
+Also nothing in the language itself prevents me from doing a "bad" specialization - one that either gets signatures wrong or misses things entirely. That's because while virtual functions are baked into the language, specialization like this is just a convention. I'll only find out that I made a mistake at the point of use - they are **checked late**.
+
+This approach also suffers from not having an ergonomic syntax. Consider hashing. With the inheritance approach, given some object that satisfied the concept, we would write:
+
+```cpp
+obj.hash()
+```
+
+With the specialization approach, we would write:
+
+```cpp
+std::hash<decltype(obj)>{}(obj)
+```
+
+Gross?
+
+How would we implement `Eq` as a specialization? Well, you can't really. There's just **no defaults** with this approach. We could declare a non-member `operator==`{:.language-cpp}... somewhere, but it wouldn't be in user types' associated namespaces - since now user types are totally unrelated to this class template `Eq`. For some concepts, we can still get value even without default functions (like `Printable` or `std::hash`{:.language-cpp}) but for concepts like `Eq` it's a total nonstarter.
+
+But implementing parameterized concepts is fine. `Range` translates well:
+
+```cpp
+template <typename T>
+struct MyVec {
+    T* begin_;
+    T* end_;
+    T* capacity_;
+};
+
+template <typename T>
+struct Range<MyVec<T>> {
+    static T* begin(MyVec<T>& v) { return v.begin_; }
+    static T* end(MyVec<T>& v) { return v.end_; }
+};
+
+template <typename T>
+struct Range<MyVec<T> const> {
+    static T const* begin(MyVec<T> const& v) { return v.begin_; }
+    static T const* end(MyVec<T> const& v) { return v.end_; }
+};
+```
+
+And, as mentioned earlier, the unobtrusive nature of the specialization approach means we can opt-in for things like... arrays!
+
+But again, we get no defaults at all. Even something like providing a `value_type` type alias, that's something that every type opting in would have to do themselves (or have a separate trait to do so). We do get a single uniform syntax for traversal though: it's always `Range<T>::begin(r)`{:.language-cpp} and `Range<T>::end(r)`{:.language-cpp}.
+
+### Member and non-member functions
+
+The last major mechanism for customization in C++ today are simply: write functions. This is actually the mechanism we use today for the main concepts I've been talking about in this whole post. If I want to make my type printable, I just have to know what the appropriate function I have to implement (as opposed to the appropriate type to inherit from or template to specialize):
+
+```cpp
+struct SeqNum {
+    int value;
+};
+
+std::ostream& operator<<(std::ostream& os, SeqNum const& s) {
+    return os << "SeqNum(" << s.value << ")";
+}
+```
+
+This particular one has to be a non-member, but others could be member functions as well - the choice is up to the type author:
+
+```cpp
+struct SeqNum {
+    bool operator==(SeqNum const& rhs) const {
+        return value == rhs.value;
+    }
+    bool operator!=(SeqNum const& rhs) const {
+        return value == rhs.value;
+    }
+    int value;
+};
+```
+
+This approach is **implicit** - nowhere am I naming the concept that I'm implementing with these functions. We just know that `ostream& operator<<(ostream&, T const&)`{:.language-cpp} is printing, and `operator==`{:.language-cpp} and `operator!=`{:.language-cpp} is for equality, and `begin()`{:.language-cpp} and `end()`{:.language-cpp} and `size()`{:.language-cpp} and `data()`{:.language-cpp} are for ranges. The implicitness has consequences - you could unintentionally be opting into a concept you don't even know about. While this is exceedingly unlikely for something like `Range` (where you need two functions that both need to return specific types that themselves have a lot of requirements), it could easily happen with less onerous concepts. It's not totally outrageous to use the name `begin()`{:.language-cpp} to mean something that isn't an iterator. It's not absurd to use the name `data()`{:.language-cpp} to mean something other than returning a pointer to the beginning of a contiguous range. Those names are reserved in a way - which is kind of okay since it's the standard library and everyone knows them, but what about a concept that I might want to write in my own library? What if I pick a name that you're using for something else? Trouble... 
+
+Because we typically have a choice - we can write member `begin()`{:.language-cpp} or non-member `begin()`{:.language-cpp} and we could even go wild and have a member `begin()`{:.language-cpp} with a non-member `end()`{:.language-cpp} - this is an **unobtrusive** customization mechanism.
+
+However, you won't find out if you properly customized your type for the concept until you use it - it's **checked late**. And concept checking is hard! You have to evaluate an arbitrary number of tests at point of use. 
+
+We also get **no defaults** and the niceness of the syntax is variable. There has been an enormous amount of effort in the language and library to give us better syntax for these cases. Consider:
+
+- `<=>`{:.language-cpp} exists to provide a better opt-in experience for comparisons
+- range-based `for`{:.language-cpp} statements hide the variability in how `begin()`{:.language-cpp} and `end()`{:.language-cpp} are declared
+- the new CPOS (like `std::ranges::begin()`{:.language-cpp} and `std::ranges::end()`{:.language-cpp}) do the same on the library side
+- the range adapters give us the kind of defaults we want with pretty good syntax
+
+My [previous post]({% post_url 2019-04-13-ufcs-history %}) went through the history of language proposals in the space of a unified function call syntax, or UFCS. It is precisely these problems that those proposals tried to solve: the variability in type author choice for opting into concepts by "just" declaring functions and being able to do so using either member or non-member functions, and wanting to have nice syntax for defaults. 
+
+### Inheritance, Specialization, and Functions
+
+To summarize the differences:
+
+<table>
+<tr><th style="padding: 20px">Inheritance</th><th style="padding: 20px">Specialization</th><th style="padding: 20px">Functions</th></tr>
+<tr><td style="padding: 20px;">explicit</td><td style="padding: 20px">explicit</td><td style="padding: 20px">implicit</td></tr>
+<tr><td style="padding: 20px">intrusive</td><td style="padding: 20px">unobtrusive</td><td style="padding: 20px">user's choice</td></tr>
+<tr><td style="padding: 20px">checked early</td><td style="padding: 20px">checked late</td><td style="padding: 20px">checked late</td></tr>
+<tr><td style="padding: 20px">can provide<br />default functions</td><td style="padding: 20px">no defaults</td><td style="padding: 20px">no defaults</td></tr>
+</table>
+
+If I could have anything I want, what would I actually want out of here?
+
+- I'd want an **explicit** opt-in mechanism. In all of these cases, I'm explicitly opting into a particular concept when I write the code anyway. I don't see much value in being able to omit that. It also makes the intent clear, and makes it impossible to accidentally opt into someone else's concept.
+- I'd absolutely require an **unobtrusive** opt-in mechanism. It's essential to be able to implement support for various concepts for fundamental types or for types you don't own. 
+- I'd want my opt-in to be **checked early**. Of course, the earlier I catch my mistakes the better. 
+- I'd want to be able to **provide defaults**. Both because it provides the maximal benefit of customization and because it can provide a good ergonomic story for users.
+
+As you can see in the table above, we have no such thing in the language today. But maybe that's the direction we should be considering.
+
+Consider the following sketch:
+
+```cpp
+namespace std {
+  struct ostream;
+
+  concept struct Printable {
+    // this is a const member function
+    virtual void print(ostream&) const = 0;
+  };
+    
+  struct ostream {
+    // using the concepts terse syntax here
+    stream& operator<<(Printable auto const& p) {
+      p.print(*this);
+      return *this;
+    }
+  };
+    
+  concept struct Eq {
+    // this is a const member function which takes an argument
+    // the type this_type comes from the implementation (see below)
+    virtual bool equals(this_type const&) const = 0;
+        
+    virtual bool operator==(this_type const& rhs) const {
+      return equals(rhs);
+    }
+    virtual bool operator!=(this_type const& rhs) const {
+      return equals(rhs);
+    }
+  };
+    
+  concept struct Range {
+    // the type alias 'iterator' must be provided by the
+    // implementation. 'sentinel' can be overriden, but defaults
+    // to 'iterator'. 
+    // 'value_type' cannot be overriden
+    virtual typename iterator;
+    virtual typename sentinel = iterator;
+    using value_type = value_type_t<iterator>;
+        
+    // these functions are member functions that take no additional
+    // arguments, invoked as x.begin() where x is an lvalue of type
+    // this_type
+    virtual iterator begin(this this_type&) = 0;
+    virtual iterator end(this this_type&) = 0;
+        
+    // and go absolutely wild with all the adapters
+    // none of these are virtual, so none of them can be overriden
+    auto filter(this this_type&, Predicate<value_type> auto&&);
+    auto transform(this this_type&, Invocable<value_type> auto&&);
+    // ...
+  };
+};
+
+struct SeqNum {
+  int value;
+};
+
+impl std::Printable for SeqNum {
+  void print(std::ostream& os) const override {
+    os << "SeqNum(" << value << ")";
+  }
+};
+
+impl std::Eq for SeqNum {
+  // this_type here is SeqNum, so this meets the specification
+  bool equals(SeqNum const& rhs) const override {
+    return value == rhs.value;
+  };
+};
+
+template <typename T>
+struct MyVec {
+  T* begin_;
+  T* end_;
+  T* capacity_;
+};
+
+template <typename T>
+impl std::Range for MyVec<T> {
+  // in this block, this_type is MyVec<T>
+  using iterator = T*;
+  T* begin(this MyVec<T>& v) override { return v.begin_; }
+  T* end(this MyVec<T>& v) override { return v.end_; }
+};
+
+template <typename T>
+impl std::Range for MyVec<T> const {
+  // in this block, this_type is MyVec<T> const
+  using iterator = T const*;
+  T const* begin(this MyVec<T> const& v) override {
+    return v.begin_;
+  }
+  T const* end(this MyVec<T> const& v) override {
+    return v.end_;
+  }
+};
+```
+
+Yes, this is a weird mix of C++ and Rust. And there's an enormous amount here that's completely novel - a new kind of `concept`{:.language-cpp} declaration (C++20 isn't even out yet!), a new kind of `virtual` that is purely static (taking the example from Matt Calabrese's [P1292](https://wg21.link/p1292), sticking in a language proposal that I've been working on for a while that didn't make C++20 ([P0847](https://wg21.link/p0847)). Oh, and effectively a new kind of unified function call syntax proposal - since all of the names declared in these `impl` blocks we'd expect to be able to find using normal member lookup.
+
+This does check all my boxes - it's explicit, it's unobtrusive, it can easily be checked early (did you implement all the pure `virtual`{:.language-cpp} members?), and we can provide defaults. 
+
+This also looks a little like something else: C++0x Concepts. 
