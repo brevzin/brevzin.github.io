@@ -3,6 +3,7 @@ layout: none
 ---
 [
   {% for post in site.posts %}
+  {% unless post.pubdraft %}
   {
     "title"    : "{{ post.title | escape }}",
     "category" : "{{ post.category }}",
@@ -10,5 +11,6 @@ layout: none
     "url"      : "{{ site.baseurl }}{{ post.url }}",
     "date"     : "{{ post.date }}"
     } {% unless forloop.last %},{% endunless %}
+    {% endunless %}
     {% endfor %}
   ]

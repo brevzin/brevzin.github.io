@@ -55,19 +55,25 @@ layout: default
       <!-- Prev and Next Posts -->
       <div class="PageNavigation">
         {% if page.previous.url %}
+          {% unless page.previous.pubdraft %}
           {% if page.previous.medium_link %}
           <a class="prev" href="{{page.previous.medium_link}}?source=brevzin.github.io">&laquo; <i class="fa fa-medium"></i> {{page.previous.title}}</a>
           {% else %}
           <a class="prev" href="{{page.previous.url}}">&laquo; {{page.previous.title}}</a>
           {% endif %}
+          {% endunless %}
         {% endif %}
         {% if page.next.url %}
+        {% unless page.next.pubdraft %}
             <a class="next" href="{{page.next.url}}">{{page.next.title}} &raquo;</a>
+        {% endunless %}
         {% endif %}
       </div>
 
       <div class="content-panel content">
-
+        {% if page.pubdraft %}
+        <h3 style="color: red">THIS IS A DRAFT</h3>
+        {% endif %}
         {% if page.series %}
           This post is part of the series '{{ page.series }}':
           <ol class="series">
@@ -165,18 +171,22 @@ layout: default
         <hr />
         <div class="previous previous-next">
           {% if page.previous %}
+          {% unless page.previous.pubdraft %}
           <p>
             <a href="{{ site.baseurl }}{{ page.previous.url }}">{{ page.previous.title }}</a>
           </p>
           <p class="date">Published {{ page.previous.date | date: "%B %-d, %Y" }}</p>
+          {% endunless %}
           {% endif %}
         </div>
         <div class="next previous-next">
           {% if page.next %}
+          {% unless page.next.pubdraft %}
           <p>
             <a href="{{ site.baseurl }}{{ page.next.url }}">{{ page.next.title }}</a>
           </p>
           <p class="date">Published {{ page.next.date | date: "%B %-d, %Y" }}</p>
+          {% endunless %}
           {% endif %}
         </div>
       </div>

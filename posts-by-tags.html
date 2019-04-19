@@ -28,6 +28,7 @@ make-smaller-titles: false
         <a name="{{tag | downcase | replace:" ","-"}}"></a> <h2 id="{{ tag }}-ref">{{ tag }}</h2>
         <ul>
             {% for post in posts %}
+            {% unless post.pubdraft %}
               <li>
                 {% if post.medium_link %}
                 <a href="{{ post.medium_link }}?source=brevzin.github.io"><i class="fa fa-medium"></i> {{ post.title }}</a>
@@ -36,6 +37,7 @@ make-smaller-titles: false
                 {% endif %}
                 <br /><small class="hidden-xs">{{ post.date | date: "%B %-d, %Y" }}</small>
               </li>
+          {% endunless %}
           {% endfor %}
         </ul>
       </div>

@@ -29,6 +29,7 @@ make-smaller-titles: false
 
               <ul>
                   {% for post in site.posts limit: site.post_limit %}
+                  {% unless post.pubdraft %}
 
                       <li>
                           {% if post.medium_link %}
@@ -39,6 +40,7 @@ make-smaller-titles: false
                           <br/><small class="hidden-xs">{{ post.date | date: "%B %-d, %Y" }}</small>
                       </li>
 
+                  {% endunless %}
                   {% endfor %}
                   <li>
                       <small><i><a href="{{ site.baseurl }}/posts/">more...</a></i></small>
