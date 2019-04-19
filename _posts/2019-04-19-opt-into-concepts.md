@@ -358,7 +358,9 @@ namespace std {
     // this is a const member function which takes an argument
     // the type this_type comes from the implementation (see below)
     virtual bool equals(this_type const&) const = 0;
-        
+
+    // these are default implementations - they can be overriden
+    // but they do not have to be (and typically won't be)
     virtual bool operator==(this_type const& rhs) const {
       return equals(rhs);
     }
@@ -380,7 +382,7 @@ namespace std {
     // arguments, invoked as x.begin() where x is an lvalue of type
     // this_type
     virtual iterator begin(this this_type&) = 0;
-    virtual iterator end(this this_type&) = 0;
+    virtual sentinel end(this this_type&) = 0;
         
     // and go absolutely wild with all the adapters
     // none of these are virtual, so none of them can be overriden
