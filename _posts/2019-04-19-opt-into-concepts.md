@@ -277,13 +277,13 @@ There is a third approach that is a hybrid of the previous two: the Curious Recu
 ```cpp
 template <typename Derived>
 struct Eq {
-    friend bool operator==(Derived const& lhs, Derived const& rhs) {
-        return lhs.equals(rhs);
-    }
+  friend bool operator==(Derived const& lhs, Derived const& rhs) {
+    return lhs.equals(rhs);
+  }
     
-    friend bool operator!=(Derived const& lhs, Derived const& rhs) {
-        return !lhs.equals(rhs);
-    }    
+  friend bool operator!=(Derived const& lhs, Derived const& rhs) {
+    return !lhs.equals(rhs);
+  }    
 };
 
 struct SeqNum : Eq<SeqNum>
@@ -299,7 +299,7 @@ private:
 
 Unlike with inheritance, I can't mark `equals()`{:.language-cpp} as `override`. Indeed, there's no real way for `Eq` to signal what exactly its interface is! While `SeqNum` **explicitly** must inherit from `Eq<SeqNum>`{:.language-cpp}, it must **implicitly** implement the interface. We do still have to inherit from `Eq<T>`{:.language-cpp}, so this is an **intrusive** approach - and given the implicit nature of the interface is inherently **checked late**.
 
-But as demonstrated above, we can easily provide **associated functions** - which is one of the primary motivations for this particular design choice, and why things like `boost::iterator_facade`{:.language-cpp} are very useful.
+But as demonstrated above, we can easily provide **associated functions** - which is one of the primary motivations for this particular design choice, and why libraries like `boost::iterator_facade`{:.language-cpp} are very useful.
 
 ### Member and non-member functions
 
