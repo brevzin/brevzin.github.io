@@ -60,7 +60,7 @@ This isn't what most people would consider to be modern C++, and isn't the way w
 
 It's a very **explicit** opt-in, the only way for `SeqNum` to satisfy `std::Printable`{:.language-cpp} is to inherit from it. That's not going to happen by accident. It's also **intrusive** - you have to modify the class itself to add this behavior, both because you need to inherit and to add member functions. An intrusive approach is inherently extremely limiting - can't satisfy concepts for any fundamental types or arrays, or any types you don't own. 
 
-However, this gives us the benefit that the operations we need to customize are **checked early**. If we got the signature to `print()`{:.language-cpp} wrong, that would be a compiler error at the point of definition. If we forgot to customize a functino entirely, that would be a compile error when we try to construct a `SeqNum` - with a clearly enumerated list of virtual functions we missed.
+However, this gives us the benefit that the operations we need to customize are **checked early**. If we got the signature to `print()`{:.language-cpp} wrong, that would be a compiler error at the point of definition. If we forgot to customize a function entirely, that would be a compile error when we try to construct a `SeqNum` - with a clearly enumerated list of virtual functions we missed.
 
 Let's pick a different concept: equality comparable. Here's how we might implement that a classical, object-oriented interface (there may be a better way to do this, specifically, but hopefully this is sufficiently illustrative):
 
@@ -89,7 +89,7 @@ private:
 };
 ```
 
-What the inheritance approach gives us here additionally are **default functions** that we can call with nice syntax. To opt-in to the concept `Eq`, we have to provide one customization point - `equals()`{:.language-cpp} - which we do in order to get two nice, useful functions - `==`{:.language-cpp} and `!=`{:.language-cpp}. This can easily stack as well:
+What the inheritance approach gives us here additionally are **associated functions** that we can call with nice syntax. To opt-in to the concept `Eq`, we have to provide one customization point - `equals()`{:.language-cpp} - which we do in order to get two nice, useful functions - `==`{:.language-cpp} and `!=`{:.language-cpp}. This can easily stack as well:
 
 ```cpp
 typename <typename T>
@@ -111,19 +111,23 @@ private:
 };
 ```
 
-Now, if I want all six comparisons, I **explicitly** and **intrusively** inherit from `Ord<T>`{:.language-cpp}, I get the compiler to ensure that I did everything right because my work is **checked early**. And for my efforts, I get six **default functions** that I can use with nice syntax.
+Now, if I want all six comparisons, I **explicitly** and **intrusively** inherit from `Ord<T>`{:.language-cpp}, I get the compiler to ensure that I did everything right because my work is **checked early**. And for my efforts, I get six **associated functions** that I can use with nice syntax.
 
 This gets much more awkward when concepts need to be more parameterized. Take `Range`. The C++ abstraction is that we need a `begin()` and an `end()` - which as of C++17 can be different types. I guess that would be something like:
 
 ```cpp
 template <typename Iterator, typename Sentinel = Iterator>
 struct ConstRange {
+    using const_iterator = Iterator;
+
     virtual Iterator begin() const = 0;
     virtual Sentinel end() const = 0;
 };
 
 template <typename Iterator, typename Sentinel = Iterator>
 struct Range {
+    using iterator = Iterator;
+
     virtual Iterator begin() = 0;
     virtual Sentinel end() = 0;
 };
@@ -150,6 +154,7 @@ This may look a bit silly (or at least jarring), but there is one nice thing tha
 ```cpp
 template <typename Iterator, typename Sentinel = Iterator>
 struct Range {
+    using iterator = iterator;
     using value_type = value_type_t<Iterator>;
     virtual Iterator begin() = 0;
     virtual Sentinel end() = 0;
@@ -236,7 +241,7 @@ size_t get_hash(T const& obj) {
 
 It's not like this is hard to do. It's just that... we have to do it.
 
-How would we implement `Eq` as a specialization? Well, you can't really. There's just **no defaults** with this approach. We could declare a non-member `operator==`{:.language-cpp}... somewhere, but it wouldn't be in user types' associated namespaces - since now user types are totally unrelated to this class template `Eq`. For some concepts, we can still get value even without default functions (like `Printable` or `std::hash`{:.language-cpp}) but for concepts like `Eq` it's a total nonstarter.
+How would we implement `Eq` as a specialization? Well, you can't really. There's just **no associated functions** with this approach. We could declare a non-member `operator==`{:.language-cpp}... somewhere, but it wouldn't be in user types' associated namespaces - since now user types are totally unrelated to this class template `Eq`. For some concepts, we can still get value even without associated functions (like `Printable` or `std::hash`{:.language-cpp}) but for concepts like `Eq` it's a total nonstarter.
 
 But implementing parameterized concepts is fine. `Range` translates well:
 
@@ -263,7 +268,38 @@ struct Range<MyVec<T> const> {
 
 And, as mentioned earlier, the unobtrusive nature of the specialization approach means we can opt-in for things like... arrays!
 
-But again, we get no defaults at all. Even something like providing an `iterator` type alias, that's something that every type opting in would have to do themselves (or have a separate trait to do so). We do get a single uniform syntax for traversal though: it's always `Range<T>::begin(r)`{:.language-cpp} and `Range<T>::end(r)`{:.language-cpp}.
+But again, we get no associated functions at all. Even something like providing an `iterator` type alias, that's something that every type opting in would have to do themselves (or have a separate trait to do so). We do get a single uniform syntax for traversal though: it's always `Range<T>::begin(r)`{:.language-cpp} and `Range<T>::end(r)`{:.language-cpp}.
+
+### CRTP
+
+There is a third approach that is a hybrid of the previous two: the Curious Recurring Template Pattern, or CRTP. Whereas specialization is not useful for `Eq` (where the primarily goal was to provide associated functions), CRTP is not super useful for `Printable` (where the primarily goal is to customize one function). But for `Eq`, it works quite nicely (and this is roughly how Boost.Operators works):
+
+```cpp
+template <typename Derived>
+struct Eq {
+    friend bool operator==(Derived const& lhs, Derived const& rhs) {
+        return lhs.equals(rhs);
+    }
+    
+    friend bool operator!=(Derived const& lhs, Derived const& rhs) {
+        return !lhs.equals(rhs);
+    }    
+};
+
+struct SeqNum : Eq<SeqNum>
+{
+private:
+    friend Eq;
+    bool equals(SeqNum const& rhs) const {
+        return value == rhs.value;
+    }
+    int value;
+};
+```
+
+Unlike with inheritance, I can't mark `equals()`{:.language-cpp} as `override`. Indeed, there's no real way for `Eq` to signal what exactly its interface is! While `SeqNum` **explicitly** must inherit from `Eq<SeqNum>`{:.language-cpp}, it must **implicitly** implement the interface. We do still have to inherit from `Eq<T>`{:.language-cpp}, so this is an **intrusive** approach - and given the implicit nature of the interface is inherently **checked late**.
+
+But as demonstrated above, we can easily provide **associated functions** - which is one of the primary motivations for this particular design choice, and why things like `boost::iterator_facade`{:.language-cpp} are very useful.
 
 ### Member and non-member functions
 
@@ -295,35 +331,55 @@ struct SeqNum {
 
 This approach is **implicit** - nowhere am I naming the concept that I'm implementing with these functions. We just know that `ostream& operator<<(ostream&, T const&)`{:.language-cpp} is printing, and `operator==`{:.language-cpp} and `operator!=`{:.language-cpp} is for equality, and `begin()`{:.language-cpp} and `end()`{:.language-cpp} and `size()`{:.language-cpp} and `data()`{:.language-cpp} are for ranges.
 
-The implicitness has consequences - you could unintentionally be opting into a concept you don't even know about. While this is exceedingly unlikely for something like `Range` (where you need two functions that both need to return specific types that themselves have a lot of requirements), it could easily happen with less onerous concepts.
+The implicitness has consequences - you could unintentionally be opting into a concept you don't even know about. While this is _exceedingly_ unlikely for something like `Range` (where you need two functions that both need to return specific types that themselves have a lot of requirements), it could easily happen with less onerous concepts.
 
 It's not totally outrageous to use the name `begin()`{:.language-cpp} to mean something that isn't an iterator. It's not absurd to use the name `data()`{:.language-cpp} to mean something other than returning a pointer to the beginning of a contiguous range. Those names are reserved in a way - which is kind of okay since it's the standard library and everyone knows them, but what about a concept that I might want to write in my own library? What if I pick a name that you're using for something else? Trouble... 
 
-Because we typically have a choice - we can write member `begin()`{:.language-cpp} or non-member `begin()`{:.language-cpp} and we could even go wild and have a member `begin()`{:.language-cpp} with a non-member `end()`{:.language-cpp} - this is an **unobtrusive** customization mechanism.
+Because we typically have a choice - we can write member `begin()`{:.language-cpp} or non-member `begin()`{:.language-cpp} and we could even go wild and have a member `begin()`{:.language-cpp} with a non-member `end()`{:.language-cpp} - this is an **unobtrusive** customization mechanism. The member syntax gives users a much nicer ergonomic experience than the non-member syntax, so users might prefer to use those where possible. But the member syntax isn't always possible - you cannot add members to types you don't own, and you definitely cannot add members to things like the fundamental types or arrays. As a result, any generic program must be able to deal with both - which requires having non-member syntax that just defers to member syntax:
 
-However, you won't find out if you properly customized your type for the concept until you use it - it's **checked late**. And concept checking is hard! You have to evaluate an arbitrary number of tests at point of use. 
+```cpp
+namespace std {
+  template <typename C>
+  auto begin(C& c) -> decltype(c.begin()) { return c.begin(); }
+}
+```
 
-We also get **no defaults** and the niceness of the syntax is variable. There has been an enormous amount of effort in the language and library to give us better syntax for these cases. Consider:
+and then using the [Two Step](http://ericniebler.com/2014/10/21/customization-point-design-in-c11-and-beyond/) consistently:
+
+```cpp
+template <typename R>
+void some_algo(R&& range) {
+  using std::begin, std::end;
+  auto first = begin(range);
+  auto last = end(range);
+  for (; first != last; ++first) {
+    // ...
+  }
+}
+```
+
+You won't find out if you properly customized your type for the concept until you use it - it's **checked late**. And concept checking is hard! You have to evaluate an arbitrary number of tests at point of use.
+
+We also get **no associated functions** and the niceness of the syntax is variable - users that provide member function opt-in can use member functions, but the library cannot, and you can't add new functions that way either. There has been an enormous amount of effort in the language and library to give us better syntax for these cases. Consider:
 
 - `operator`{:.language-cpp}s have special name lookup rules to allow for member or non-member declarations
 - `<=>`{:.language-cpp} exists at least in part to provide a better opt-in experience for comparisons
 - range-based `for`{:.language-cpp} statements hide the variability in how `begin()`{:.language-cpp} and `end()`{:.language-cpp} are declared
-- the new CPOS -- like `std::ranges::begin()`{:.language-cpp} and `std::ranges::end()`{:.language-cpp} -- do the same on the library side
-- the range adapters give us the kind of defaults we want with pretty good syntax
+- the new CPOS -- like `std::ranges::begin()`{:.language-cpp} and `std::ranges::end()`{:.language-cpp} -- do the same on the library side and avoid needing the Two Step
+- the range adapters give us the kind of... mostly associated functions we want with pretty good syntax
 
-My [previous post]({% post_url 2019-04-13-ufcs-history %}) went through the history of language proposals in the space of a unified function call syntax, or UFCS. It is precisely these problems that those proposals tried to solve: the variability in type author choice for opting into concepts by "just" declaring functions and being able to do so using either member or non-member functions, and wanting to have nice syntax for defaults. 
+My [previous post]({% post_url 2019-04-13-ufcs-history %}) went through the history of language proposals in the space of a unified function call syntax, or UFCS. It is precisely these problems that those proposals tried to solve: the variability in type author choice for opting into concepts by "just" declaring functions and being able to do so using either member or non-member functions, and wanting to have nice syntax for associated functions. 
 
-### Inheritance, Specialization, and Functions
+### Inheritance, Specialization, CRTP, and Functions
 
 To summarize the differences:
 
-<table>
-<tr><th style="padding: 20px">Inheritance</th><th style="padding: 20px">Specialization</th><th style="padding: 20px">Functions</th></tr>
-<tr><td style="padding: 20px;">explicit</td><td style="padding: 20px">explicit</td><td style="padding: 20px">implicit</td></tr>
-<tr><td style="padding: 20px">intrusive</td><td style="padding: 20px">unobtrusive</td><td style="padding: 20px">user's choice</td></tr>
-<tr><td style="padding: 20px">checked early</td><td style="padding: 20px">checked late</td><td style="padding: 20px">checked late</td></tr>
-<tr><td style="padding: 20px">can provide<br />default functions</td><td style="padding: 20px">no defaults</td><td style="padding: 20px">no defaults</td></tr>
-</table>
+| Inheritance | Specialization | CRTP | Functions |
+|-------|--------|---------|
+| explicit | explicit | explicit | implicit |
+| intrusive | unobtrusive | intrusive | user's choice |
+| checked early | checked late | checked late | checked late |
+| can provide associated functions | no associated functions | can provide associated functions | no associated functions |
 
 <br />
 If I could have anything I want, what would I actually want out of here?
@@ -331,7 +387,7 @@ If I could have anything I want, what would I actually want out of here?
 - I'd want an **explicit** opt-in mechanism. In all of these cases, I'm explicitly opting into a particular concept when I write the code anyway. I don't see much value in being able to omit that. It also makes the intent clear, and makes it impossible to accidentally opt into someone else's concept.
 - I'd absolutely require an **unobtrusive** opt-in mechanism. It's essential to be able to implement support for various concepts for fundamental types or for types you don't own. 
 - I'd want my opt-in to be **checked early**. Of course, the earlier I catch my mistakes the better. 
-- I'd want to be able to **provide defaults**. Both because it provides the maximal benefit of customization and because it can provide a good ergonomic story for users.
+- I'd want to be able to **provide associated functions**. Both because it provides the maximal benefit of customization and because it can provide a good ergonomic story for users.
 
 As you can see in the table above, we have no such thing in the language today. But maybe that's the direction we should be considering.
 
@@ -439,6 +495,6 @@ impl std::Range for MyVec<T> const {
 
 Yes, this is a weird mix of C++ and Rust. And there's an enormous amount here that's completely novel - a new kind of `concept`{:.language-cpp} declaration (C++20 isn't even out yet!), a new kind of `virtual`{:.language-cpp} that is purely static (taking the example from Matt Calabrese's [P1292](https://wg21.link/p1292), sticking in a language proposal that I've been working on for a while that didn't make C++20 ([P0847](https://wg21.link/p0847)). Oh, and effectively a new kind of unified function call syntax proposal - since all of the names declared in these `impl` blocks we'd expect to be able to find using normal member lookup.
 
-This does check all my boxes - it's explicit, it's unobtrusive, it can easily be checked early (did you implement all the pure `virtual`{:.language-cpp} members?), and we can provide defaults. 
+This does check all my boxes - it's explicit, it's unobtrusive, it can easily be checked early (did you implement all the pure `virtual`{:.language-cpp} members?), and we can provide associated functions. 
 
 This also looks a little like something else: C++0x Concepts. 
