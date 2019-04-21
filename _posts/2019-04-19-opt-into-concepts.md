@@ -58,9 +58,12 @@ private:
 
 This isn't what most people would consider to be modern C++, and isn't the way we solve this problem today, but it does work. Let's consider the salient features of this approach.
 
-It's a very **explicit** opt-in, the only way for `SeqNum` to satisfy `std::Printable`{:.language-cpp} is to inherit from it. That's not going to happen by accident. It's also **intrusive** - you have to modify the class itself to add this behavior, both because you need to inherit and to add member functions. An intrusive approach is inherently extremely limiting - can't satisfy concepts for any fundamental types or arrays, or any types you don't own. 
+It's a very <span class="token important">explicit</span> opt-in, the only way for `SeqNum` to satisfy `std::Printable`{:.language-cpp} is to inherit from it. That's not going to happen by accident. It's also <span class="token important">intrusive</span> - you have to modify the class itself to add this behavior, both because you need to inherit and to add member functions. An intrusive approach is inherently extremely limiting - can't satisfy concepts for any fundamental types or arrays, or any types you don't own. 
 
-However, this gives us the benefit that the operations we need to customize are **checked early**. If we got the signature to `print()`{:.language-cpp} wrong, that would be a compiler error at the point of definition. If we forgot to customize a function entirely, that would be a compile error when we try to construct a `SeqNum` - with a clearly enumerated list of virtual functions we missed.
+However, this gives us the benefit that the operations we need to customize are <span class="token important">checked early</span>. There are two different things I mean when I want to talk about early checking, directed towards two different people:
+
+- for the type author: to ensure that the concept was correctly opted into. In this case, if we got the signature to `print()`{:.language-cpp} wrong, that would be a compiler error at the point of definition. If we forgot to override a function entirely, that would be a compile error when we try to construct a `SeqNum` - with a clearly enumerated list of virtual functions we missed.
+- for the algorithm author: to ensure that the interface is used properly. In this case, if we wrote a function that took a `std::Printable const& p`{:.language-cpp} to apply to any printable type, and tried to write `p.print()`{:.language-cpp} or `p.display()`{:.language-cpp}, those would be compiler errors at the point of definition of the function - rather than at its point of use.
 
 Let's pick a different concept: equality comparable. Here's how we might implement that a classical, object-oriented interface (there may be a better way to do this, specifically, but hopefully this is sufficiently illustrative):
 
@@ -89,7 +92,7 @@ private:
 };
 ```
 
-What the inheritance approach gives us here additionally are **associated functions** that we can call with nice syntax. To opt-in to the concept `Eq`, we have to provide one customization point - `equals()`{:.language-cpp} - which we do in order to get two nice, useful functions - `==`{:.language-cpp} and `!=`{:.language-cpp}. This can easily stack as well:
+What the inheritance approach gives us here additionally are <span class="token important">associated functions</span> that we can call with nice syntax. To opt-in to the concept `Eq`, we have to provide one customization point - `equals()`{:.language-cpp} - which we do in order to get two nice, useful functions - `==`{:.language-cpp} and `!=`{:.language-cpp}. This can easily stack as well:
 
 ```cpp
 typename <typename T>
@@ -111,7 +114,7 @@ private:
 };
 ```
 
-Now, if I want all six comparisons, I **explicitly** and **intrusively** inherit from `Ord<T>`{:.language-cpp}, I get the compiler to ensure that I did everything right because my work is **checked early**. And for my efforts, I get six **associated functions** that I can use with nice syntax.
+Now, if I want all six comparisons, I <span class="token important">explicitly</span> and <span class="token important">intrusively</span> inherit from `Ord<T>`{:.language-cpp}, I get the compiler to ensure that I did everything right because my work is <span class="token important">checked early</span>. And for my efforts, I get six <span class="token important">associated functions</span> that I can use with nice syntax.
 
 This gets much more awkward when concepts need to be more parameterized. Take `Range`. The C++ abstraction is that we need a `begin()` and an `end()` - which as of C++17 can be different types. I guess that would be something like:
 
@@ -213,9 +216,9 @@ struct std::Printable<SeqNum> {
 };
 ```
 
-How does this approach compare to the inheritance approach? Yes, it removes the virtual dispatch but I'm not super concerned with that at this point. This is still an **explicit** opt-in - you have to manually specialize the type which acts like the concept. But a key difference is that it's **unobtrusive** - I don't need to modify `SeqNum` itself to get this functionality, I can do so externally. This is an enormous benefit!
+How does this approach compare to the inheritance approach? Yes, it removes the virtual dispatch but I'm not super concerned with that at this point. This is still an <span class="token important">explicit</span> opt-in - you have to manually specialize the type which acts like the concept. But a key difference is that it's <span class="token important">unobtrusive</span> - I don't need to modify `SeqNum` itself to get this functionality, I can do so externally. This is an enormous benefit!
 
-Also nothing in the language itself prevents me from doing a "bad" specialization - one that either gets signatures wrong or misses things entirely. That's because while virtual functions are baked into the language, specialization like this is just a convention. I'll only find out that I made a mistake at the point of use - they are **checked late**.
+Also nothing in the language itself prevents me from doing a "bad" specialization - one that either gets signatures wrong or misses things entirely. That's because while virtual functions are baked into the language, specialization like this is just a convention. Nor does anything in the language prevent me from trying to write an invalid operation for this type - I can write `Printable<T>::display(x)`{:.language-cpp} (an invalid function) or `Printable<T>::print(x, std::cout)`{:.language-cpp} (wrong order of arguments). All of these mistakes will only be caught at the point of use - they are <span class="token important">checked late</span>.
 
 This approach also suffers from not having an ergonomic syntax. Consider hashing. With the inheritance approach, given some object that satisfied the concept, we would write:
 
@@ -241,7 +244,7 @@ size_t get_hash(T const& obj) {
 
 It's not like this is hard to do. It's just that... we have to do it.
 
-How would we implement `Eq` as a specialization? Well, you can't really. There's just **no associated functions** with this approach. We could declare a non-member `operator==`{:.language-cpp}... somewhere, but it wouldn't be in user types' associated namespaces - since now user types are totally unrelated to this class template `Eq`. For some concepts, we can still get value even without associated functions (like `Printable` or `std::hash`{:.language-cpp}) but for concepts like `Eq` it's a total nonstarter.
+How would we implement `Eq` as a specialization? Well, you can't really. There's just <span class="token important">no associated functions</span> with this approach. We could declare a non-member `operator==`{:.language-cpp}... somewhere, but it wouldn't be in user types' associated namespaces - since now user types are totally unrelated to this class template `Eq`. For some concepts, we can still get value even without associated functions (like `Printable` or `std::hash`{:.language-cpp}) but for concepts like `Eq` it's a total nonstarter.
 
 But implementing parameterized concepts is fine. `Range` translates well:
 
@@ -297,9 +300,9 @@ private:
 };
 ```
 
-Unlike with inheritance, I can't mark `equals()`{:.language-cpp} as `override`. Indeed, there's no real way for `Eq` to signal what exactly its interface is! While `SeqNum` **explicitly** must inherit from `Eq<SeqNum>`{:.language-cpp}, it must **implicitly** implement the interface. We do still have to inherit from `Eq<T>`{:.language-cpp}, so this is an **intrusive** approach - and given the implicit nature of the interface is inherently **checked late**.
+Unlike with inheritance, I can't mark `equals()`{:.language-cpp} as `override`. Indeed, there's no real way for `Eq` to signal what exactly its interface is! While `SeqNum` <span class="token important">explicitly</span> must inherit from `Eq<SeqNum>`{:.language-cpp}, it must <span class="token important">implicitly</span> implement the interface. We do still have to inherit from `Eq<T>`{:.language-cpp}, so this is an <span class="token important">intrusive</span> approach - and given the implicit nature of the interface is inherently <span class="token important">checked late</span>.
 
-But as demonstrated above, we can easily provide **associated functions** - which is one of the primary motivations for this particular design choice, and why libraries like `boost::iterator_facade`{:.language-cpp} are very useful.
+But as demonstrated above, we can easily provide <span class="token important">associated functions</span> - which is one of the primary motivations for this particular design choice, and why libraries like `boost::iterator_facade`{:.language-cpp} are very useful.
 
 ### Member and non-member functions
 
@@ -329,13 +332,13 @@ struct SeqNum {
 };
 ```
 
-This approach is **implicit** - nowhere am I naming the concept that I'm implementing with these functions. We just know that `ostream& operator<<(ostream&, T const&)`{:.language-cpp} is printing, and `operator==`{:.language-cpp} and `operator!=`{:.language-cpp} is for equality, and `begin()`{:.language-cpp} and `end()`{:.language-cpp} and `size()`{:.language-cpp} and `data()`{:.language-cpp} are for ranges.
+This approach is <span class="token important">implicit</span> - nowhere am I naming the concept that I'm implementing with these functions. We just know that `ostream& operator<<(ostream&, T const&)`{:.language-cpp} is printing, and `operator==`{:.language-cpp} and `operator!=`{:.language-cpp} is for equality, and `begin()`{:.language-cpp} and `end()`{:.language-cpp} and `size()`{:.language-cpp} and `data()`{:.language-cpp} are for ranges.
 
 The implicitness has consequences - you could unintentionally be opting into a concept you don't even know about. While this is _exceedingly_ unlikely for something like `Range` (where you need two functions that both need to return specific types that themselves have a lot of requirements), it could easily happen with less onerous concepts.
 
 It's not totally outrageous to use the name `begin()`{:.language-cpp} to mean something that isn't an iterator. It's not absurd to use the name `data()`{:.language-cpp} to mean something other than returning a pointer to the beginning of a contiguous range. Those names are reserved in a way - which is kind of okay since it's the standard library and everyone knows them, but what about a concept that I might want to write in my own library? What if I pick a name that you're using for something else? Trouble... 
 
-Because we typically have a choice - we can write member `begin()`{:.language-cpp} or non-member `begin()`{:.language-cpp} and we could even go wild and have a member `begin()`{:.language-cpp} with a non-member `end()`{:.language-cpp} - this is an **unobtrusive** customization mechanism. The member syntax gives users a much nicer ergonomic experience than the non-member syntax, so users might prefer to use those where possible. But the member syntax isn't always possible - you cannot add members to types you don't own, and you definitely cannot add members to things like the fundamental types or arrays. As a result, any generic program must be able to deal with both - which requires having non-member syntax that just defers to member syntax:
+Because we typically have a choice - we can write member `begin()`{:.language-cpp} or non-member `begin()`{:.language-cpp} and we could even go wild and have a member `begin()`{:.language-cpp} with a non-member `end()`{:.language-cpp} - this is an <span class="token important">unobtrusive</span> customization mechanism. The member syntax gives users a much nicer ergonomic experience than the non-member syntax, so users might prefer to use those where possible. But the member syntax isn't always possible - you cannot add members to types you don't own, and you definitely cannot add members to things like the fundamental types or arrays. As a result, any generic program must be able to deal with both - which requires having non-member syntax that just defers to member syntax:
 
 ```cpp
 namespace std {
@@ -358,9 +361,9 @@ void some_algo(R&& range) {
 }
 ```
 
-You won't find out if you properly customized your type for the concept until you use it - it's **checked late**. And concept checking is hard! You have to evaluate an arbitrary number of tests at point of use.
+You won't find out if you properly customized your type for the concept until you use it - it's <span class="token important">checked late</span>. And concept checking is hard! You have to evaluate an arbitrary number of tests at point of use.
 
-We also get **no associated functions** and the niceness of the syntax is variable - users that provide member function opt-in can use member functions, but the library cannot, and you can't add new functions that way either. There has been an enormous amount of effort in the language and library to give us better syntax for these cases. Consider:
+We also get <span class="token important">no associated functions</span> and the niceness of the syntax is variable - users that provide member function opt-in can use member functions, but the library cannot, and you can't add new functions that way either. There has been an enormous amount of effort in the language and library to give us better syntax for these cases. Consider:
 
 - `operator`{:.language-cpp}s have special name lookup rules to allow for member or non-member declarations
 - `<=>`{:.language-cpp} exists at least in part to provide a better opt-in experience for comparisons
@@ -368,7 +371,10 @@ We also get **no associated functions** and the niceness of the syntax is variab
 - the new CPOS -- like `std::ranges::begin()`{:.language-cpp} and `std::ranges::end()`{:.language-cpp} -- do the same on the library side and avoid needing the Two Step
 - the range adapters give us the kind of... mostly associated functions we want with pretty good syntax
 
-My [previous post]({% post_url 2019-04-13-ufcs-history %}) went through the history of language proposals in the space of a unified function call syntax, or UFCS. It is precisely these problems that those proposals tried to solve: the variability in type author choice for opting into concepts by "just" declaring functions and being able to do so using either member or non-member functions, and wanting to have nice syntax for associated functions. 
+Even further consider:
+
+- my [previous post]({% post_url 2019-04-13-ufcs-history %}) went through the history of language proposals in the space of a unified function call syntax, or UFCS. It is precisely these problems that those proposals tried to solve: the variability in type author choice for opting into concepts by "just" declaring functions and being able to do so using either member or non-member functions, and wanting to have nice syntax for associated functions. 
+- an [earlier post]({% post_url 2018-10-20-concepts-declarations %}) went through the difficulties in constructing certain kinds of constrained declarations. These difficulties result form a lack of associated types.
 
 ### Inheritance, Specialization, CRTP, and Functions
 
@@ -379,122 +385,14 @@ To summarize the differences:
 | explicit | explicit | explicit | implicit |
 | intrusive | unobtrusive | intrusive | user's choice |
 | checked early | checked late | checked late | checked late |
-| can provide associated functions | no associated functions | can provide associated functions | no associated functions |
+| can provide associated functions/types | no associated functions | can provide associated functions/types | no associated functions |
 
 <br />
 If I could have anything I want, what would I actually want out of here?
 
-- I'd want an **explicit** opt-in mechanism. In all of these cases, I'm explicitly opting into a particular concept when I write the code anyway. I don't see much value in being able to omit that. It also makes the intent clear, and makes it impossible to accidentally opt into someone else's concept.
-- I'd absolutely require an **unobtrusive** opt-in mechanism. It's essential to be able to implement support for various concepts for fundamental types or for types you don't own. 
-- I'd want my opt-in to be **checked early**. Of course, the earlier I catch my mistakes the better. 
-- I'd want to be able to **provide associated functions**. Both because it provides the maximal benefit of customization and because it can provide a good ergonomic story for users.
+- I'd want an <span class="token important">explicit</span> opt-in mechanism. In all of these cases, I'm explicitly opting into a particular concept when I write the code anyway. I don't see much value in being able to omit that. It also makes the intent clear, and makes it impossible to accidentally opt into someone else's concept.
+- I'd absolutely require an <span class="token important">unobtrusive</span> opt-in mechanism. It's essential to be able to implement support for various concepts for fundamental types or for types you don't own. 
+- I'd want my opt-in to be <span class="token important">checked early</span>. Of course, the earlier I catch my mistakes the better. 
+- I'd want to be able to <span class="token important">provide associated functions and types</span>. Both because it provides the maximal benefit of customization and because it can provide a good ergonomic story for users.
 
-As you can see in the table above, we have no such thing in the language today. But maybe that's the direction we should be considering.
-
-Consider the following sketch:
-
-```cpp
-namespace std {
-  struct ostream;
-
-  concept struct Printable {
-    // this is a const member function
-    virtual void print(ostream&) const = 0;
-  };
-    
-  struct ostream {
-    // using the concepts terse syntax here
-    stream& operator<<(Printable auto const& p) {
-      p.print(*this);
-      return *this;
-    }
-  };
-    
-  concept struct Eq {
-    // this is a const member function which takes an argument
-    // the type this_type comes from the implementation (see below)
-    virtual bool equals(this_type const&) const = 0;
-
-    // these are default implementations - they can be overriden
-    // but they do not have to be (and typically won't be)
-    virtual bool operator==(this_type const& rhs) const {
-      return equals(rhs);
-    }
-    virtual bool operator!=(this_type const& rhs) const {
-      return equals(rhs);
-    }
-  };
-
-  concept struct Range {
-    // the type alias 'iterator' must be provided by the
-    // implementation. 'sentinel' can be overriden, but defaults
-    // to 'iterator'. 
-    // 'value_type' cannot be overriden
-    virtual typename iterator;
-    virtual typename sentinel = iterator;
-    using value_type = value_type_t<iterator>;
-        
-    // these functions are member functions that take no additional
-    // arguments, invoked as x.begin() where x is an lvalue of type
-    // this_type
-    virtual iterator begin(this this_type&) = 0;
-    virtual sentinel end(this this_type&) = 0;
-        
-    // and go absolutely wild with all the adapters
-    // none of these are virtual, so none of them can be overriden
-    auto filter(this this_type&, Predicate<value_type> auto&&);
-    auto transform(this this_type&, Invocable<value_type> auto&&);
-    // ...
-  };
-};
-
-struct SeqNum {
-  int value;
-};
-
-impl std::Printable for SeqNum {
-  void print(std::ostream& os) const override {
-    os << "SeqNum(" << value << ")";
-  }
-};
-
-impl std::Eq for SeqNum {
-  // this_type here is SeqNum, so this meets the specification
-  bool equals(SeqNum const& rhs) const override {
-    return value == rhs.value;
-  };
-};
-
-template <typename T>
-struct MyVec {
-  T* begin_;
-  T* end_;
-  T* capacity_;
-};
-
-template <typename T>
-impl std::Range for MyVec<T> {
-  // in this block, this_type is MyVec<T>
-  using iterator = T*;
-  T* begin(this MyVec<T>& v) override { return v.begin_; }
-  T* end(this MyVec<T>& v) override { return v.end_; }
-};
-
-template <typename T>
-impl std::Range for MyVec<T> const {
-  // in this block, this_type is MyVec<T> const
-  using iterator = T const*;
-  T const* begin(this MyVec<T> const& v) override {
-    return v.begin_;
-  }
-  T const* end(this MyVec<T> const& v) override {
-    return v.end_;
-  }
-};
-```
-
-Yes, this is a weird mix of C++ and Rust. And there's an enormous amount here that's completely novel - a new kind of `concept`{:.language-cpp} declaration (C++20 isn't even out yet!), a new kind of `virtual`{:.language-cpp} that is purely static (taking the example from Matt Calabrese's [P1292](https://wg21.link/p1292), sticking in a language proposal that I've been working on for a while that didn't make C++20 ([P0847](https://wg21.link/p0847)). Oh, and effectively a new kind of unified function call syntax proposal - since all of the names declared in these `impl` blocks we'd expect to be able to find using normal member lookup.
-
-This does check all my boxes - it's explicit, it's unobtrusive, it can easily be checked early (did you implement all the pure `virtual`{:.language-cpp} members?), and we can provide associated functions. 
-
-This also looks a little like something else: C++0x Concepts. 
+As you can see in the table above, we have no such thing in the language today. But maybe that's the direction we should be considering. Several languages provide something that fits those boxes: Rust traits, Swift protocols, Haskell type classes. And C++0x concepts did as well. 
