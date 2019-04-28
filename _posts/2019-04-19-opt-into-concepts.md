@@ -5,6 +5,7 @@ category: c++
 tags:
  - c++
  - concepts
+series: concepts-2
 pubdraft: yes
 --- 
 
@@ -65,7 +66,7 @@ However, this gives us the benefit that the operations we need to customize are 
 - for the type author: to ensure that the concept was correctly opted into. In this case, if we got the signature to `print()`{:.language-cpp} wrong, that would be a compiler error at the point of definition. If we forgot to override a function entirely, that would be a compile error when we try to construct a `SeqNum` - with a clearly enumerated list of virtual functions we missed.
 - for the algorithm author: to ensure that the interface is used properly. In this case, if we wrote a function that took a `std::Printable const& p`{:.language-cpp} to apply to any printable type, and tried to write `p.print()`{:.language-cpp} or `p.display()`{:.language-cpp}, those would be compiler errors at the point of definition of the function - rather than at its point of use.
 
-Let's pick a different concept: equality comparable. Here's how we might implement that a classical, object-oriented interface (there may be a better way to do this, specifically, but hopefully this is sufficiently illustrative):
+Let's pick a different concept: equality comparable. Here's how we might implement that as a classical, object-oriented interface (there may be a better way to do this, specifically, but hopefully this is sufficiently illustrative):
 
 ```cpp
 template <typename T>
@@ -374,7 +375,7 @@ We also get <span class="token important">no associated functions</span> and the
 Even further consider:
 
 - my [previous post]({% post_url 2019-04-13-ufcs-history %}) went through the history of language proposals in the space of a unified function call syntax, or UFCS. It is precisely these problems that those proposals tried to solve: the variability in type author choice for opting into concepts by "just" declaring functions and being able to do so using either member or non-member functions, and wanting to have nice syntax for associated functions. 
-- an [earlier post]({% post_url 2018-10-20-concepts-declarations %}) went through the difficulties in constructing certain kinds of constrained declarations. These difficulties result form a lack of associated types.
+- an [earlier post]({% post_url 2018-10-20-concepts-declarations %}) went through the difficulties in constructing certain kinds of constrained declarations. These difficulties result from a lack of associated types.
 
 ### Inheritance, Specialization, CRTP, and Functions
 
