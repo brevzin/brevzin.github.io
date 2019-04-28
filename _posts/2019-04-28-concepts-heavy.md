@@ -11,7 +11,7 @@ pubdraft: yes
 
 The previous post described the several ways we have today of writing customizable interfaces: polymorphism with `virtual`{:.language-cpp} functions, class template specialization, CRTP, and "well-known" member or non-member functions. They each have their advantages and disadvantages. And really, sometimes simple polymorphism is very much the best solution. But there's a hole in our design space that suggests that we need something more. 
 
-A lack of associated types leads to a proliferation of type traits. Consider a concept like `Invocable<F, Args...`>{:.language-cpp}. All it tells us is whether or not `f(args...)`{:.language-cpp} is valid - it doesn't tell us what type that expression has. While sometimes we don't care (`std::for_each()`{:.language-cpp} doesn't), most of the time we do - and to find that answer out we need to use `invoke_result_t<F, Args...>`{:.language-cpp}. Likewise, `Range<R>`{:.language-cpp}. What is the underlying iterator for the range? `iterator_t<R>`{:.language-cpp}. Underlying value type? `value_type_t<iterator_t<R>>`{:.language-cpp}. And so forth. 
+A lack of associated types leads to a proliferation of type traits. Consider a concept like `Invocable<F, Args...>`{:.language-cpp}. All it tells us is whether or not `f(args...)`{:.language-cpp} is valid - it doesn't tell us what type that expression has. While sometimes we don't care (`std::for_each()`{:.language-cpp} doesn't), most of the time we do - and to find that answer out we need to use `invoke_result_t<F, Args...>`{:.language-cpp}. Likewise, `Range<R>`{:.language-cpp}. What is the underlying iterator for the range? `iterator_t<R>`{:.language-cpp}. Underlying value type? `value_type_t<iterator_t<R>>`{:.language-cpp}. And so forth. 
 
 A lack of core customization mechanism leads to the "Two Step":
 
@@ -462,7 +462,7 @@ explicit concept ViewableRange
 };
 
 // ... which is what all_view does:
-inline constepxr auto all = ViewableRange::view;
+inline constexpr auto all = ViewableRange::view;
 
 // lvalue ranges can be safely converted to a View
 template <Range R>
@@ -529,17 +529,19 @@ explicit concept ViewableRange
 All these adapters don't _have_ to live inside of `ViewableRange`. Users can extend this to write their own:
 
 ```cpp
-template <typename T>
-concept struct MyFilter : ViewableRange<T>
+template <typename VR>
+concept struct Accumulate : ViewableRange<VR>
 {
-    View auto filter(T&& rng, Predicate<reference> auto&& pred) {
-        // explicitly satisfy View here
-        struct filter_view : View  
-        {
-            // ...
-        };
-        return filter_view{FWD(rng)..view(), FWD(pred)};
-    }    
+    template <typename U,
+        LvalueInvocable<U&&, VR..reference> F = std::plus>
+            requires ConvertibleTo<F..result_type, U>
+    U accumulate(VR&& rng, U init, F op = {})
+    {
+        for (auto&& elem : FWD(rng)..all()) {
+            init = op..(std::move(init), elem);
+        }
+        return init;
+    }
 };
 ```
 
@@ -555,9 +557,60 @@ auto sum = ints..filter(is_even)
 assert(sum == 56);
 ```
 
-This works because `ints` is an lvalue of type `vector<int>`{:.language-cpp}, which implicitly models `Range` by having member `begin()`{:.language-cpp} and `end()`{:.language-cpp} which satisfy the other requirements as well (all of which are checked of course). Lvalues which satisfy `Range` explicitly model `ViewableRange`. So `ints` can find the associated function `filter` through that concept. Whatever the result of `ints..filter(is_even)`{:.language-cpp} is models `View`, and all `View`s are `ViewableRange`s so again `transform` is an associated function of that, etc.
+This works because `ints` is an lvalue of type `vector<int>`{:.language-cpp}, which implicitly models `Range` by having member `begin()`{:.language-cpp} and `end()`{:.language-cpp} which satisfy the other requirements as well (all of which are checked of course). Lvalues which satisfy `Range` explicitly model `ViewableRange`. So `ints` can find the associated function `filter` through that concept. Whatever the result of `ints..filter(is_even)`{:.language-cpp} is models `View`, and all `View`s are `ViewableRange`s so again `transform` is an associated function of that. And lastly we find `accumulate` by way of the implicitly satisfied concept `Accumulate`.
 
 I, for one, think this is a pretty cool place to end up.
+
+### Tuple-like and Variant-like
+
+One of the places where we don't have concepts today that would be interesting to try to apply them would be the tuple-like concept (used by structured bindings) and the variant-like concept (eventually used by pattern matching). These are actually difficult to describe, but a rough sketch might be as follows.
+
+```cpp
+template <typename value T>
+explicit concept TupleLike {
+    virtual constexpr size_t size;
+    
+    template <size_t I> requires (I < size)
+    virtual typename element_type;
+    
+    template <size_t I> requires (I < size)
+    virtual element_type<I>& get(T&);
+    
+    template <size_t I> requires (I < size)
+    virtual element_type<I>&& get(T&& t) {
+        if constexpr (is_lvalue_reference_v<element_type<I>>) {
+            return get(t);
+        } else {
+            return std::move(get(t));
+        }
+    }
+};
+```
+
+How does `static_assert(TupleLike<X>)`{:.language-cpp} check that `get` and `element_type` work for all the right `I`s? Not sure.
+
+`std::tuple`{:.language-cpp} would opt into via:
+
+```cpp
+template <typename... Ts>
+concept TupleLike<std::tuple<Ts...>> {
+    constexpr size_t size = sizeof...(Ts);
+    
+    template <size_t I>
+    using element_type = std::tuple_element_t<
+        I, std::tuple<Ts...>>;
+    
+    template <size_t I>
+    decltype(auto) get(std::tuple<Ts...>& t) {
+        return std::get<I>(t);
+    }
+    
+    // don't need to provide the rvalue reference overload
+    // the default does the right thing for us
+};
+
+// similar for std::tuple<Ts...> const
+```
 
 ### Summary
 
