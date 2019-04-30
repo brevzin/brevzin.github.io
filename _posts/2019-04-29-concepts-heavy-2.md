@@ -276,10 +276,10 @@ Whereas in the `Drawable` concept we just had a single virtual function declarat
 
 1. `T` explicitly models `Swap`
 2. `T` has a member function, such that `declval<T&>().swap(declval<T&>())`{:.language-cpp} is a valid expression
-3. ADL can find a non-member `swap` with the poison pill overload such that `swap(declval<T&>(), declval<T&>())` is a valid expression
+3. ADL can find a non-member `swap` with the poison pill overload such that `swap(declval<T&>(), declval<T&>())`{.language-cpp} is a valid expression
 4. If none of the above, we can instantiate the default definition without error
 
-Only if we get to (4) do we try to instantiate the body. Some examples to help explain how this works:
+We only try to instantiate the body of those virtual functions with default implementations if (1), (2), and (3) fail. Some examples to help explain how this works:
 
 ```cpp
 // valid because we don't have any more specific matches, so we
@@ -533,7 +533,72 @@ expected<vector<T>, E> sequence(R&&);
 
 Wow is that pleasant to read! 
 
-With a footnote that... of course, we have to go back and account for the fact that if a function returns a const or reference type before sticking it in a vector. That's going to be such a common thing to happen that I figure it's worth either coming up with a syntax for it either on the left hand side like `..result_type ~= U`{:.language-cpp} (meaning a `result_type` that decays to `U`) or the right hand side like `..result_type ~= U auto&&`{:.language-cpp} (which would be based on a separate language feature Michael Park and I are thinking about).
+Now, let's go back to `Predicate` and type coercion. We want a few things:
+
+1. a `Predicate<F, Args...>`{:.language-cpp} is an `Invocable<F, Args...>`{:.language-cpp}
+2. its `result_type` is convertible to `bool`{.language-cpp} (not `Boolean`, `bool`{:.language-cpp})
+3. when I use it, I don't want to think about types like the `Evil` I showed earlier - really just mean `bool`{:.language-cpp}
+
+And we can do that like so:
+
+```cpp
+template <typename F, typename... Args>
+concept struct Predicate
+    : Invocable<F, Args..., ..result_type=bool>
+{ };
+
+template <typename F, typename... Args>
+concept struct LvaluePredicate : Predicate<F&, Args...>
+{ };
+
+```
+
+This is a more specific form of `Invocable` and slightly different than what we used for `fmap` and `bind`. There, we checked that `result_type` was `U` for some unbound template parameter `U`. Here, we're checking that `result_type` is `bool`{:.language-cpp}. That's a constraint! It will behave as if we had explicitly written:
+
+```cpp
+template <typename F, typename... Args>
+concept struct Predicate {
+    virtual bool operator()(F&&, Args&&...);
+};
+```
+
+Let's try it out:
+
+```cpp
+bool check42(LvaluePredicate<int> auto f) {
+    return f..(42) && random() % 3 == 0;
+}
+
+struct Evil {
+    operator bool() const;
+    void operator&&(int);
+};
+
+check42([](int){ return Evil{}; });
+```
+
+The above will meet the constraints (it's a callable that as an lvalue is invocable with an `int`{:.language-cpp} and returns a type convertible to `bool`{:.language-cpp}) and it will do more than that - it will do _what we want_, because `f..(42)`{:.language-cpp} is syntax sugar for:
+
+```cpp
+LvaluePredicate<_F, int>::operator()(f, 42)
+```
+which after determining which way `_F`{:.language-cpp} satisfies the constraint, will do full coercion by way of evaluting as:
+```cpp
+// except and implicit cast to bool, but there's no syntax
+// for that sort of thing
+static_cast<bool>(f(42))
+```
+which is to say we are doing, effectively:
+```cpp
+(Evil{}.operator bool()) && (random() % 3)
+```
+and not
+```cpp
+(Evil{}.operator&&(random() % 3))
+```
+The former is what the author of `check42()`{:.language-cpp} surely expected to happen. The latter fails to compile because `void`{:.language-cpp} isn't convertible to `bool`{:.language-cpp} and is the kind of thing that drives librarians nuts.
+
+Quick footnote: of course, for `fmap()`{.language-cpp} and `bind()`{.language-cpp} we have to go back and account for the fact that if a function returns a const or reference type before sticking it in a vector. That's going to be such a common thing to happen that I figure it's worth either coming up with a syntax for it either on the left hand side like `..result_type ~= U`{:.language-cpp} (meaning a `result_type` that decays to `U`) or the right hand side like `..result_type ~= U auto&&`{:.language-cpp} (which would be based on a separate language feature Michael Park and I are thinking about).
 
 ### Ranges and things
 
