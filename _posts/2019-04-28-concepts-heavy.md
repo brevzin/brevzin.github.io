@@ -9,6 +9,8 @@ series: concepts-2
 pubdraft: yes
 --- 
 
+(This post is superceded by the next one. Drafts on drafts on drafts).
+
 The previous post described the several ways we have today of writing customizable interfaces: polymorphism with `virtual`{:.language-cpp} functions, class template specialization, CRTP, and "well-known" member or non-member functions. They each have their advantages and disadvantages. And really, sometimes simple polymorphism is very much the best solution. But there's a hole in our design space that suggests that we need something more. 
 
 A lack of associated types leads to a proliferation of type traits. Consider a concept like `Invocable<F, Args...>`{:.language-cpp}. All it tells us is whether or not `f(args...)`{:.language-cpp} is valid - it doesn't tell us what type that expression has. While sometimes we don't care (`std::for_each()`{:.language-cpp} doesn't), most of the time we do - and to find that answer out we need to use `invoke_result_t<F, Args...>`{:.language-cpp}. Likewise, `Range<R>`{:.language-cpp}. What is the underlying iterator for the range? `iterator_t<R>`{:.language-cpp}. Underlying value type? `value_type_t<iterator_t<R>>`{:.language-cpp}. And so forth. 
