@@ -24,7 +24,7 @@ using std::begin;
 begin(r); // correct
 ```
 
-This problem was the motiviation for what I called the CS1 direction of [UFCS]({% post_url 2019-04-13-ufcs-history %}) (having `f(x, y)`{:.language-cpp} find `x.f(y)`{:.language-cpp}). It's also a motivation for Matt Calabrese's [P1292](https://wg21.link/p1292). Ranges' solution to this problem was to introduce _customization point objects_:
+This problem was the motivation for what I called the CS1 direction of [UFCS]({% post_url 2019-04-13-ufcs-history %}) (having `f(x, y)`{:.language-cpp} find `x.f(y)`{:.language-cpp}). It's also a motivation for Matt Calabrese's [P1292](https://wg21.link/p1292). Ranges' solution to this problem was to introduce _customization point objects_:
 
 ```cpp
 std::ranges::begin(r); // correct
@@ -54,7 +54,7 @@ concept struct Drawable {
 };
 ```
 
-This new kind of `concept`{:.language-cpp} is based on "pseudo-signatures" rather than expressions, and these pseudo-signatures can even be `virtual`{:.language-cpp}! But this is a slightly different `virtual`{:.language-cpp} than we're used to, although it's a remarkably good analogue (copped from Matt Calabrese's [P1292](https://wg21.link/p1292)). What we mean is that any type which satisfies `Drawable` will satisfy, and can override, the function `draw`. Later, we'll see examples of non-`virtual`{:.language-cpp} functions inside of `concept`{:.language-cpp}s - those cannot be overriden. However, unlike regular polymorphism, here we determine the correct override statically at compile time rather than at runtime through the use of a vtable. There is no overhead at runtime - it's basically overload resolution. This is static polymorphism, not dynamic polymorphism.
+This new kind of `concept`{:.language-cpp} is based on "pseudo-signatures" rather than expressions, and these pseudo-signatures can even be `virtual`{:.language-cpp}! But this is a slightly different `virtual`{:.language-cpp} than we're used to, although it's a remarkably good analogue (copped from Matt Calabrese's [P1292](https://wg21.link/p1292)). What we mean is that any type which satisfies `Drawable` will satisfy, and can override, the function `draw`. Later, we'll see examples of non-`virtual`{:.language-cpp} functions inside of `concept`{:.language-cpp}s - those cannot be overridden. However, unlike regular polymorphism, here we determine the correct override statically at compile time rather than at runtime through the use of a vtable. There is no overhead at runtime - it's basically overload resolution. This is static polymorphism, not dynamic polymorphism.
 
 A type can satisfy `Drawable` either implicitly or explicitly. There are two ways implicit satisfaction can happen: via a member function or via a non member function.
 
@@ -138,7 +138,7 @@ concept Drawable<BadTriangle> {
 
 Here is one advantage already - because we are explicitly opting into `Drawable` (which arguably we were in the other cases as well), we can get the compiler to help us out and tell us we did something wrong (in this case, get the arguments in the wrong order) at the point that we got it wrong - rather than sometime later. In other words, early checking rather than late checking.
 
-We can also get this help through implicit satisfcation:
+We can also get this help through implicit satisfaction:
 
 ```cpp
 struct Oval
@@ -152,7 +152,7 @@ struct BadOval : Drawable
 { }; // error: !Drawable<BadOval>
 ```
 
-This last bit is just syntax sugar for having written the `static_assert` yourself, but sometimes having that early reminder can't hurt. We may also want to satisfy the model within the class itself (maybe we want to access some private member sor something):
+This last bit is just syntax sugar for having written the `static_assert` yourself, but sometimes having that early reminder can't hurt. We may also want to satisfy the model within the class itself (maybe we want to access some private member or something):
 
 ```cpp
 struct Squiggle
@@ -276,7 +276,7 @@ Whereas in the `Drawable` concept we just had a single virtual function declarat
 
 1. `T` explicitly models `Swap`
 2. `T` has a member function, such that `declval<T&>().swap(declval<T&>())`{:.language-cpp} is a valid expression
-3. ADL can find a non-member `swap` with the poison pill overload such that `swap(declval<T&>(), declval<T&>())`{.language-cpp} is a valid expression
+3. ADL can find a non-member `swap` with the poison pill overload such that `swap(declval<T&>(), declval<T&>())`{:.language-cpp} is a valid expression
 4. If none of the above, we can instantiate the default definition without error
 
 We only try to instantiate the body of those virtual functions with default implementations if (1), (2), and (3) fail. Some examples to help explain how this works:
@@ -373,14 +373,14 @@ struct Evil {
 };
 ```
 
-It's bullshit like this that led to the incredible complexity of the [`Boolean` concept](http://eel.is/c++draft/concept.boolean). But rather than rely on every library author to get this right, maybe we can lean on the language to help you out. Explicitly using the concept pseudosignature objects ensures that the code we are writing is doing the thing that we thing it is doing because we're ensuring, by construction, that it adheres to the interface. Let's make all the paranoiac casting a thing of the past.
+It's bullshit like this that led to the incredible complexity of the [`Boolean` concept](http://eel.is/c++draft/concept.boolean). But rather than rely on every library author to get this right, maybe we can lean on the language to help you out. Explicitly using the concept pseudo-signature objects ensures that the code we are writing is doing the thing that we thing it is doing because we're ensuring, by construction, that it adheres to the interface. Let's make all the paranoiac casting a thing of the past.
 
 ### `f(x)`{:.language-cpp}
 
 In C++20, the [`Invocable`](http://eel.is/c++draft/concept.invocable) concept is specified as:
 
 ```cpp
-template<class F, class... Args>
+template<typename F, typename... Args>
   concept Invocable = requires(F&& f, Args&&... args) {
     invoke(std::forward<F>(f), std::forward<Args>(args)...);
   };
@@ -389,7 +389,7 @@ template<class F, class... Args>
 As mentioned earlier, this tells me _if_ I can invoke something but not what I get out of it. As a result, any closely-related `concept`{:.language-cpp}s have to just know about its related type traits (effectively, instead of directly associated types we have well-known associated type traits?). For instance, a [`Predicate`{:.language-cpp}](http://eel.is/c++draft/concept.predicate) is an `Invocable`{:.language-cpp} that returns `bool`{:.language-cpp}:
 
 ```cpp
-template<class F, class... Args>
+template<typename F, typename... Args>
   concept Predicate = RegularInvocable<F, Args...> &&
     Boolean<invoke_result_t<F, Args...>>;
 ```
@@ -411,7 +411,7 @@ Now, this definition isn't quite complete - it is not currently satisfied by poi
 The advantage to this declaration, so far, is that we can write:
 
 ```cpp
-template<class F, class... Args>
+template<typename F, typename... Args>
   concept Predicate2 = RegularInvocable<F, Args...> &&
     Boolean<Invocable2<F, Args...>::result_type>;
 ```
@@ -536,7 +536,7 @@ Wow is that pleasant to read!
 Now, let's go back to `Predicate` and type coercion. We want a few things:
 
 1. a `Predicate<F, Args...>`{:.language-cpp} is an `Invocable<F, Args...>`{:.language-cpp}
-2. its `result_type` is convertible to `bool`{.language-cpp} (not `Boolean`, `bool`{:.language-cpp})
+2. its `result_type` is convertible to `bool`{:.language-cpp} (not `Boolean`, `bool`{:.language-cpp})
 3. when I use it, I don't want to think about types like the `Evil` I showed earlier - really just mean `bool`{:.language-cpp}
 
 And we can do that like so:
@@ -582,7 +582,7 @@ The above will meet the constraints (it's a callable that as an lvalue is invoca
 ```cpp
 LvaluePredicate<_F, int>::operator()(f, 42)
 ```
-which after determining which way `_F`{:.language-cpp} satisfies the constraint, will do full coercion by way of evaluting as:
+which after determining which way `_F`{:.language-cpp} satisfies the constraint, will do full coercion by way of evaluating as:
 ```cpp
 // except and implicit cast to bool, but there's no syntax
 // for that sort of thing
@@ -598,7 +598,7 @@ and not
 ```
 The former is what the author of `check42()`{:.language-cpp} surely expected to happen. The latter fails to compile because `void`{:.language-cpp} isn't convertible to `bool`{:.language-cpp} and is the kind of thing that drives librarians nuts.
 
-Quick footnote: of course, for `fmap()`{.language-cpp} and `bind()`{.language-cpp} we have to go back and account for the fact that if a function returns a const or reference type before sticking it in a vector. That's going to be such a common thing to happen that I figure it's worth either coming up with a syntax for it either on the left hand side like `..result_type ~= U`{:.language-cpp} (meaning a `result_type` that decays to `U`) or the right hand side like `..result_type ~= U auto&&`{:.language-cpp} (which would be based on a separate language feature Michael Park and I are thinking about).
+Quick footnote: of course, for `fmap()`{:.language-cpp} and `bind()`{:.language-cpp} we have to go back and account for the fact that if a function returns a const or reference type before sticking it in a vector. That's going to be such a common thing to happen that I figure it's worth either coming up with a syntax for it either on the left hand side like `..result_type ~= U`{:.language-cpp} (meaning a `result_type` that decays to `U`) or the right hand side like `..result_type ~= U auto&&`{:.language-cpp} (which would be based on a separate language feature Michael Park and I are thinking about).
 
 ### Ranges and things
 
@@ -648,7 +648,7 @@ Realistically, most people would use `auto`{:.language-cpp} there anyway but it'
 The more interesting usage here for me is to talk about the adapters. The adapters in Ranges are driven in large part off of the concept [`ViewableRange`](http://eel.is/c++draft/range.refinements):
 
 ```cpp
-template<class T>
+template<typename T>
   concept ViewableRange =
     Range<T> && (forwarding-range<T> || View<decay_t<T>>);
 ```
@@ -707,7 +707,7 @@ explicit concept ViewableRange
     
     // these are NOT virtual - they are neither checked to ensure
     // that a type satisfies ViewableRange, nor can they be
-    // overriden. They are provided as associated functions so
+    // overridden. They are provided as associated functions so
     // they can be used with convenient syntax
     View auto filter(T&& rng, Predicate<reference> auto&& pred) {
         // explicitly satisfy View here
@@ -833,7 +833,7 @@ concept TupleLike<std::tuple<Ts...>> {
 
 ### Type erasure
 
-Yet another advantage of the pseudo-signature approach is how well it can interract with reflection. It should be quite possible to take our first concept:
+Yet another advantage of the pseudo-signature approach is how well it can interact with reflection. It should be quite possible to take our first concept:
 
 ```cpp
 template <typename T>
@@ -850,7 +850,7 @@ struct Drawable_erased {
 };
 ```
 
-... andd that struct can be constructed from anything that matches the concept:
+... and that struct can be constructed from anything that matches the concept:
 
 ```cpp
 template <Drawable T>
