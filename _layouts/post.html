@@ -54,19 +54,37 @@ layout: default
 
       <!-- Prev and Next Posts -->
       <div class="PageNavigation">
-        {% if page.previous.url %}
-          {% unless page.previous.pubdraft %}
-          {% if page.previous.medium_link %}
-          <a class="prev" href="{{page.previous.medium_link}}?source=brevzin.github.io">&laquo; <i class="fa fa-medium"></i> {{page.previous.title}}</a>
-          {% else %}
-          <a class="prev" href="{{page.previous.url}}">&laquo; {{page.previous.title}}</a>
-          {% endif %}
+        {% assign prev = page.previous %}
+        {% for counter in (0..9) %}
+          {% unless prev.url %}
+            {% break %}
           {% endunless %}
+          {% unless prev.pubdraft %}
+            {% break %}
+          {% endunless %}
+          {% assign prev = prev.previous %}
+        {% endfor %}
+
+        {% assign next = page.next %}
+        {% for counter in (0..9) %}
+          {% unless next.url %}
+            {% break %}
+          {% endunless %}
+          {% unless next.pubdraft %}
+            {% break %}
+          {% endunless %}
+          {% assign next = next.next %}
+        {% endfor %}
+
+        {% if prev.url %}
+          {% if prev.medium_link %}
+          <a class="prev" href="{{prev.medium_link}}?source=brevzin.github.io">&laquo; <i class="fa fa-medium"></i> {{prev.title}}</a>
+          {% else %}
+          <a class="prev" href="{{prev.url}}">&laquo; {{prev.title}}</a>
+          {% endif %}
         {% endif %}
-        {% if page.next.url %}
-        {% unless page.next.pubdraft %}
-            <a class="next" href="{{page.next.url}}">{{page.next.title}} &raquo;</a>
-        {% endunless %}
+        {% if next.url %}
+            <a class="next" href="{{next.url}}">{{next.title}} &raquo;</a>
         {% endif %}
       </div>
 
@@ -170,23 +188,19 @@ layout: default
         {% endfor %}
         <hr />
         <div class="previous previous-next">
-          {% if page.previous %}
-          {% unless page.previous.pubdraft %}
+          {% if prev.url %}
           <p>
-            <a href="{{ site.baseurl }}{{ page.previous.url }}">{{ page.previous.title }}</a>
+            <a href="{{ site.baseurl }}{{ prev.url }}">{{ prev.title }}</a>
           </p>
-          <p class="date">Published {{ page.previous.date | date: "%B %-d, %Y" }}</p>
-          {% endunless %}
+          <p class="date">Published {{ prev.date | date: "%B %-d, %Y" }}</p>
           {% endif %}
         </div>
         <div class="next previous-next">
-          {% if page.next %}
-          {% unless page.next.pubdraft %}
+          {% if next.url %}
           <p>
-            <a href="{{ site.baseurl }}{{ page.next.url }}">{{ page.next.title }}</a>
+            <a href="{{ site.baseurl }}{{ next.url }}">{{ next.title }}</a>
           </p>
-          <p class="date">Published {{ page.next.date | date: "%B %-d, %Y" }}</p>
-          {% endunless %}
+          <p class="date">Published {{ next.date | date: "%B %-d, %Y" }}</p>
           {% endif %}
         </div>
       </div>

@@ -5,11 +5,10 @@ category: c++
 tags:
  - c++
  - concepts
-series: concepts-2
 pubdraft: yes
 --- 
 
-(This post is superceded by the next one. Drafts on drafts on drafts).
+(This post is superceded by the [next one]({% post_url 2019-04-29-concepts-heavy-2 %}). Drafts on drafts on drafts).
 
 The previous post described the several ways we have today of writing customizable interfaces: polymorphism with `virtual`{:.language-cpp} functions, class template specialization, CRTP, and "well-known" member or non-member functions. They each have their advantages and disadvantages. And really, sometimes simple polymorphism is very much the best solution. But there's a hole in our design space that suggests that we need something more. 
 

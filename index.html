@@ -28,7 +28,8 @@ make-smaller-titles: false
               <h2>Latest Articles</h2>
 
               <ul>
-                  {% for post in site.posts limit: site.post_limit %}
+                  {% assign i = 0 %}
+                  {% for post in site.posts %}
                   {% unless post.pubdraft %}
 
                       <li>
@@ -40,6 +41,10 @@ make-smaller-titles: false
                           <br/><small class="hidden-xs">{{ post.date | date: "%B %-d, %Y" }}</small>
                       </li>
 
+                      {% assign i = i | plus:1 %}
+                      {% if i == site.post_limit %}
+                        {% break %}
+                      {% endif %}
                   {% endunless %}
                   {% endfor %}
                   <li>
