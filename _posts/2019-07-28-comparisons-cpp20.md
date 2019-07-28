@@ -30,7 +30,8 @@ We have a new operator, `<=>`{:.language-cpp}, but more importantly we have a ta
 rows get a different set of abilities.
 
 The primary operators have the ability to be **reversed**. The secondary operators
-have the ability to be **rewritten** in terms of their corresponding primary operator.
+have the ability to be **rewritten** in terms of their corresponding primary operator. This means that you can usually write 1 or 2 operators and you'd get
+the behavior of today writing 2, 4, 6, or even 12 operators by hand.
 
 Both primary and secondary operators can be **defaulted**. For the primary operators,
 this means applying that operator to each member in declaration order. For the
@@ -38,7 +39,101 @@ secondary operators, this means applying the rewrite rule.
 
 Importantly, there is no language transformation which rewrites one kind of
 operator (i.e. Equality or Ordering) in terms of a different kind of operator.
-The columns are strictly separate. 
+The columns are strictly separate.
+
+Here is a quick before-and-after writing a case-insensitive string type, `CIString`,
+that is both comparable with itself and with `char const*`{:.language-cpp}.
+
+In C++17, this requires 18 comparison functions:
+
+```cpp
+class CIString {
+  string s;
+
+public:
+  friend bool operator==(const CIString& a, const CIString& b) {
+    return a.s.size() == b.s.size() &&
+      ci_compare(a.s.c_str(), b.s.c_str()) == 0;
+  }
+  friend bool operator< (const CIString& a, const CIString& b) {
+    return ci_compare(a.s.c_str(), b.s.c_str()) <  0;
+  }
+  friend bool operator!=(const CIString& a, const CIString& b) {
+    return !(a == b);
+  }
+  friend bool operator> (const CIString& a, const CIString& b) {
+    return b < a;
+  }
+  friend bool operator>=(const CIString& a, const CIString& b) {
+    return !(a < b);
+  }
+  friend bool operator<=(const CIString& a, const CIString& b) {
+    return !(b < a);
+  }
+
+  friend bool operator==(const CIString& a, const char* b) {
+    return ci_compare(a.s.c_str(), b) == 0;
+  }
+  friend bool operator< (const CIString& a, const char* b) {
+    return ci_compare(a.s.c_str(), b) <  0;
+  }
+  friend bool operator!=(const CIString& a, const char* b) {
+    return !(a == b);
+  }
+  friend bool operator> (const CIString& a, const char* b) {
+    return b < a;
+  }
+  friend bool operator>=(const CIString& a, const char* b) {
+    return !(a < b);
+  }
+  friend bool operator<=(const CIString& a, const char* b) {
+    return !(b < a);
+  }
+
+  friend bool operator==(const char* a, const CIString& b) {
+    return ci_compare(a, b.s.c_str()) == 0;
+  }
+  friend bool operator< (const char* a, const CIString& b) {
+    return ci_compare(a, b.s.c_str()) <  0;
+  }
+  friend bool operator!=(const char* a, const CIString& b) {
+    return !(a == b);
+  }
+  friend bool operator> (const char* a, const CIString& b) {
+    return b < a;
+  }
+  friend bool operator>=(const char* a, const CIString& b) {
+    return !(a < b);
+  }
+  friend bool operator<=(const char* a, const CIString& b) {
+    return !(b < a);
+  }
+};
+```
+
+In C++20, this requires only 4:
+
+```cpp
+class CIString {
+  string s;
+
+public:
+  bool operator==(const CIString& b) const {
+    return s.size() == b.s.size() &&
+      ci_compare(s.c_str(), b.s.c_str()) == 0;
+  }
+  std::weak_ordering operator<=>(const CIString& b) const {
+    return ci_compare(s.c_str(), b.s.c_str()) <=> 0;
+  }
+
+  bool operator==(char const* b) const {
+    return ci_compare(s.c_str(), b) == 0;
+  }
+  std::weak_ordering operator<=>(const char* b) const {
+    return ci_compare(s.c_str(), b) <=> 0;
+  }
+};
+```
 
 I'll describe what all of this means in detail. But first, let's take a step
 back and see what comparisons looked like before C++20.
@@ -49,7 +144,8 @@ Comparisons have been pretty much unchanged since the inception of the language.
 We had six operators: `==`{:.language-cpp}, `!=`{:.language-cpp}, `<`{:.language-cpp},
 `>`{:.language-cpp}, `<=`{:.language-cpp}, and `>=`{:.language-cpp}. The language
 defines what these all mean for the built-in types, but beyond that they all have
-the same rules. Any `a @ b`{:.language-cpp} will lookup member functions, non-member
+the same rules. Any `a @ b`{:.language-cpp} (where `@` refers to one of the six
+comparison operators) will lookup member functions, non-member
 functions, and built-in candidates named `operator@`{:.language-cpp} that can be
 called with an `A` and a `B` in that order. Best candidate is selected. That's it.
 In fact, _all_ the operators had the same rules -- there was no difference
@@ -97,7 +193,11 @@ are all `false`{:.language-cpp}. So `1.f <= NaN`{:.language-cpp} is also `false`
 
 The only way to generally implement `<=`{:.language-cpp} in terms of the primitive
 operators is to write out `(a == b) || (a < b)`{:.language-cpp}, which is going
-to be a significant pessimization in the case where we _do_ have a total order.
+to be a significant pessimization in the case where we _do_ have a total order
+because we're calling two functions and not just one (e.g. consider rewriting
+`"abc..xyz9" <= "abc..xyz1"`{:.language-cpp}
+to `("abc..xyz9" == "abc..xyz1") || ("abc..xyz9" < "abc..xyz1")`{:.language-cpp},
+which requires comparing the whole string twice).
 
 The second problem with `<`{:.language-cpp} as a primitive is how you can use it
 to build up lexicographical comparisons. A fairly common error is to
@@ -135,13 +235,27 @@ bool operator< (A const& rhs) const {
 }
 ```
 
-To summarize:
+Lastly, in order to ensure that heterogeneous comparison works -- to ensure that
+`a == 10`{:.language-cpp} and `10 == a`{:.language-cpp} mean the same thing --
+it is typically recommended to write comparisons as non-member functions. Which
+is really the only way to even implement heterogeneous comparison. This is
+inconvenient both because you have to remember to do it and also because you
+typically have to then make them hidden `friend`{:.language-cpp}s in order to
+make it more convenient to actually implement (i.e. within the body of the class).
+
+Note that supporting heterogeneous comparison doesn't necessarily mean writing
+operators of the form `operator==(X, int)`{:.language-cpp}, it could also mean
+supporting the case where `int`{:.language-cpp} is implicitly convertible to `X`.
+
+To summarize the pre-C++20 rules:
 
 - All the operators are treated equally.
 - We rely on idioms to simplify the implementation burden. We name `==`{:.language-cpp}
 and `<`{:.language-cpp} as the idiomatic primitives and try to define the other
 relational operators in terms of those two.
 - Except that `<`{:.language-cpp} makes a bad primitive.
+- It's important (and recommended practice) to write comparisons as non-member
+functions to support heterogeneous comparison.
 
 ### A new ordering primitive: `<=>`{:.language-cpp}
 
@@ -163,8 +277,10 @@ comparison. There are three important categories to be aware of:
 (that is `(a <=> b) == strong_ordering::equal`{:.language-cpp} implies that
 for reasonable functions `f`, `f(a) == f(b)`{:.language-cpp}. "Reasonable" is
 deliberately underspecified -- but shouldn't include functions that return the
-address of their arguments or do things like return the `capacity()` of a `vector`,
-etc. We want to only look at "salient" properties -- itself very underspecified).
+address of their arguments or do things like return the `capacity()`{:.language-cpp}
+of a `vector`, etc. We want to only look at "salient" properties --
+itself very underspecified, but think of it as referring to the _value_ of a type.
+The value of a `vector` is the elements it contains, not its address, etc.).
 The values are `strong_ordering::greater`{:.language-cpp},
 `strong_ordering::equal`{:.language-cpp}, and `strong_ordering::less`{:.language-cpp}.
 - `weak_ordering`: a total ordering, where equality actually only defines
@@ -221,7 +337,7 @@ even in the case of partial orders. If the two values are unordered, then
 `a <=> b`{:.language-cpp} will be `partial_ordered::unordered`{:.language-cpp}
 and `partial_ordered::unordered <= 0`{:.language-cpp} is `false`{:.language-cpp}
 as desired. This can work because `<=>`{:.language-cpp} can return more kinds of
-values -- for `partial_ordering`, we get four possible return types. A
+values -- for `partial_ordering`, we get four possible values. A
 `bool`{:.language-cpp} can only ever be `true`{:.language-cpp} or `false`{:.language-cpp}
 so we can't differentiate between the ordered an unordered cases.
 
