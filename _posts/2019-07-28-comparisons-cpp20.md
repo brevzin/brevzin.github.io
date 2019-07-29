@@ -753,7 +753,7 @@ in one go. The `c != 0`{:.language-cpp} checks stop us from proceeding once we
 find some unequal pair -- and whichever way they're unequal (whether `less` or
 `greater`) is the ultimate result of the comparison.
 
-Ultimately, just doing the _default_ member-wise lexicographical
+Ultimately, we're just doing the _default_ member-wise lexicographical
 comparison. And in C++20, we can just tell the compiler that's what we want:
 
 ```cpp
