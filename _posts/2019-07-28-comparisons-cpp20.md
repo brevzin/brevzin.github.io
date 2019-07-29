@@ -286,7 +286,7 @@ The values are `strong_ordering::greater`{:.language-cpp},
 - `weak_ordering`: a total ordering, where equality actually only defines
 an equivalence class. The canonical example here is case-insensitive string
 comparison -- where two objects might be `weak_ordering::equivalent`{:.language-cpp}
-but not actually equal (hence the naming chance to `equivalent`).
+but not actually equal (hence the naming change to `equivalent`).
 - `partial_ordering`: a partial ordering. Here, in addition to the values
 `greater`, `equivalent`, and `less` (as with `weak_ordering`), we also get a
 new value: `unordered`. This gives us a way to represent partial orders in the
