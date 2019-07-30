@@ -38,10 +38,11 @@ have the ability to be [**rewritten**](#rewriting-secondary-operators) in terms
 of their corresponding primary operator. 
 Neither the
 reversed nor rewritten candidates lead to the generation of new functions, both
-are simply source-level rewrites (e.g. `a < 9`{:.language-cpp} might evaluate
-as `operator<(a, 9)`{:.language-cpp} or it might evaluate as
-`a.operator<=>(9) < 0`{:.language-cpp})
-that come from an [enhanced candidate set](#specific-lookup-rules).
+are simply source-level rewrites 
+that come from an [**enhanced candidate set**](#specific-lookup-rules).
+For example, `a < 9`{:.language-cpp} might now evaluate
+as `a.operator<=>(9) < 0`{:.language-cpp} and `10 != b`{:.language-cpp} might
+now evaluate as `!operator==(b, 10)`{:.language-cpp}.
 This means that you can usually write 1
 or 2 operators and you'd get
 the behavior of today writing 2, 4, 6, or even 12 operators by hand. 
