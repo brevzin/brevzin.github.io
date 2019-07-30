@@ -29,7 +29,7 @@ If you take away nothing else from this post, remember this table:
 We have a new operator, `<=>`{:.language-cpp}, but more importantly we have a taxonomy. We have primary operators and we have secondary operators -- the two different
 rows get a different set of abilities.
 
-These abilities will be summarized briefly
+These abilities will be introduced briefly
 here and then will be described in more depth in subsequent sections.
 
 The primary operators have the ability to be [**reversed**](#reversing-primary-operators).
@@ -45,7 +45,9 @@ as `a.operator<=>(9) < 0`{:.language-cpp} and `10 != b`{:.language-cpp} might
 now evaluate as `!operator==(b, 10)`{:.language-cpp}.
 This means that you can usually write 1
 or 2 operators and you'd get
-the behavior of today writing 2, 4, 6, or even 12 operators by hand. 
+the behavior of today writing 2, 4, 6, or even 12 operators by hand. The rules
+are [summarized](#summary-of-rules) later, with a complete table of all the
+rewrites that can take place.
 
 Both primary and secondary operators can be [**defaulted**](#defaulting-comparisons).
 For the primary operators,
@@ -693,6 +695,25 @@ is invalid, the program is ill-formed.
 
 If you follow the **PRIMARY-ONLY** guideline going forward, you pretty much
 never even have to think about it. All the comparisons will work.
+
+For further clarity, here is a table of all the source-level transformations that
+can be made. In each case, the first column is preferred to the second is preferred
+to the third (all else being equal). Note that only the primary operators appear
+in the second and third columns:
+
+|Source|Alt 1|Alt 2|
+|------|-----|-----|
+|`a == b`{:.language-cpp}|`b == a`{:.language-cpp}||
+|`a != b`{:.language-cpp}|`!(a == b)`{:.language-cpp}|`!(b == a)`{:.language-cpp}|
+|`a <=> b`{:.language-cpp}|`0 <=> (b <=> a)`{:.language-cpp}||
+|`a < b`{:.language-cpp}|`(a <=> b) < 0`{:.language-cpp}|`(b <=> a) > 0`{:.language-cpp}|
+|`a <= b`{:.language-cpp}|`(a <=> b) <= 0`{:.language-cpp}|`(b <=> a) >= 0`{:.language-cpp}|
+|`a > b`{:.language-cpp}|`(a <=> b) > 0`{:.language-cpp}|`(b <=> a) < 0`{:.language-cpp}|
+|`a >= b`{:.language-cpp}|`(a <=> b) >= 0`{:.language-cpp}|`(b <=> a) <= 0`{:.language-cpp}|
+
+The spaceship rewrites on the right-most column are typically written using the
+same initial operator - `a < b`{:.language-cpp} as `0 < (b <=> a)`{:.language-cpp},
+I just flipped them to better illustrate the sign flip on the comparison.
 
 #### **Defaulting comparisons**
 
