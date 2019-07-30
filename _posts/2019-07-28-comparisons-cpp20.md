@@ -712,7 +712,7 @@ in the second and third columns:
 |`a >= b`{:.language-cpp}|`(a <=> b) >= 0`{:.language-cpp}|`(b <=> a) <= 0`{:.language-cpp}|
 
 The spaceship rewrites on the right-most column are typically written using the
-same initial operator - `a < b`{:.language-cpp} as `0 < (b <=> a)`{:.language-cpp},
+same initial operator - `a < b`{:.language-cpp} as `0 < (b <=> a)`{:.language-cpp} -
 I just flipped them to better illustrate the sign flip on the comparison.
 
 #### **Defaulting comparisons**
