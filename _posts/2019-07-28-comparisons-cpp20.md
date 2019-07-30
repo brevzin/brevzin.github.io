@@ -29,17 +29,35 @@ If you take away nothing else from this post, remember this table:
 We have a new operator, `<=>`{:.language-cpp}, but more importantly we have a taxonomy. We have primary operators and we have secondary operators -- the two different
 rows get a different set of abilities.
 
-The primary operators have the ability to be **reversed**. The secondary operators
-have the ability to be **rewritten** in terms of their corresponding primary operator. This means that you can usually write 1 or 2 operators and you'd get
-the behavior of today writing 2, 4, 6, or even 12 operators by hand.
+These abilities will be summarized briefly
+here and then will be described in more depth in subsequent sections.
 
-Both primary and secondary operators can be **defaulted**. For the primary operators,
+The primary operators have the ability to be [**reversed**](#reversing-primary-operators).
+The secondary operators
+have the ability to be [**rewritten**](#rewriting-secondary-operators) in terms
+of their corresponding primary operator. 
+Neither the
+reversed nor rewritten candidates lead to the generation of new functions, both
+are simply source-level rewrites (e.g. `a < 9`{:.language-cpp} might evaluate
+as `operator<(a, 9)`{:.language-cpp} or it might evaluate as
+`a.operator<=>(9) < 0`{:.language-cpp})
+that come from an [enhanced candidate set](#specific-lookup-rules).
+This means that you can usually write 1
+or 2 operators and you'd get
+the behavior of today writing 2, 4, 6, or even 12 operators by hand. 
+
+Both primary and secondary operators can be [**defaulted**](#defaulting-comparisons).
+For the primary operators,
 this means applying that operator to each member in declaration order. For the
 secondary operators, this means applying the rewrite rule. 
 
 Importantly, there is no language transformation which rewrites one kind of
 operator (i.e. Equality or Ordering) in terms of a different kind of operator.
-The columns are strictly separate.
+The columns are strictly separate. It is never the case that an expression
+`a == b`{:.language-cpp} evaluates as `operator<=>(a, b) == 0`{:.language-cpp}
+implicitly (though of course nothing stops you from defining your
+`operator==`{:.language-cpp} in terms of `operator<=>`{:.language-cpp} if you
+so choose).
 
 Here is a quick before-and-after writing a case-insensitive string type, `CIString`,
 that is both comparable with itself and with `char const*`{:.language-cpp}.
@@ -552,13 +570,15 @@ And likewise, `17 != a`{:.language-cpp} evaluates as `!a.operator==(17)`{:.langu
 by way of both rewriting and reversing.
 
 Similar transformations happen on the ordering side. If we wrote `a < 9`{:.language-cpp},
-we try to find an `operator<`{:.language-cpp} (and fail) and then consider
+we try to find an `operator<`{:.language-cpp} (and fail) and also consider
 rewritten primary candidates: `operator<=>`{:.language-cpp}s. The corresponding
-rewrite for the relational operators is that `a @ b`{:.language-cpp} gets evaluated
+rewrite for the relational operators is that `a @ b`{:.language-cpp}
+(for relational operators `@`) gets evaluated
 as `(a <=> b) @ 0`{:.language-cpp}. In this case, `a.operator<=>(9) < 0`{:.language-cpp}. Likewise, `9 <= a`{:.language-cpp} evaluates as `0 <= a.operator<=>(9)`{:.language-cpp}.
 
 Importantly, as with the reversed candidates, the compiler does not generate any
-new functions for the rewritten candidates. They are simply evaluated differently.
+new functions for the rewritten candidates. They are simply evaluated differently,
+source-level transformations only.
 
 This brings me to an important guideline:
 
