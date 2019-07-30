@@ -358,7 +358,7 @@ and `partial_ordered::unordered <= 0`{:.language-cpp} is `false`{:.language-cpp}
 as desired. This can work because `<=>`{:.language-cpp} can return more kinds of
 values -- for `partial_ordering`, we get four possible values. A
 `bool`{:.language-cpp} can only ever be `true`{:.language-cpp} or `false`{:.language-cpp}
-so we can't differentiate between the ordered an unordered cases.
+so we can't differentiate between the ordered and unordered cases.
 
 We can go through an example with a partial ordering that isn't floating-point
 based to make this more clear. Consider wanting to add a NaN state to `int`{:.language-cpp},
@@ -386,6 +386,7 @@ struct IntNan {
     // <=> over int returns strong_ordering, but this is
     // implicitly convertible to partial_ordering
     return *val <=> *rhs.val;
+  }
 };
 
 IntNan{2} <=> IntNan{4}; // partial_ordering::less
@@ -684,7 +685,7 @@ this section is the complete set of rules. There's no footnote here with more
 special cases or exceptions. Just keep in mind the high-level principles are:
 
 - Only primary operators are reversed
-- Only secondary operators are rewritten (in terms of their respectively primary)
+- Only secondary operators are rewritten (in terms of their respective primary)
 - Candidate lookup considers all the operators of that name and all the reversals
 and rewrites all in one go
 - If the best viable candidate is either rewritten or reversed, and the rewrite
