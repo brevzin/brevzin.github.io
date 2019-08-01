@@ -2,6 +2,7 @@
 layout: post
 title: "Concept template parameters"
 category: c++
+series: concept templates
 tags:
  - c++
  - c++20
