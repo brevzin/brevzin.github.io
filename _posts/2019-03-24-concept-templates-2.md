@@ -2,13 +2,14 @@
 layout: post
 title: "Concept template parameters 2"
 category: c++
+series: concept templates
 tags:
  - c++
  - c++20
  - concepts
 --- 
 
-A few months ago, I wrote a post with some [motivating examples]({% post_url 2019-01-09-concept-templates %}), and I just wanted to add some more to the list.
+A few months ago, I wrote a post with some motivating examples, and I just wanted to add some more to the list.
 
 ### `RangeOf`{:.language-cpp}
 
