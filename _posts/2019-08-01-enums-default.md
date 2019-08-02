@@ -150,7 +150,7 @@ On Twitter, [Rob Pilling](https://twitter.com/bobrippling/status/115703979480913
 pointed out to me that both gcc _and_ clang already have exactly the warning
 I was looking for: `-Wswitch-enum`. Thank you, Rob! From [gcc's docs](https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wswitch-enum):
 
-> Warn whenever a switch statement has an index of enumerated type and lacks a
+> Warn whenever a `switch`{:.language-cpp} statement has an index of enumerated type and lacks a
  `case`{:.language-cpp} for one or more of the named codes of that enumeration. `case`{:.language-cpp} labels outside the enumeration range also provoke warnings when this option is used. The only difference between `-Wswitch` and this option is that this option gives a warning about an omitted enumeration code even if there is a `default`{:.language-cpp} label. 
 
 ```cpp
