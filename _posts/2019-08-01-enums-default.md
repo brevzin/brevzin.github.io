@@ -143,3 +143,44 @@ void foo(lib::Color c) {
 
 This seems like the sort of thing that's worthwhile to try to implement in clang
 and see if people actually like it. Maybe I'll try to figure out how to do that.
+
+### The warning that exists!
+
+On Twitter, [Rob Pilling](https://twitter.com/bobrippling/status/1157039794809135109)
+pointed out to me that both gcc _and_ clang already have exactly the warning
+I was looking for: `-Wswitch-enum`. Thank you, Rob! From [gcc's docs](https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wswitch-enum):
+
+> Warn whenever a switch statement has an index of enumerated type and lacks a
+ `case`{:.language-cpp} for one or more of the named codes of that enumeration. `case`{:.language-cpp} labels outside the enumeration range also provoke warnings when this option is used. The only difference between `-Wswitch` and this option is that this option gives a warning about an omitted enumeration code even if there is a `default`{:.language-cpp} label. 
+
+```cpp
+enum class Color {
+    Red,
+    Green,
+    Blue
+};
+
+int incomplete_no_default(Color c) {
+    switch (c) { // warns under -Wswitch
+    case Color::Red: return 1;
+    case Color::Green: return 2;
+    }
+
+    return 7;
+}
+
+int incomplete_with_default(Color c) {
+    switch (c) { // warns under -Wswitch-enum
+    case Color::Red: return 1;
+    case Color::Green: return 2;
+    default: return 7;
+    }
+}
+```
+
+That's perfect. I have yet to try it out and see how it works on a larger code
+base. Since this is a global setting, and I'm sure I have at least a few
+`switch`{:.language-cpp}es that are not intended to be exhaustive -- that is, where
+`default`{:.language-cpp} is intended to cover many cases. I'm curious to see
+where the breakdown ends up being (that is, how many `#pragma`{:.language-cpp}'s
+will I need to write?).
