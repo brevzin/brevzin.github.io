@@ -71,6 +71,10 @@ pre[class*="language-"] {
 	color: #6196cc;
 }
 
+span.function span.hljs-function span.hljs-title {
+    color: #6196cc
+}
+
 .token.boolean,
 .token.number,
 .token.function {
