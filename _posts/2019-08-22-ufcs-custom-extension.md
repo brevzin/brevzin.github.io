@@ -146,6 +146,8 @@ Today's functional C++17 code looks just like the proposed UFCS code. We didn't 
 
 To be clear, I think the customization problem is a real problem. I think it very much merits a language solution. UFCS just isn't it.
 
+Note that none of the above example is specific to `begin` or `end` as customization points. Given any concept that invites opt-in functionality from types you do not control, if any fundamental type needs to be supported (e.g. `int`{:.language-cpp}) or any compound type built up from fundamental types needs to be supported (e.g. `int*`{:.language-cpp} or `int[10]`{:.language-cpp} or `int(*)(int)`{:.language-cpp} or ...), we will run into the same problem.
+
 ## Extension
 
 Conor Hoekstra gave a talk at CppNow about [Algorithm Intuition](https://www.youtube.com/watch?v=48gV1SNm3WA). It was a great talk, highly entertaining, good content. It very justifiably won all the awards. Go watch it.
@@ -295,34 +297,33 @@ Here's my question.
 
 UFCS set out to solve two problems: customization (let the user define `foo` as either a member function or a non-member function, let the generic code not have to care) and extension (let the user call known non-member functions with member syntax). The customization problem means needing to call member functions, which surely implies using member syntax. But as I've demonstrated, UFCS isn't really sufficient to solve that problem anyway. And for the extension problem, if I know which function I'm calling, am I forced to use the same syntax? Why am I explicitly using member function syntax to call a non-member function? The same syntax which killed UFCS to begin with? 
 
-Elixir, F#, and Julia all have an operator spelled `|>`{:.language-cpp} (and there's an outstanding proposal to add the same in JavaScript). The operator does slightly different things in the three languages (naturally) but it's generally a way to split a function call:
+Elixir, F#, Hack, Julia, and OCaml all have an operator spelled `|>`{:.language-cpp} (and there's an outstanding proposal to add the same in JavaScript). The operator does slightly different things in the three languages (naturally) but it's generally a way to split a function call. Instead of putting the function on the left and all the arguments on the right, the operator is a way to put an argument on the left on the function on the right.
 
+In F#, Julia, and OCaml, the operator is evaluated as just calling the right hand side with the left hand side. That is, `x |> f`{:.language-cpp} evaluates as `f(x)`{:.language-cpp} and `x |> f(y)`{:.language-cpp} evaluates as `f(y)(x)`{:.language-cpp}. If we had the ability to write such a binary operator (as proposed in [P1282](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1282r0.html)), we could implement this in C++:
 
-<table>
-<tr>
-<th>Syntax</th>
-<th>Elixir Meaning</th>
-<th>F# Meaning</th>
-</tr>
-<tr>
-<td markdown="span">`x |> f`{:.language-cpp}</td>
-<td markdown="span">`f(x)`{:.language-cpp}</td>
-<td markdown="span">`f(x)`{:.language-cpp}</td>
-</tr>
-<tr>
-<td markdown="span">`x |> f(y)`{:.language-cpp}</td>
-<td markdown="span">`f(x, y)`{:.language-cpp}</td>
-<td markdown="span">`f(y)(x)`{:.language-cpp}</td>
-</tr>
-</table>
+```cpp
+template <typename Arg, std::invocable<Arg> F>
+auto operator|>(Arg&& a, F&& f) -> std::invoke_result_t<F, Arg>
+{
+    return std::invoke(std::forward<F>(f), std::forward<Arg>(a));
+}
+```
 
-The F# meaning is just calling the thing on the right with the thing on the left. That meaning doesn't seem helpful for the purposes of extension. It has the same problem that the range adapters have - you need to write out a partial call that has to return some object that is invocable. Technically, it _is_ easier - instead of returning an object that is left-pipeable, we would be able to return an object that is just invocable (e.g. a lambda).
+This meaning doesn't seem helpful for the purposes of extension. It has the same problem that the range adapters have - you need to write out a partial call that has to return some object that is invocable. Technically, it _is_ easier - instead of returning an object that is left-pipeable, we would be able to return an object that is just invocable (e.g. a lambda).
 
-But the Elixir meaning is far more interesting - it's actually split invocation. What if we went that route? That is, define `x |> f`{:.language-cpp} to mean `f(x)`{:.language-cpp} and `x |> f(args...)`{:.language-cpp} to mean `f(x, args...)`{:.language-cpp}.
+Elixir's version of `|>`{:.language-cpp} is a little different. The right-hand side isn't completely evaluated, rather the left-hand argument is inserted into the argument list. That is, `x |> f`{:.language-cpp} still evaluates as `f(x)`{:.language-cpp} as before... but `x |> f(y)`{:.language-cpp} evaluates as `f(x, y)`{:.language-cpp}. Importantly, this is not a new operator - this latter example does not separately evaluate `f(y)`{:.language-cpp}, it _only_ evaluates `f(x, y)`{:.language-cpp}. In the same way that `x.f(y)`{:.language-cpp} today does not mean `operator.(x, f(y))`{:.language-cpp}.
 
-Importantly, this would _not_ be a new overloadable binary operator that gets invoked ([P1282](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1282r0.html) proposed a binary operator, such that `x |> f`{:.language-cpp} would evaluate as `operator|>(x, f)`{:.language-cpp} - this is not that). In the same way that `x.f(y)`{:.language-cpp} today does not mean `operator.(x, f(y))`{:.language-cpp}, `x|>f(y)`{:.language-cpp} would not require evaluating `f(y)`{:.language-cpp}.
+Now, Hack's meaning of `|>`{:.language-cpp} is more in like with Elixir's, just more explicit and more generalized. Rather than the F#/Julia/OCaml route of just invoking the right-hand side with the left-hand side, we do use the left-hand side as an argument into the right-hand function. Except that unlike Elixir, this argument both has to be explicit and does not have to be the first argument. Hack uses `$$`{:.language-cpp} to denote that mandatory placeholder:
 
-That would directly allow for:
+```cpp
+$x = vec[2,1,3]
+  |> Vec\map($$, $a ==> $a * $a)
+  |> Vec\sort($$);
+```
+
+Where in Elixir, we would write `x |> f(y)`{:.language-cpp}, in Hask we would have to write `x |> f($$, y)`{:.language-cpp}, both of which evaluate directly as `f(x, y)`{:.language-cpp}. But Hask also would allow the writing of `x |> f(y, $$)`{:.language-cpp}, which means `f(y, x)`{:.language-cpp}. More explicit, yet more flexible.
+
+Let's consider Elixir's approach for the extension problem. This meaning would directly allow for:
 
 ```cpp
 auto dangerous_teams(std::string const& s) -> bool {
@@ -339,4 +340,4 @@ It would not require library authors to painstakingly write their adapters and a
 
 All at the cost of just having a new token that every parser would have to handle and a new kind of call syntax.
 
-And the inevitable war between `west(invocable)`{:.language-cpp} vs <code style="background:#2d2d29;color:#ffffff">invocable <span class="token operator">|></span> <span class="token function-name">east</span></code>. 
+And the inevitable war between `west(invocable)`{:.language-cpp} vs <code style="background:#2d2d29;color:#ffffff">invocable <span class="token operator">|></span> <span class="token function">east</span></code>. 
