@@ -122,12 +122,16 @@ namespace std {
     template <typename T, size_t N>
     auto begin(T (&arr)[N]) -> T* { return arr; }
     template <typename C>
-    auto begin(C& c) -> decltype(c.begin()) { return c.begin(); }
+    auto begin(C& c) -> decltype(c.begin()) {
+        return c.begin();
+    }
     
     template <typename T, size_t N>
     auto end(T (&arr)[N]) -> T* { return arr+N; }
     template <typename C>
-    auto end(C& c) -> decltype(c.end()) { return c.end(); }    
+    auto end(C& c) -> decltype(c.end()) {
+        return c.end();
+    }
 }
 
 template <typename Range, typename Value>
@@ -158,7 +162,8 @@ One of the algorithm problems Conor presented (at around 1h09m mark) was: given 
 auto dangerous_team(std::string const& s) -> bool {
     auto max_players = 1, curr_players = 1;
     for (int i = 1; i < s.size(); ++i) {
-        curr_players = s[i] == s[i - 1] ? curr_players + 1 : 1;
+        curr_players = s[i] == s[i-1] ? curr_players + 1
+                                      : 1;
         max_players = std::max(max_players, curr_players);
     }
     return max_players >= 7;
@@ -303,9 +308,11 @@ In F#, Julia, and OCaml, the operator is evaluated as just calling the right han
 
 ```cpp
 template <typename Arg, std::invocable<Arg> F>
-auto operator|>(Arg&& a, F&& f) -> std::invoke_result_t<F, Arg>
+auto operator|>(Arg&& a, F&& f)
+    -> std::invoke_result_t<F, Arg>
 {
-    return std::invoke(std::forward<F>(f), std::forward<Arg>(a));
+    return std::invoke(std::forward<F>(f),
+        std::forward<Arg>(a));
 }
 ```
 
