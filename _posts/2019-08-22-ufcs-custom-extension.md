@@ -340,4 +340,4 @@ It would not require library authors to painstakingly write their adapters and a
 
 All at the cost of just having a new token that every parser would have to handle and a new kind of call syntax.
 
-And the inevitable war between `west(invocable)`{:.language-cpp} vs <code style="background:#2d2d29;color:#ffffff">invocable <span class="token operator">|></span> <span class="token function">east</span></code>. 
+And the inevitable war between `west(invocable)`{:.language-cpp} and <code style="background:#2d2d29;color:#ffffff">invocable <span class="token operator">|></span> <span class="token function">east</span></code>.
