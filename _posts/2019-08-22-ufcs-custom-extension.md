@@ -313,7 +313,7 @@ This meaning doesn't seem helpful for the purposes of extension. It has the same
 
 Elixir's version of `|>`{:.language-cpp} is a little different. The right-hand side isn't completely evaluated, rather the left-hand argument is inserted into the argument list. That is, `x |> f`{:.language-cpp} still evaluates as `f(x)`{:.language-cpp} as before... but `x |> f(y)`{:.language-cpp} evaluates as `f(x, y)`{:.language-cpp}. Importantly, this is not a new operator - this latter example does not separately evaluate `f(y)`{:.language-cpp}, it _only_ evaluates `f(x, y)`{:.language-cpp}. In the same way that `x.f(y)`{:.language-cpp} today does not mean `operator.(x, f(y))`{:.language-cpp}.
 
-Now, Hack's meaning of `|>`{:.language-cpp} is more in like with Elixir's, just more explicit and more generalized. Rather than the F#/Julia/OCaml route of just invoking the right-hand side with the left-hand side, we do use the left-hand side as an argument into the right-hand function. Except that unlike Elixir, this argument both has to be explicit and does not have to be the first argument. Hack uses `$$`{:.language-cpp} to denote that mandatory placeholder:
+Now, Hack's meaning of `|>`{:.language-cpp} is more in line with Elixir's, just more explicit and more generalized. Rather than the F#/Julia/OCaml route of just invoking the right-hand side with the left-hand side, we do use the left-hand side as an argument into the right-hand function. Except that unlike Elixir, this argument both has to be explicit and does not have to be the first argument. Hack uses `$$`{:.language-cpp} to denote that mandatory placeholder:
 
 ```cpp
 $x = vec[2,1,3]
