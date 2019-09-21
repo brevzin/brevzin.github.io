@@ -232,6 +232,24 @@ void bar(int i) {
 
 Reads pretty nice, right?
 
+A similar such use-case would be in writing concept _definitions_. For instance, the customization point object `std::ranges::begin`{:.language-cpp} checks for a `begin` whose type decays to an `Iterator`. Today you have to decay the left-hand side:
+
+```cpp
+template <typename T>
+concept member_begin = requires (T& t) {
+    { decay_copy(t.begin()) } -> Iterator;
+}
+```
+
+but maybe you could write it on the right-hand side instead. That is, where the concept actually belongs:
+
+```cpp
+template <typename T>
+concept member_begin = requires (T& t) {
+    { t.begin() } -> DecaysTo<Iterator>;
+}
+```
+
 There are a lot of these one-line metaconcepts that could come in handy. `RefersTo<C>`{:.language-cpp}, `IteratorTo<C>`{:.language-cpp}, `RangeOver<C>`{:.language-cpp}, and so forth. I'd rather write a one-line definition per metaconcept, not a one-line definition per metaconcept instantiation.
 
 ### Other motivating examples
@@ -243,19 +261,13 @@ Of course, there is at least one pretty great motivating use case for having con
 ```cpp
 namespace std {
   template <typename Sig>
-  using function = basic_any<
-    concept_list<Copyable, Destructible, Invokable<Sig>>,
-    sbo_storage<24>>;
+  using function = basic_any<Invocable<Sig>, sbo_storage<24>>;
     
   template <typename Sig>
-  using function_ref = basic_any<
-    concept_list<Invokable<Sig>>,
-    non_owning_storage>;
+  using function_ref = basic_any<Invocable<Sig>, non_owning_storage>;
     
   template <typename Sig>
-  using mo_fun = basic_any<
-    concept_list<Movable, Destructible, Invokable<Sig>>,
-    non_owning_storage>;    
+  using any_invocable = basic_any<Invocable<Sig>, move_only_storage>;
 }
 ```
 
