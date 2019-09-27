@@ -119,11 +119,11 @@ namespace impl {
   // 1. outer lambda that constrains on lvalues
   inline constexpr auto fn =
     [](auto&& rng)
-        noexcept(noexcept(fn(rng)))
-        -> decltype(fn(rng))
+        noexcept(noexcept(base(rng)))
+        -> decltype(base(rng))
         requires std::is_lvalue_reference_v<decltype(rng)>
     {
-      return fn(rng);
+      return base(rng);
     };
 }
 
