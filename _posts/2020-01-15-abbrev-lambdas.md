@@ -5,7 +5,6 @@ category: c++
 tags:
   - c++
   - c++20
-pubdraft: yes
 ---
 
 In November, 2017, I presented my proposal for abbreviated lambdas
@@ -53,7 +52,7 @@ And going one step further and allowing omitting type names:
 Where the last lambda would mean precisely the same as the first example, just
 saving us having to type the two `auto&&`{:.language-cpp}s.
 
-Now, this proposal rejected for several reasons.
+This proposal was rejected for several reasons. Let's go through them.
 
 ### Differing semantics with regular lambdas
 
