@@ -8,7 +8,8 @@ tags:
 pubdraft: yes
 ---
 
-This issue was first pointed out to me by Michael Park.
+This issue was first pointed out to me by Michael Park, and mostly explained to
+me by T.C.
 
 Let's say I have an array, and I want to get its size and use it as a constant
 expression. In C, we would write a macro for this:
@@ -81,7 +82,8 @@ the previous rule we ran afoul of).
 
 Notably, the rule we're violating is only about _references_. We can't write
 a function that takes an array by value, so let's use the next-best thing:
-`std::array` and use the standard library's [`std::size`](https://en.cppreference.com/w/cpp/iterator/size):
+`std::array`{:.language-cpp} and use the standard library's `std::size`{:.language-cpp}
+([cppref](https://en.cppreference.com/w/cpp/iterator/size)):
 
 ```cpp
 void check_arr_val(std::array<int, 3> const param) {
@@ -102,11 +104,11 @@ nobody's about to start passing all their containers around _by value_.
 ### Why might we care?
 
 Before getting into more detail about the problem itself, let's take a look at
-why this matters. The following is just one example, probably the easiest to
-look at - but far from the only.
+why this matters. The following is just one motivating example. I picked it 
+because it's probably the easiest to look at, but just keep in mind that this
+is far from the only reason we might care about this sort of thing.
 
-C++20 will have a new type [`std::span`{:.language-cpp}](https://en.cppreference.com/w/cpp/container/span)
-(I've written about `span` before [here]({% post_url 2018-12-03-span-best-span %}),
+C++20 will have a new type `std::span`{:.language-cpp} ([cppref](https://en.cppreference.com/w/cpp/container/span), I've written about `span` before [here]({% post_url 2018-12-03-span-best-span %})),
 which is a contiguous view on `T`. `span` comes in two flavors: dynamic extent
 and fixed extent. Roughly speaking:
 
@@ -138,20 +140,23 @@ struct span<T, dynamic_extent> {
 It's not a complex type.
 
 One of the big features of `span<T>`{:.language-cpp} is that all contiguous ranges over `T`
-are convertible to it. This conversion is safe, cheap, and desirable. But that
+are convertible to it. This conversion is safe, cheap, and desirable.
+
+But that
 isn't necessarily the case for `span<T, 5>`{:.language-cpp} - we certainly don't want that to
 be implicitly constructible from `vector<T>`{:.language-cpp}, since how do we know if the incoming
-vector has enough elements in it?
-
-The direction we're going (see [P1976](https://wg21.link/p1976)) is that this
+vector has enough elements in it? The direction we're going
+(see [P1976](https://wg21.link/p1976)) is that this
 constructor will instead be `explicit`{:.language-cpp}. That is:
 
 ```cpp
 void f(std::span<int, 5>);
 
-std::vector<int> v3 = {1, 2, 3}, v5 = {1, 2, 3, 4, 5};
+std::vector<int> v3 = {1, 2, 3};
 f(v3);                    // ill-formed
 f(std::span<int, 5>(v3)); // well-formed but UB
+
+std::vector<int> v5 = {1, 2, 3, 4, 5};
 f(std::span<int, 5>(v5)); // well-formed
 ```
 
@@ -167,8 +172,11 @@ int elems[] = {1, 2, 3, 4, 5};
 f(elems); // perfectly safe, known statically
 ```
 
-But this can't be made to work. We'd have to make the constraint something
-like the following (other constraints omitted for brevity):
+How could we make this work?
+
+We'd have to make the constraint something
+like the following (other constraints omitted for brevity, like making sure
+the range is actually contiguous and having the right underlying type):
 
 ```cpp
 template <typename T, size_t Extent>
@@ -188,8 +196,8 @@ tortured use of "work fine").
 ### Is there a library solution for this?
 
 In the case I'm describing here, the size is encoded in the type. So if we
-change the way we query the size to query based on the type instead of the value
-of the object, we can side-step these problems:
+change the way we query the size to query based on the type of the object
+instead of the value of the object, we can side-step these problems:
 
 ```cpp
 template <typename T> struct type_t { using type = T; };
@@ -214,12 +222,14 @@ struct span {
 ```
 
 This works for both C arrays (the first overload) and `std::array`{:.language-cpp} (the second).
-A similar approach was proposed in [P1419](https://wg21.link/p1419),
-just spelled `std::static_extent_v<std::remove_cvref_t<R>>`{:.language-cpp} instead
+A similar approach was proposed in [P1419](https://wg21.link/p1419), the only
+difference was that the proposal spelled this approach
+`static_extent_v<std::remove_cvref_t<R>>`{:.language-cpp} instead
 of `type_size(type<std::remove_cvref_t<R>>)`{:.language-cpp}.
 
-But this can't work for any range whose size could still be a constant expression
-but whose size is not encoded into the type. Such as, for instance:
+But this can only work for a range whose size is encoded into its type. It can't
+work for a range whose size is a constant expression - which is at least
+conceptually what we want. One such range? Why `span`, of course:
 
 ```cpp
 constexpr int arr[] = {1, 2, 3, 4, 5};
@@ -228,9 +238,12 @@ constexpr std::span<int> s = arr;
 // this is fine, s.size() is a constant expression
 static_assert(s.size() == 5);
 
-// ... but this still wouldn't work
+// ... but this still wouldn't work!
 std::span<int, 5> fixed = s;
 ```
+
+`s`'s size is a constant expression, but it's not tied to its type - these type-
+based approaches wouldn't work. 
 
 So it's, at best, a partial and unsatisfying solution. But at least it does
 offer a way to reliably get the size of an array as a constant expression - it's
@@ -255,8 +268,10 @@ some operation that requires the address to be known, something in that vein.
 A different, less generous, way to describe a feature like this would be to say
 that `x.f()`{:.language-cpp} can still be a constant expression even if `x` is
 a reference to unknown object, as long as `f` is a static member function and
-`x` is a sufficiently direct naming of the reference. And there are other cases
-to consider (courtesy of Richard Smith):
+`x` is a sufficiently direct naming of the reference (for some as-yet defined
+definition of sufficiently direct). This brings up other cases that would need
+to be considered (courtesy of Richard Smith):
+
 
 - `(*ptr_to_array)->size()`{:.language-cpp}?
 - `(*ptrs_to_arrays[3])->size()`{:.language-cpp}? What about if `ptrs_to_arrays`
@@ -315,6 +330,67 @@ Either way, these proposals would _only_ help the `dynamic_span` case - with
 the array cases, since the arrays themselves aren't constant expressions,
 none of what they are suggesting would help. We'd need both.
 
+### The `emplace_back()`{:.language-cpp} problem
+
+But _even then_, we're still stuck. We still have what I'm calling the vector
+`push_back()`{:.language-cpp} / `emplace_back()`{:.language-cpp}
+problem (I first pointed this out in D2089). How can we make all of these work:
+
+```cpp
+std::vector<std::span<int, 5>> bunch_of_spans;
+bunch_of_spans.push_back(c_array);
+bunch_of_spans.push_back(cpp_array);
+bunch_of_spans.push_back(dynamic_span);
+
+bunch_of_spans.emplace_back(c_array);
+bunch_of_spans.emplace_back(cpp_array);
+bunch_of_spans.emplace_back(dynamic_span);
+```
+
+The three calls to `push_back` all invoke a function whose signature would be:
+
+```cpp
+void push_back(std::span<int, 5> const&);
+```
+
+That is, the conversion to `span` happens on the way into the function. For
+`dynamic_span`, it's still a constant expression here - so either we can still
+treat it as a constant expression for constraint purposes (as with the function
+parameter constraints approach in P1733) or we can add an overloaded constructor
+to `span` that takes a constexpr range (as with constexpr parameter approach in
+P1045). That part works fine.
+
+But the three calls to `emplace_back()`{:.language-cpp} all invoke something that is roughly
+equivalent to (this isn't exactly correct, but for the purposes of this discussion,
+it's good enough):
+
+```cpp
+template <typename Arg>
+void emplace_back(Arg&& arg) {
+    push_back(std::span<int, 5>(std::forward<Arg>(Arg));
+}
+```
+
+That is, the conversion so `span` happens _inside_ of `emplace_back()`{:.language-cpp}. In order
+for this to still work for `dynamic_span`, we would need to somehow remember
+that `arg` refers to a constant expression. And while `dynamic_span` is a constant
+expression, `bunch_of_spans` doesn't have to be - this could be runtime code. 
+How can this runtime call remember the "constant-expression-ness" of its
+parameter? Ideally without having to touch `std::vector<T>::emplace_back`{:.language-cpp}
+in any way whatsoever?
+
+I have no idea. 
+
+But I would love to get to the point where this code actually compiles:
+
+```cpp
+constexpr int c_array[] = {1, 2, 3, 4, 5};
+constexpr std::span<int> dynamic_span = c_array;
+
+std::vector<std::span<int, 5>> bunch_of_spans;
+bunch_of_spans.emplace_back(dynamic_span);
+```
+
 ### Recap
 
 Basically, the best way to get the size of an array to be used as a constant
@@ -323,8 +399,8 @@ safe than the initial C version, but still a macro.
 
 Getting to the point where we can access the size of a range as a constant
 expression - whether that size is part of the type (as it is for C arrays and
-`std::array`{:.language-cpp} or a variable part of a `constexpr`{:.language-cpp}
-object - would require multiple language changes.
+`std::array`{:.language-cpp}) or a variable part of a `constexpr`{:.language-cpp}
+object (as it would be for a wide variety of ranges) - would require multiple language changes.
 
 And none of the hypothetical language changes I've described in this post are
 exactly trivial either, so I expect we'll have to live this problem for a while...
