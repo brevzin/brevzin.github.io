@@ -6,6 +6,7 @@ series: ufcs
 tags:
  - c++
  - c++17
+ - ufcs
 --- 
 
 One of the language proposals in the last few years that comes up fairly regularly is Unified Function Call Syntax, sometimes also called Unified Call Syntax. I'm going to use the former name, abbreviated as UFCS, because FLAs are the new TLAs.

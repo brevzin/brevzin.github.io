@@ -5,6 +5,7 @@ category: c++
 tags:
   - c++
   - c++20
+  - lambda
 ---
 
 In November, 2017, I presented my proposal for abbreviated lambdas

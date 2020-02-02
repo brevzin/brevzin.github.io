@@ -63,6 +63,45 @@ a:hover {
 	text-decoration: none;
 }
 
+.tag-list {
+    width: 100%;
+    font-size: 0.9em;
+    padding-bottom: 3%;
+
+    background-color: $medium;
+    padding-top: 20px;
+    padding-bottom: 20px;
+    padding-left: 30px;
+    padding-right: 30px;
+    margin-top: 20px;
+    box-shadow: 0px 0px 0px 0px, 0px 6px 12px rgba(0, 0, 0, 0.2);
+    border-bottom: 5px solid $light-blue;
+    
+    text-align: center;
+    display: inline-block;
+    word-wrap: break-word;
+
+    div.meta {
+        margin-right: 0.5em;
+    }
+
+    a.button {
+        margin: 0.1em;
+        padding: 0.2em 0.4em;
+    }
+
+    p {
+        margin: 0;
+        padding: 0 0.2em 0 0;
+    }
+}
+
+a.button {
+    border-radius: 4px;
+    border: 1px solid;
+    display: inline block;
+}
+
 ul {
     list-style-type: none;
 }
