@@ -74,11 +74,17 @@ evaluation means it has to itself be a constant expression, and function
 parameters are not constant expressions - even in `constexpr`{:.language-cpp}
 or `consteval`{:.language-cpp} functions. 
 
-But if the `param` case is ill-formed, why does the `local` case work? The
+But if the `param` case is ill-formed, why does the `local` case work? An
 unsatisfying answer is that... there just isn't any rule in [\[expr.const\]](http://eel.is/c++draft/expr.const#4)
 that we're violating. There's no lvalue-to-rvalue conversion (we're not reading
 through the reference in any way yet) and we're not referring to a reference (that's
-the previous rule we ran afoul of). 
+the previous rule we ran afoul of). But the reason we violate the reference
+rule is due to the underlying principle that the constant evaluator has to
+reject all undefined behavior (UB is a compile error during constant evaluation!)
+and so the compiler has to check that all references are valid. With the `param`
+case, the compiler cannot know whether the reference is valid, so it must reject.
+With the `local` case, the compiler can see for sure that a reference to `local`
+would be a valid reference, so it's happy.
 
 Notably, the rule we're violating is only about _references_. We can't write
 a function that takes an array by value, so let's use the next-best thing:
@@ -94,7 +100,7 @@ void check_arr_val(std::array<int, 3> const param) {
 ```
 
 If `param` were a reference, the initialization of `s4` would be ill-formed (for
-the same reason as previously), but beacuse it's a value, this is totally fine.
+the same reason as previously), but because it's a value, this is totally fine.
 
 So as long as you pass all your containers around by value, you're able to
 use get and use the size as a constant expression. Which is the kind of thing
@@ -154,7 +160,7 @@ void f(std::span<int, 5>);
 
 std::vector<int> v3 = {1, 2, 3};
 f(v3);                    // ill-formed
-f(std::span<int, 5>(v3)); // well-formed but UB
+f(std::span<int, 5>(v3)); // compiles but UB
 
 std::vector<int> v5 = {1, 2, 3, 4, 5};
 f(std::span<int, 5>(v5)); // well-formed
@@ -216,7 +222,8 @@ constexpr auto type_size(type_t<T>) -> decltype(T::size()) {
 template <typename T, size_t Extent>
 struct span {
     template <range R>
-        requires (type_size(type<std::remove_cvref_t<R>>) == Extent);
+        requires (type_size(type<std::remove_cvref_t<R>>)
+                  == Extent);
     span(R&& r)
 };
 ```
@@ -250,7 +257,8 @@ offer a way to reliably get the size of an array as a constant expression - it's
 just that we have to go back to using a macro:
 
 ```cpp
-#define ARRAY_SIZE(a) type_size(type<std::remove_cvref_t<decltype(a)>>)
+#define ARRAY_SIZE(a) type_size( \
+    type<std::remove_cvref_t<decltype(a)>>)
 ```
 
 All this `constexpr`{:.language-cpp} machinery, and the best we can do is really only a little
