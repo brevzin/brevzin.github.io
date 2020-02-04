@@ -43,12 +43,13 @@ void check(int const (&param)[3]) {
 }
 ```
 
-gcc allows the declaration of `s1` here, while clang, msvc, and icc all reject it.
+All compilers reject `s1` (gcc still accepted it when I started writing this post,
+but [that bug](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66477) has been
+fixed. That's some timing!)
 
 ### Wait, why?
 
-All of these compilers are actually correct to reject this example (and gcc is
-incorrect in accepting it). The reason is actually quite simple: in order
+All of these compilers are actually correct to reject this example. The reason is that in order
 for `array_size(param)`{:.language-cpp} to work, we have to pass that reference to `param` into
 `array_size` - and that involves "reading" the reference. The specific rule
 we're violating is [\[expr.const\]/4.12](http://eel.is/c++draft/expr.const#4.12).
@@ -65,9 +66,6 @@ void check(int const (*param)[3]) {
     constexpr auto s2 = array_size(param); // error, even on gcc
 }
 ```
-
-Given that gcc rejects this case but accepts the reference case, they probably
-have some special casing for references. Not sure. 
 
 This case _has_ to be ill-formed, copying a function parameter during constant
 evaluation means it has to itself be a constant expression, and function
