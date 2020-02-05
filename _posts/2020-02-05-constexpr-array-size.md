@@ -4,8 +4,8 @@ title: "The constexpr array size problem"
 category: c++
 tags:
   - c++
+  - constexpr
   - span
-pubdraft: yes
 ---
 
 This issue was first pointed out to me by Michael Park, and mostly explained to
@@ -53,6 +53,10 @@ All of these compilers are actually correct to reject this example. The reason i
 for `array_size(param)`{:.language-cpp} to work, we have to pass that reference to `param` into
 `array_size` - and that involves "reading" the reference. The specific rule
 we're violating is [\[expr.const\]/4.12](http://eel.is/c++draft/expr.const#4.12).
+The reason we violate the reference
+rule is due to the underlying principle that the constant evaluator has to
+reject all undefined behavior (UB is a compile error during constant evaluation!)
+and so the compiler has to check that all references are valid.
 
 This would be more obvious if our situation used pointers instead of references:
 
@@ -63,7 +67,7 @@ constexpr size_t array_size(T (*)[N]) {
 }
 
 void check(int const (*param)[3]) {
-    constexpr auto s2 = array_size(param); // error, even on gcc
+    constexpr auto s2 = array_size(param); // error
 }
 ```
 
@@ -76,12 +80,9 @@ But if the `param` case is ill-formed, why does the `local` case work? An
 unsatisfying answer is that... there just isn't any rule in [\[expr.const\]](http://eel.is/c++draft/expr.const#4)
 that we're violating. There's no lvalue-to-rvalue conversion (we're not reading
 through the reference in any way yet) and we're not referring to a reference (that's
-the previous rule we ran afoul of). But the reason we violate the reference
-rule is due to the underlying principle that the constant evaluator has to
-reject all undefined behavior (UB is a compile error during constant evaluation!)
-and so the compiler has to check that all references are valid. With the `param`
+the previous rule we ran afoul of).  With the `param`
 case, the compiler cannot know whether the reference is valid, so it must reject.
-With the `local` case, the compiler can see for sure that a reference to `local`
+With the `local` case, the compiler can see for sure that the reference to `local`
 would be a valid reference, so it's happy.
 
 Notably, the rule we're violating is only about _references_. We can't write
