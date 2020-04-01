@@ -312,7 +312,7 @@ namespace std {
     
     template <typename U=T,
       REQUIRES(equality_comparable_v<U>)>
-    friend bool operator==(span<U> lhs, span<U> rhs);
+    friend bool operator==(span lhs, span rhs);
   };
 ```
 
