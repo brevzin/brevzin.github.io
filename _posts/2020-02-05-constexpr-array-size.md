@@ -192,7 +192,7 @@ struct span {
 };
 ```
 
-As already pointing out, since `r` is a reference, `std::size(r)`{:.language-cpp} cannot
+As already pointed out, since `r` is a reference, `std::size(r)`{:.language-cpp} cannot
 be a constant expression, so this constraint cannot be made to work. This would
 work fine if `r` was not a reference (but then we'd be constructing a `span` to
 refer to a range that is about to get destroyed, so this is a particularly
