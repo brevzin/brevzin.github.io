@@ -9,7 +9,7 @@ tags:
 
 I like watching Conor Hoekstra's videos, both because he's generally an engaging presenter, and also because he talks about lots and lots and lots of programming languages. I don't know that many languages, so it's nice to get exposure to how different languages can solve the same problem.
 
-A [recent video](https://www.youtube.com/watch?v=pDbDtGn1PXk) of his discussed a fairly simple problem (how to count the number of negative numbers in a matrix) and he went through like a dozen languages' implementations of it. What all langauges had to do was have _some_ mechanism of determining whether a number is negative - which for most involves using a lambda (sometimes called an anonymous function).
+A [recent video](https://www.youtube.com/watch?v=pDbDtGn1PXk) of his discussed a fairly simple problem (how to count the number of negative numbers in a matrix) and he went through like a dozen languages' implementations of it. What all languages had to do was have _some_ mechanism of determining whether a number is negative - which for most involves using a lambda (sometimes called an anonymous function).
 
 What I found especially interesting is how all the different languages lambdas looked, and I wanted to focus on that specifically. How, in a given language, would you write a lambda expression for checking if a given number is negative?
 
@@ -55,7 +55,7 @@ C++'s lambdas have three portions that are unique, or mostly unique, amongst thi
 
 3. The `return`{:.language-cpp} keyword. In the other languages, we just have an expression.
 
-One of the proposals I had tried to pursue, [P0573](https://wg21.link/p0573), would have  created a new form of "fully anonymous function" that makes the parameter declaration optional and omits the `return`{:.langauge-cpp} keyword. That paper suggested:
+One of the proposals I had tried to pursue, [P0573](https://wg21.link/p0573), would have  created a new form of "fully anonymous function" that makes the parameter declaration optional and omits the `return`{:.language-cpp} keyword. That paper suggested:
 
 ```cpp
 [](e) => e < 0                // P0573R2: 14
