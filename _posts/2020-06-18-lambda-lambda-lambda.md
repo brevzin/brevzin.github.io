@@ -26,6 +26,7 @@ e -> e < 0                    // 10: Java
 e => e < 0                    // 10: C#, JavaScript, Scala
 \e -> e < 0                   // 11: Haskell
 { e in e < 0 }                // 14: Swift
+{ e -> e < 0 }                // 14: Kotlin
 fun e -> e < 0                // 14: F#, OCaml
 lambda e: e < 0               // 15: Python
 fn x -> x < 0 end             // 17: Elixir
