@@ -30,7 +30,7 @@ fun e -> e < 0                // 14: F#, OCaml
 lambda e: e < 0               // 15: Python
 fn x -> x < 0 end             // 17: Elixir
 [](auto e) { return e < 0; }  // 28: C++
-std::bind(std:less{}, _1, 0)  // 28: C++
+std::bind(std::less{}, _1, 0) // 29: C++
 ```
 
 For the languages that require braces, I'm counting the braces (whether that's fair or not). Also, Clojure can use `%1`{:.language-cpp} instead of `%`{:.language-cpp}.
@@ -108,7 +108,7 @@ lift::less_than("f")                         // 20: with lift
 
 This right here is why I frequently write generic lambdas even in cases where I only need a monomorphic one. I had to shorten the string because the lambda was too wide to fit in my blog! Thank you, Faisal!
 
-If that style is good enough for two very different people with very different programming styles (despiting having most of the same letters in their first names), maybe parameter names are overrated anyway? I mean, it sure reads pretty nice: `find_if(..., less_than(...))`{:.language-cpp} is pretty good English. Is it really any different if we use the operator instead of the words?
+If that style is good enough for two very different people with very different programming styles (despite having most of the same letters in their first names), maybe parameter names are overrated anyway? I mean, it sure reads pretty nice: `find_if(..., less_than(...))`{:.language-cpp} is pretty good English. Is it really any different if we use the operator instead of the words?
 
 ```cpp
 (<"f")                           // 6: Haskell
