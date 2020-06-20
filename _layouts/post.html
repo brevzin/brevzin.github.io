@@ -9,6 +9,10 @@ layout: default
   {% if minutes == 0 %}{% assign minutes = 1 %}{% endif %}
 {% endif %}
 
+{% if page.tags and page.tags contains "c++" %}
+  {% assign lang_tag = "language-cpp" %}
+{% endif %}
+
 <div class="container-fluid single">
   <div class="row">
 
@@ -114,7 +118,7 @@ layout: default
           </ol>
         {% endif %}
 
-        <span itemprop="articleBody">{{ content }}</span>
+        <span itemprop="articleBody" class="{{lang_tag}}">{{ content }}</span>
 
         {% if page.series %}
           {% if seriesnext %}
