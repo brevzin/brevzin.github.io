@@ -14,26 +14,26 @@ A [recent video](https://www.youtube.com/watch?v=pDbDtGn1PXk) of his discussed a
 What I found especially interesting is how all the different languages lambdas looked, and I wanted to focus on that specifically. How, in a given language, would you write a lambda expression for checking if a given number is negative?
 
 ```cpp
-(<0)                               // 4:  Haskell
-_ < 0                              // 5:  Scala
-_1 < 0                             // 6:  Boost.Lambda
-#(< % 0)                           // 8:  Clojure
-&(&1 < 0)                          // 9:  Elixir
-|e| e < 0                          // 9:  Rust
-{ $0 < 0 }                         // 10: Swift
-{ it < 0 }                         // 10: Kotlin
-e -> e < 0                         // 10: Java
-e => e < 0                         // 10: C#, JS, Scala
-\e -> e < 0                        // 11: Haskell
-{ |e| e < 0 }                      // 13: Ruby
-{ e in e < 0 }                     // 14: Swift
-{ e -> e < 0 }                     // 14: Kotlin
-fun e -> e < 0                     // 14: F#, OCaml
-lambda e: e < 0                    // 15: Python
-fn x -> x < 0 end                  // 17: Elixir
-[](auto e) { return e < 0; }       // 28: C++
-std::bind(std::less{}, _1, 0)      // 29: C++
-func(e int) bool { return e < 0; } // 34: Go 
+(<0)                              // 4:  Haskell
+_ < 0                             // 5:  Scala
+_1 < 0                            // 6:  Boost.Lambda
+#(< % 0)                          // 8:  Clojure
+&(&1 < 0)                         // 9:  Elixir
+|e| e < 0                         // 9:  Rust
+{ $0 < 0 }                        // 10: Swift
+{ it < 0 }                        // 10: Kotlin
+e -> e < 0                        // 10: Java
+e => e < 0                        // 10: C#, JS, Scala
+\e -> e < 0                       // 11: Haskell
+{ |e| e < 0 }                     // 13: Ruby
+{ e in e < 0 }                    // 14: Swift
+{ e -> e < 0 }                    // 14: Kotlin
+fun e -> e < 0                    // 14: F#, OCaml
+lambda e: e < 0                   // 15: Python
+fn x -> x < 0 end                 // 17: Elixir
+[](auto e) { return e < 0; }      // 28: C++
+std::bind(std::less{}, _1, 0)     // 29: C++
+func(e int) bool { return e < 0 } // 33: Go 
 ```
 
 For the languages that require braces, I'm counting the braces (whether that's fair or not). Also, Clojure can use `%1` instead of `%`.
