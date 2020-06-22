@@ -14,24 +14,26 @@ A [recent video](https://www.youtube.com/watch?v=pDbDtGn1PXk) of his discussed a
 What I found especially interesting is how all the different languages lambdas looked, and I wanted to focus on that specifically. How, in a given language, would you write a lambda expression for checking if a given number is negative?
 
 ```cpp
-(<0)                          // 4:  Haskell
-_ < 0                         // 5:  Scala
-_1 < 0                        // 6:  Boost.Lambda
-#(< % 0)                      // 8:  Clojure
-&(&1 < 0)                     // 9:  Elixir
-|e| e < 0                     // 9:  Rust, Ruby
-{ $0 < 0 }                    // 10: Swift
-{ it < 0 }                    // 10: Kotlin
-e -> e < 0                    // 10: Java
-e => e < 0                    // 10: C#, JavaScript, Scala
-\e -> e < 0                   // 11: Haskell
-{ e in e < 0 }                // 14: Swift
-{ e -> e < 0 }                // 14: Kotlin
-fun e -> e < 0                // 14: F#, OCaml
-lambda e: e < 0               // 15: Python
-fn x -> x < 0 end             // 17: Elixir
-[](auto e) { return e < 0; }  // 28: C++
-std::bind(std::less{}, _1, 0) // 29: C++
+(<0)                               // 4:  Haskell
+_ < 0                              // 5:  Scala
+_1 < 0                             // 6:  Boost.Lambda
+#(< % 0)                           // 8:  Clojure
+&(&1 < 0)                          // 9:  Elixir
+|e| e < 0                          // 9:  Rust
+{ $0 < 0 }                         // 10: Swift
+{ it < 0 }                         // 10: Kotlin
+e -> e < 0                         // 10: Java
+e => e < 0                         // 10: C#, JS, Scala
+\e -> e < 0                        // 11: Haskell
+{ |e| e < 0 }                      // 13: Ruby
+{ e in e < 0 }                     // 14: Swift
+{ e -> e < 0 }                     // 14: Kotlin
+fun e -> e < 0                     // 14: F#, OCaml
+lambda e: e < 0                    // 15: Python
+fn x -> x < 0 end                  // 17: Elixir
+[](auto e) { return e < 0; }       // 28: C++
+std::bind(std::less{}, _1, 0)      // 29: C++
+func(e int) bool { return e < 0; } // 34: Go 
 ```
 
 For the languages that require braces, I'm counting the braces (whether that's fair or not). Also, Clojure can use `%1` instead of `%`.
@@ -46,11 +48,13 @@ I think this is an interesting table, just in of itself. It basically shows that
 
 Several languages have multiple options here as well.
 
-Notably, C++'s lambda here is _by far_ the longest, just not even close. And, if anything, this is a favorable comparison for C++ because we're both taking a value and returning a value. If we needed to take a reference, that's either `auto const&` or `auto&&` (7 or 2 characters longer). And if we want to return a reference instead of a value? Slap on `-> decltype(auto)` for a bonus 17 characters, itself as long as every other lambda on there. 
+Notably, C++'s lambda here is nearly the longest lambda. The original version of this post had it at the top until Eugene Yakubovich pointed out the Golang lambda to me - which is somewhat surprising since C++'s lambdas are long due to the fundamental complexity of C++ - what's Go's excuse? So that's cool. Technically not last!
+
+If anything though, this is a favorable comparison for C++ because we're both taking a value and returning a value. If we needed to take a reference, that's either `auto const&` or `auto&&` (7 or 2 characters longer). And if we want to return a reference instead of a value? Slap on `-> decltype(auto)` for a bonus 17 characters, itself as long as every other lambda on there. 
 
 C++'s lambdas have three portions that are unique, or mostly unique, amongst this language set:
 
-1. A specified capture. Rust, for instance, allows you to capture by `move`, writing `move |needle| haystack.contains(needle)`{:.language-rust}. But beyond that, I'm not sure if any of the other languages even have a notion of capture at all. You basically just get `[&]`
+1. A specified capture. Rust, for instance, allows you to capture by `move`, writing `move |needle| haystack.contains(needle)`{:.language-rust}. As pointed out on reddit by user Nobody_1707, [Swift](https://docs.swift.org/swift-book/ReferenceManual/Expressions.html#ID544) also has captures that are quite similar to C++'s. But beyond that, I'm not sure if any of the other languages even have a notion of capture at all. You basically just get `[&]`. That said, given that C++ isn't garbage collected, I'm not sure there is a good default for capture beyond `[]` - and at that point we're not exactly saving a lot of characters.
 
 2. A mandatory parameter declaration. In many of the other statically typed languages, you _can_ provide a type annotation - but it is _optional_. Again with Rust, the example could've been `|e: i32| e < 0`{:.language-rust} just like with Scala, it could've been `(e: Int) => e < 0`. But the key point is that the parameter declaration is a choice. And in the simple cases, you would likely avoid the type, while in more complicated cases, you would likely prefer to keep it.
 
