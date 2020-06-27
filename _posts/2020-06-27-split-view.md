@@ -167,7 +167,7 @@ supports a contiguous range, by yielding contiguous views.
 The main problem we have to solve is how our iterators are going to work. We have
 one requirement that we have to keep in mind: `operator*()` has to be `const` (this comes from [`indirectly_readable`](http://eel.is/c++draft/iterator.concept.readable)). And `const` should really mean thread-safe, so we don't really want to have dereferencing itself look for the delimiter and stash the result into a `mutable iterator`. But we also don't want `operator*()` to search every time - so we need to have already found the end at that point.
 
-But when do we find the end? We can't only do it in `operator++()`, because then we won't have a a value for the first one. So we need to have done it up front. But if we do it in `begin()` (i.e. by searching for the delimiter and then constructing our `split_view::iterator` from both the initial iterator and the first delimiter), then we run afoul of a different requirement: [`begin()` must be amortized constant time](http://eel.is/c++draft/ranges#range.range-3). The only way to really achieve _that_ is to cache the result of `begin` (though this seemingly runs afoul of the non-modifying rule, but I don't know how to square that). Doing that kind of caching requires modification, which means that `begin()` can't be `const`. 
+But when do we find the end? We can't only do it in `operator++()`, because then we won't have a a value for the first one. So we need to have done it up front. But if we do it in `begin()` (i.e. by searching for the delimiter and then constructing our `split_view::iterator` from both the initial iterator and the first delimiter), then we run afoul of a different requirement: [`begin()` must be amortized constant time](http://eel.is/c++draft/ranges#range.range-3). The only way to really achieve _that_ is to cache the result of `begin` (non-modifying here refers to the platonic notion of the value of the range, not literally bitwise non-modifying). Doing that kind of caching requires modification, which means that `begin()` can't be `const`. 
 
 So that's the plan here - we're going to cache the result of `begin()`, and not support const-iteration. 
 
@@ -362,6 +362,52 @@ namespace std::ranges {
     };
 }
 ```
+## Conditionally Common
+
+With the above implementation, the iterator and sentinel types of our contiguous-supporting `split_view` are always different types (that is, we are not a `common_range`). That's fine if we only ever deal with code that supports that. But there's a lot of code out there that still requires the iterator and sentinel to be the same type. So we should allow that code to work where possible. In particular, we only really _need_ a sentinel type when our base range isn't a `common_range`. 
+
+This is actually quite easy to support, since we already have our `iterator` satisfying `equality_comparable`. We just need to make `end()` return a different thing. To make instantiation a little cheaper, we'll also restructure a bit so that the `sentinel` owns `operator==(iterator, sentinel)` instead of the `iterator`:
+
+```cpp
+struct sentinel;
+struct as_sentinel_t { };
+
+class iterator {
+private:
+    friend sentinel;
+
+    contig_split_view* parent = nullptr;
+    iterator_t<V> cur = iterator_t<V>();
+    iterator_t<V> next = iterator_t<V>();
+
+public:
+    iterator(as_sentinel_t, contig_split_view* p)
+        : parent(p)
+        , cur(std::ranges::end(p->base_))
+        , next()
+    { }
+};
+
+struct sentinel {
+    bool operator==(iterator const& rhs) const {
+        return rhs.cur == sentinel;
+    }
+
+    sentinel_t<V> sentinel;
+};
+```
+
+and condition our implementation of `end()` (this could also be two different overloads but I find that `if constexpr` is almost always easier to understand):
+
+```cpp
+auto end() {
+    if constexpr (common_range<V>) {
+        return iterator(as_sentinel_t(), this);
+    } else {
+        return sentinel{std::ranges::end(base_)};
+    }
+}
+```
 
 ## In action
 
@@ -376,7 +422,16 @@ for (std::string_view sv : "127..0..0..1"sv
 }
 ```
 
-And works just fine for those views that have a differing sentinel type:
+And because this is a `common_range`, we can actually split a `std::string` into a `std::vector<std::string>`:
+
+```cpp
+auto ip = "127.0.0.1"s;
+auto parts = ip | std::views::split('.');
+auto as_vec = std::vector<std::string>(
+    parts.begin(), parts.end());
+```
+
+But it still works just fine for those views that have a differing sentinel type:
 
 ```cpp
 struct zstring_sentinel {
@@ -401,7 +456,7 @@ for (std::string_view sv : zstring{words}
 }
 ```
 
-You can see the full thing on [Compiler Explorer](https://godbolt.org/z/4G5sHm).
+You can see the full thing on [Compiler Explorer](https://godbolt.org/z/nyWW3F).
 
 ## Conclusion
 
