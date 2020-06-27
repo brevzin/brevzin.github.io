@@ -314,7 +314,8 @@ public:
 
     template <contiguous_range R>
 	    requires std::constructible_from<V, views::all_t<R>>
-	        && std::constructible_from<Pattern, single_view<range_value_t<R>>>
+	        && std::constructible_from<
+                    Pattern, single_view<range_value_t<R>>>
 	contig_split_view(R&& r, range_value_t<R> elem)
 	    : base_(std::views::all(std::forward<R>(r)))
 	    , pattern_(std::move(elem))
@@ -351,10 +352,13 @@ Of course, the [extremely-naughty] icing on top of the cake is just to hijack `s
 namespace std::ranges {
     template<contiguous_range V, forward_range Pattern>
     requires view<V> && view<Pattern>
-      && indirectly_comparable<iterator_t<V>, iterator_t<Pattern>, equal_to>
-    class split_view<V, Pattern> : public contig_split_view<V, Pattern>
+      && indirectly_comparable<
+        iterator_t<V>, iterator_t<Pattern>, equal_to>
+    class split_view<V, Pattern>
+        : public contig_split_view<V, Pattern>
     {
-        using contig_split_view<V, Pattern>::contig_split_view;
+        using base = contig_split_view<V, Pattern>;
+        using base::base;
     };
 }
 ```
