@@ -40,7 +40,7 @@ In file included from split.cxx:1:
    10 |           from_chars(<font style="color:teal"><b>v.begin()</b></font>, v.end(), &i);
       |                      <font style="color:teal"><b>~~~~~~~^~</b></font></pre>
 
-You might then thing that oh, we're not suppose to pass iterators, we have to pass `v.data()`   and `v.data() + v.size()`  :
+You might then think that oh, we're not suppose to pass iterators, we have to pass `v.data()`   and `v.data() + v.size()`  :
 
 <pre><b>split.cxx:10:28</b>: <font style="color:red"><b>error</b></font>: no matching function for call to ‘std::ranges::split_view&lt;std::ranges::ref_view&lt;const std::__cxx11::basic_string&lt;char> >, std::ranges::single_view&lt;char> >::_OuterIter&lt;true>::value_type::data()’
    10 |           from_chars(<font style="color:red"><b>v.data()</b></font>, v.data() + v.size(), &i);
@@ -142,18 +142,45 @@ auto split(R&& rng, range_value_t<R> value)
     while (f != l) {
         auto m = ranges::find(f, l, value);
         co_yield subrange(f, m);
-        f = m;
+        f = std::next(m, 1, l);
     }
 }
 ```
 
-This coroutine implementation might be wrong for one reason or another, but I'm just using this approach to get a more concise implementation. Hopefully it's at least clear what's going on here, even if the implementation is wrong and if you (like me) are mostly unfamiliar with C++20 coroutines.
+And a little more complex for splitting on a range instead of a single element. Hopefully it's at least clear what's going on here, even if the implementation is wrong and if you (like me) are mostly unfamiliar with C++20 coroutines.
 
-To start with, this implementation obviously can't support an `input_range` - we have to walk the range to find each delimiter and then yield back a elements before that. C++20/range-v3's `views::split`   does support `input_range`s!
+To start with, this implementation obviously can't support an `input_range` - we have to walk the range to find each delimiter and then yield back all the elements before that. C++20/range-v3's `views::split` does support `input_range`s!
 
-More importantly, if the range that we're `split`ting is one built up such that either iteration is expensive (e.g. if it contains a `views::filter`  ) or dereferencing is expensive (e.g. if it contains a `views::transform`  ), we become much more inefficient due to the partial loss of laziness. We have to traverse the range twice - once to find the delimiter and once again if we actually want to traverse the yielded `subrange`.
+The way that `views::split` supports `input_range`s is, fundamenally, the same reason that it doesn't give us contiguous subviews: `views::split` is maximally lazy. Instead of looking ahead for the next delimiter, the `split` in range-v3/C++20 just doesn't - instead it looks for the next delimiter as the inner range is advanced. 
 
-But... we don't have something that's just an `input_range`. And we don't have any expensive iteration or dereferencing here. We have a `std::string`   - those two operations are basically as cheap as you can get for a range that actually _does something_ (as opposed to, say, just infinitely returning the value `42`  ). Effectively, we're paying an abstraction penalty for functionality we don't need right now. 
+Nominally, the reason for this is that you can always build a more eager algorithm on top of a lazy one. 
+
+But I'm not sure that's the case here - since `views::split` doesn't give us the tools to do so. We need access to the underlying iterator of the view we're splitting - otherwise we can't go from `split_view`'s iterator to the underlying view's iterator to provide a subrange thereof. And even if we have that, it might not be enough. Consider:
+
+```cpp
+std::string input = "1.2.3.4";
+auto parts = input | views::split('.');
+
+auto f = ranges::begin(parts);
+auto l = ranges::end(parts);
+auto n = std::next(f);
+```
+
+At this point, a hypothetical `f.base()` would be pointing to the `1` while a hypothetical `n.base()` would be pointing to the `2`. `subrange(f.base(), n.base())` would thus be too long - that'd give us `"1."` so we'd need to back up a bit. Backing up suddenly requires a `bidirectional_range`, which is more range strengthening. Alternatively, `split_view`'s iterator needs to keep track of the beginning of the previous delimiter? I'm not sure how that would work at all.
+
+One of the benefits of laziness as compared to eager lookahead might be that if the range that we're `split`ting is one built up such that either iteration is expensive (e.g. if it contains a `views::filter`) or dereferencing is expensive (e.g. if it contains a `views::transform`), we become much more inefficient due to the partial loss of laziness. We have to traverse the range twice - once to find the delimiter and once again if we actually want to traverse the yielded `subrange`. On the flip side, the laziness has its own set of costs as well. Consider:
+
+```cpp
+for (auto inner : split_view(rng, pattern)) {
+    for (auto v : inner) {
+        // ...
+    }
+}
+```
+
+This structure is seemingly optimal for a lazy view. But the issue here is that the inner iterator and the outer iterator _both_ have to compare against the `pattern` (the inner iterator does this in its `operator==(iterator, sentinel)` [\[range.split.inner\]/5](http://eel.is/c++draft/range.split#inner-5), while the outer iterator does this in its `operator++()` [\[range.split.outer\]/6](http://eel.is/c++draft/range.split#outer-6)). For the trivial case where we're splitting on a single value, this is just one extra comparison really but as the pattern gets longer, this might add up too... and might start eating into the benfeits of laziness to begin with. And if we do need to iterate over the inner range a second time for some reason... 
+
+But... we don't have something that's just an `input_range`. And we don't have any expensive iteration or dereferencing here. We have a `std::string`   - those two operations are basically as cheap as you can get for a range that actually _does something_ (as opposed to, say, just infinitely returning the value `42`). Effectively, we're paying an abstraction penalty for functionality we don't need right now - and the functionality we _do_ need we can't easily build on top of this. 
 
 ## Can we do better?
 
