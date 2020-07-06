@@ -2,7 +2,6 @@
 layout: post
 title: "Implementing a better views::split"
 category: c++
-pubdraft: yes
 tags:
   - c++
   - c++20
