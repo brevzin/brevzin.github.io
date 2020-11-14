@@ -100,7 +100,8 @@ f(x, a);
 // OR:TwoRoundsMemberFirst: calls X::g(int)
 x.g(a);
 
-// OR:TwoRoundsPreferAsWritten: calls ::h for former, X:::h for latter
+// OR:TwoRoundsPreferAsWritten:
+//      calls ::h for former, X:::h for latter
 // OR:OneRound: both ambiguous
 // OR:OneRoundPreferMembers: both call X::h
 // OR:TwoRoundsMemberFirst: both call X::h
@@ -115,7 +116,7 @@ A fun example, of why changing overload resolution is hard, courtesy of Herb Sut
 struct X { void f(); }; // 1
 void f(X);              // 2
 
-f(x); // today:                       calls 2 (only candidate)
+f(x); // today: calls 2 (it's the only candidate)
       // OR:TwoRoundsPreferAsWritten: calls 2, as today
       // OR:OneRound:                 error ambiguous
       // OR:OneRoundPreferMembers:    calls 1
@@ -130,7 +131,7 @@ struct Y {
 };
 void g(Y, int); // 2
 
-y.g(42); // today:                       calls 1 (only candidate)
+y.g(42); // today: calls 1 (it's the only candidate)
          // OR:TwoRoundsPreferAsWritten: calls 1
          // OR:OneRound:                 calls 2
          // OR:TwoRoundsMemberFirst:     calls 1
