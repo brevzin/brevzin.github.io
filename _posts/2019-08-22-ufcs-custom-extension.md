@@ -9,7 +9,7 @@ tags:
  - ufcs
 --- 
 
-In my previous post on the topic, I went through all the proposals we've had that were in the general space of unified function call syntax. That is, anything in which member function syntax might find a non-member function or non-member syntax might find a member function - with multiple sets of rules to disambiguate in case of multiple candidates. In this post, I wanted to go over how well these proposals solve the problems they set out to solve. For simplicity, I'm going to pick just one of the candidate set options, CS2 (`x.f(y)`{:.language-cpp} can find `f(x, y)`{:.language-cpp}), and I am going to completely ignore the question of overload resolution. I'm deliberately taking the simplest possible version of the problem.
+In my previous post on the topic, I went through all the proposals we've had that were in the general space of unified function call syntax. That is, anything in which member function syntax might find a non-member function or non-member syntax might find a member function - with multiple sets of rules to disambiguate in case of multiple candidates. In this post, I wanted to go over how well these proposals solve the problems they set out to solve. For simplicity, I'm going to pick just one of the candidate set options, CS:MemberFindsFree (`x.f(y)`{:.language-cpp} can find `f(x, y)`{:.language-cpp}), and I am going to completely ignore the question of overload resolution. I'm deliberately taking the simplest possible version of the problem.
 
 There are really two main kinds of problems that UFCS set out to solve. They're closely related but they're not the same. The way I would describe these two problems are _customization_ and _extension_. The difference between the two boils down to who knows what:
 
