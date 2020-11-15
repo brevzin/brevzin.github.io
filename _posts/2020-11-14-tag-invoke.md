@@ -274,43 +274,43 @@ The implemention of `eq` interface above in the `tag_invoke` model would look as
 
 ```cpp
 namespace N {
-    struct eq_fn {
-        template <typename T>
-            requires std::same_as<
-                std::tag_invoke_result_t<eq_fn, T const&, T const&>,
-                bool>
-        constexpr bool operator()(T const& x, T const& y) {
-            return std::tag_invoke(*this, x, y);
-        }
-    };
-    
-    inline constexpr eq_fn eq{};
-    
-    struct ne_fn {
-        template <typename T>
-            requires std::invocable<eq_fn, T const&, T const&>
-        friend constexpr bool tag_invoke(
-                ne_fn, T const& x, T const& y) {
-            return not eq(x, y);
-        }
-    
-        template <typename T>
-            requires std::same_as<
-                std::tag_invoke_result_t<ne_fn, T const&, T const&>,
-                bool>
-        constexpr bool operator()(T const& x, T const& y) {
-            return std::tag_invoke(*this, x, y);
-        }
-    };
-    
-    inline constexpr ne_fn ne{};
-    
+  struct eq_fn {
     template <typename T>
-    concept equality_comparable =
-        requires (std::remove_reference_t<T> const& t) {
-            eq(t, t);
-            ne(t, t);
-        };    
+      requires std::same_as<
+        std::tag_invoke_result_t<eq_fn, T const&, T const&>,
+        bool>
+    constexpr bool operator()(T const& x, T const& y) {
+      return std::tag_invoke(*this, x, y);
+    }
+  };
+  
+  inline constexpr eq_fn eq{};
+  
+  struct ne_fn {
+    template <typename T>
+      requires std::invocable<eq_fn, T const&, T const&>
+    friend constexpr bool tag_invoke(
+        ne_fn, T const& x, T const& y) {
+      return not eq(x, y);
+    }
+  
+    template <typename T>
+      requires std::same_as<
+        std::tag_invoke_result_t<ne_fn, T const&, T const&>,
+        bool>
+    constexpr bool operator()(T const& x, T const& y) {
+      return std::tag_invoke(*this, x, y);
+    }
+  };
+  
+  inline constexpr ne_fn ne{};
+  
+  template <typename T>
+  concept equality_comparable =
+    requires (std::remove_reference_t<T> const& t) {
+      eq(t, t);
+      ne(t, t);
+    };  
 }
 ```
 
