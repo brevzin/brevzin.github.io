@@ -98,14 +98,17 @@ First, can we tell from the code what the interface is? If we look at the [defin
 
 ```cpp
 // A formatter for objects of type T.
-template <typename T, typename Char = char, typename Enable = void>
+template <typename T,
+          typename Char = char,
+          typename Enable = void>
 struct formatter {
-  // A deleted default constructor indicates a disabled formatter.
+  // A deleted default constructor indicates
+  // a disabled formatter.
   formatter() = delete;
 };
 ```
 
-❌ This tells us nothing at all. You can certainly tell from this definition that is intended to be specialized by _somebody_ (between the `Enable` template parameter and the fact that this class template is otherwise completely useless?) but you can't tell if it's intended to be specialized by the library author for the library's types or by the user for the user's types. 
+This tells us nothing at all ❌. You can certainly tell from this definition that is intended to be specialized by _somebody_ (between the `Enable` template parameter and the fact that this class template is otherwise completely useless?) but you can't tell if it's intended to be specialized by the library author for the library's types or by the user for the user's types. 
 
 In this case, there is no "default" formatter - so it makes sense that the primary template doesn't have any functionality. But the downside is, I have no idea what the functionality should be. 
 
@@ -121,7 +124,7 @@ Third, do we have the ability to opt in explicitly to the interface? ✔️ Yep!
 
 Fourth, is there any protection against implementing the interface incorrectly? ❌ Nope! If you do it sufficiently wrong, it just won't compile. Hopefully, the class author wrote a sufficiently good concept to verify that you implemented your specialization "well enough" so you get an understandable error message.
 
-But worst case, your incorrect specialization might actually compile and just lead to bad behavior. Perhaps you're taking extra copies or undesirable forcing conversations? Very difficult go defend against this.
+But worst case, your incorrect specialization might actually compile and just lead to bad behavior. Perhaps you're taking extra copies or undesirable forcing conversations? Very difficult to defend against this.
 
 Fifth, can you easily invoke the customized implementation? ✔️ Yep! This isn't a problem with class template specialization. In this case, `formatter<T>::format` is the right function you want, and that's easy enough to spell. But do you get protection against invoking the wrong implementation? ❌ Nope! You could call `formatter<U>::format` just as easily, and if the arguments happen to line up... well... oops?
 
@@ -169,7 +172,7 @@ Let's run through our six criteria real quick:
 
 1. Can we see what the interface is in code? ❌ Nope! From the user's perspective, there's no difference between these function templates and anything else in the standard library.
 1. Can you provide default implementations of functions? ✔️ Yep! The `begin`/`end` example here doesn't demonstrate this, but a different customization point would. `size(E)` can be defined as `end(E) - begin(E)` for all valid containers, while still allowing a user to override it. Similarly, `std::swap` has a default implementation that works fine for most types (if potentially less efficient than could be for some). So this part is fine.
-1. Can we opt in explicitly? ❌ Nope! You certainly have to explicitly provide `begin` and `end` overloads for your type to be a range, that much is true. But nowhere in your implementation of those functions is there any kind of annotation that you can provide that indicates _why_ you are writing these functions. For `begin`/`end`, sure, everybody knows what Ranges are &mdash; but for less universally known interfaces, some kind of indication of what you are doing could only help.
+1. Can we opt in explicitly? ❌ Nope! You certainly have to explicitly provide `begin` and `end` overloads for your type to be a range, that much is true. But nowhere in your implementation of those functions is there any kind of annotation that you can provide that indicates _why_ you are writing these functions. The opt-in is only implicit. For `begin`/`end`, sure, everybody knows what Ranges are &mdash; but for less universally known interfaces, some kind of indication of what you are doing could only help.
 1. Is there protection against incorrect opt-in? ❌ Nope! What's stopping me from writing a `begin` for my type that returns `void`? Nothing. From the language's perspective, it's just another function (or function template) and those are certainly allowed to return `void`.
 1. Can we easily invoke the customized implementation? ❌ Nope! Writing `begin(E)` doesn't work for a lot of containers, `std::begin(E)` doesn't work for others. A more dangerous example is `std::swap(E, F)`, which probably compiles and works fine for lots of times but is a subtle performance trap if the type provides a customized implementation and that customized implementation is _not_ an overload in namespace `std`. Instead, you have to write `using std::swap; swap(E, F)` which while "easy" to write as far as code goes, would not qualify as "easy" to always remember to do given that the wrong one works.
 1. Can we easily verify the type implements an interface? ❌ I have to say no here. The "interface" doesn't even have a name in code, how would you check it? This isn't just me being pedantic - the only way to check this is to write a separate concept from the customization point. And this is kind of the point that I'm making - these are separate. 
@@ -205,46 +208,46 @@ Let's take a different interface. Let's say instead of Ranges and Iterators, we 
 
 ```cpp
 namespace N::hidden {
-    template <typename T>
-    concept has_eq = requires (T const& v) {
-        { eq(v, v) } -> std::same_as<bool>;
-    };
+  template <typename T>
+  concept has_eq = requires (T const& v) {
+    { eq(v, v) } -> std::same_as<bool>;
+  };
 
-    struct eq_fn {
-        template <has_eq T>
-        constexpr bool operator()(T const& lhs, T const& rhs) const {
-            return eq(lhs, rhs);
-        }
-    };
-    
+  struct eq_fn {
     template <has_eq T>
-    constexpr bool ne(T const& lhs, T const& rhs) {
-        return not eq(lhs, rhs);
+    constexpr bool operator()(T const& lhs, T const& rhs) const {
+      return eq(lhs, rhs);
     }
-    
-    struct ne_fn {
-        template <typename T>
-            requires requires (T const& v) {
-                { ne(v, v) } -> std::same_as<bool>;
-            }
-        constexpr bool operator()(T const& lhs, T const& rhs) const {
-            return ne(lhs, rhs);
-        }
-    };
+  };
+  
+  template <has_eq T>
+  constexpr bool ne(T const& lhs, T const& rhs) {
+    return not eq(lhs, rhs);
+  }
+  
+  struct ne_fn {
+    template <typename T>
+      requires requires (T const& v) {
+        { ne(v, v) } -> std::same_as<bool>;
+      }
+    constexpr bool operator()(T const& lhs, T const& rhs) const {
+      return ne(lhs, rhs);
+    }
+  };
 }
 
 namespace N {
-    inline namespace cpos {
-        inline constexpr hidden::eq_fn eq{};
-        inline constexpr hidden::ne_fn ne{};
-    }
+  inline namespace cpos {
+    inline constexpr hidden::eq_fn eq{};
+    inline constexpr hidden::ne_fn ne{};
+  }
     
-    template <typename T>
-    concept equality_comparable =
-        requires (std::remove_reference_t<T> const& t) {
-            eq(t, t);
-            ne(t, t);
-        };
+  template <typename T>
+  concept equality_comparable =
+    requires (std::remove_reference_t<T> const& t) {
+      eq(t, t);
+      ne(t, t);
+    };
 }
 ```
 
@@ -263,7 +266,7 @@ The `tag_invoke` paper, [P1895](https://wg21.link/p1895), lays out two issues wi
 
 Now, the second issue is one of those things that actually only happens in an especially narrow set of circumstances, and not one that I've personally ever run into (the paper cites executors and properites as examples, which is a fairly massive thread of discussion that I have not followed at all).
 
-So, instead I'll focus on the first point. This is an uneuivocally real and serious issue. C++, unlike C, has namespaces, and we'd like to be able to take advantage that when it comes to customization. But ADL, very much by design, isn't bound by namespace. With virtual member functions, there are no issues with having `libA::Interface` and `libB::Interface` coexist. Likewise with class template specializations - specializing one name in one namespace has nothing to do with specializing a similarly-spelled name in a different namespace. But if `libA` and `libB` decide that they both want ADL customization points named `eq`? You better hope their arguments are sufficiently distinct or you simply cannot use both libraries.
+So, instead I'll focus on the first point. This is an unequivocally real and serious issue. C++, unlike C, has namespaces, and we'd like to be able to take advantage that when it comes to customization. But ADL, very much by design, isn't bound by namespace. With virtual member functions, there are no issues with having `libA::Interface` and `libB::Interface` coexist. Likewise with class template specializations - specializing one name in one namespace has nothing to do with specializing a similarly-spelled name in a different namespace. But if `libA` and `libB` decide that they both want ADL customization points named `eq`? You better hope their arguments are sufficiently distinct or you simply cannot use both libraries.
 
 The goal of `tag_invoke` is to instead globally reserve a single name: `tag_invoke`. Not likely to have been used much before the introduction of this paper. 
 
@@ -311,11 +314,11 @@ namespace N {
 }
 ```
 
-This is... 39 lines of code. Granted, some of the above is spaced for the blog to avoid scrollbars, so I think in real code this would probably be shorter by a larger amount.
+This is... 39 lines of code. Granted, some of the above is spaced for the blog to avoid scroll-bars, so I think in real code this would probably be shorter than the CPO solution by a larger amount than 3 lines.
 
 To what extent does this `tag_invoke`-based implementation of `eq` and `ne` address the customization facilities that regular CPOs fall short on? It does help: we can now explicit opt into the interface (indeed, the only way to opt-in is explicit) ✔️!
 
-If anything, the above is harder to write for the library author (I am unconvinced by the claims that this is easier or simpler) and it is harder to understand the interface from looking at the code. When users opt-in for their own types, the opt-in is improved by being explicit but takes some getting used to:
+But the above is harder to write for the library author (I am unconvinced by the claims that this is easier or simpler) and it is harder to understand the interface from looking at the code (before, the objects clearly invoked `eq` and `ne`, respectively, that is no longer the case). When users opt-in for their own types, the opt-in is improved by being explicit but takes some getting used to:
 
 ```cpp
 struct Widget {
@@ -355,7 +358,7 @@ trait PartialEq {
 
 This is 7 lines of code.
 
-This meets my six criteria easily. And unlike CPOs and `tag_invoke`, where the extent of the ability to protect the user from faulty implementations or provide them with interface checks is dependent on the class author writing them correctly, here these checks are handled by and provided by the language. As a result, the checks are more robust, and the interface author doesn't have to do anything. 
+And this trivial implementation, which you probably understand even if you don't know Rust, meets my six criteria easily. And unlike CPOs and `tag_invoke`, where the extent of the ability to protect the user from faulty implementations or provide them with interface checks is dependent on the class author writing them correctly, here these checks are handled by and provided by the language. As a result, the checks are more robust, and the interface author doesn't have to do anything. 
 
 Moreover, it even meets one of `tag_invoke`s criteria: it does not globally reserve names. Though it does not meet the other: you cannot transparently implement and pass-through a trait that you do not know about. 
 
