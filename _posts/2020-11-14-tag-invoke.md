@@ -215,14 +215,14 @@ namespace N::hidden {
 
   struct eq_fn {
     template <has_eq T>
-    constexpr bool operator()(T const& lhs, T const& rhs) const {
-      return eq(lhs, rhs);
+    constexpr bool operator()(T const& x, T const& y) const {
+      return eq(x, y);
     }
   };
   
   template <has_eq T>
-  constexpr bool ne(T const& lhs, T const& rhs) {
-    return not eq(lhs, rhs);
+  constexpr bool ne(T const& x, T const& y) {
+    return not eq(x, y);
   }
   
   struct ne_fn {
@@ -230,8 +230,8 @@ namespace N::hidden {
       requires requires (T const& v) {
         { ne(v, v) } -> std::same_as<bool>;
       }
-    constexpr bool operator()(T const& lhs, T const& rhs) const {
-      return ne(lhs, rhs);
+    constexpr bool operator()(T const& x, T const& y) const {
+      return ne(x, y);
     }
   };
 }
@@ -279,8 +279,8 @@ namespace N {
             requires std::same_as<
                 std::tag_invoke_result_t<eq_fn, T const&, T const&>,
                 bool>
-        constexpr bool operator()(T const& lhs, T const& rhs) {
-            return std::tag_invoke(*this, lhs, rhs);
+        constexpr bool operator()(T const& x, T const& y) {
+            return std::tag_invoke(*this, x, y);
         }
     };
     
@@ -290,16 +290,16 @@ namespace N {
         template <typename T>
             requires std::invocable<eq_fn, T const&, T const&>
         friend constexpr bool tag_invoke(
-                ne_fn, T const& lhs, T const& rhs) {
-            return not eq(lhs, rhs);
+                ne_fn, T const& x, T const& y) {
+            return not eq(x, y);
         }
     
         template <typename T>
             requires std::same_as<
                 std::tag_invoke_result_t<ne_fn, T const&, T const&>,
                 bool>
-        constexpr bool operator()(T const& lhs, T const& rhs) {
-            return std::tag_invoke(*this, lhs, rhs);
+        constexpr bool operator()(T const& x, T const& y) {
+            return std::tag_invoke(*this, x, y);
         }
     };
     
@@ -360,7 +360,7 @@ This is 7 lines of code.
 
 And this trivial implementation, which you probably understand even if you don't know Rust, meets my six criteria easily. And unlike CPOs and `tag_invoke`, where the extent of the ability to protect the user from faulty implementations or provide them with interface checks is dependent on the class author writing them correctly, here these checks are handled by and provided by the language. As a result, the checks are more robust, and the interface author doesn't have to do anything. 
 
-Moreover, it even meets one of `tag_invoke`s criteria: it does not globally reserve names. Though it does not meet the other: you cannot transparently implement and pass-through a trait that you do not know about. 
+Moreover, it even meets one of `tag_invoke`'s stated criteria: it does not globally reserve names. Though it does not meet the other: you cannot transparently implement and pass-through a trait that you do not know about. 
 
 Ultimately, I want us to aspire to more than replacing one set of library machinery that solves a subset of the problem with a different set of library machinery that solves a larger subset of the problem... whether neither of set of library machinery actually gives you insight into what the interface is to begin with.
 
