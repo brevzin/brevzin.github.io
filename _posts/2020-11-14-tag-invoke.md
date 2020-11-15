@@ -322,17 +322,17 @@ But the above is harder to write for the library author (I am unconvinced by the
 
 ```cpp
 struct Widget {
-    int i;
-    
-    // with CPO
-    friend bool eq(Widget a, Widget b) {
-        return a.i == b.i;
-    }
-    
-    // with tag_invoke
-    friend bool tag_invoke(std::tag_t<N::eq>, Widget a, Widget b) {
-        return a.i == b.i;
-    }
+  int i;
+  
+  // with CPO
+  friend bool eq(Widget a, Widget b) {
+    return a.i == b.i;
+  }
+  
+  // with tag_invoke
+  friend bool tag_invoke(std::tag_t<N::eq>, Widget a, Widget b) {
+    return a.i == b.i;
+  }
 };
 ```
 
