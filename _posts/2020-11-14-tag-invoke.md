@@ -255,7 +255,7 @@ This is 42 lines of code.
 
 It's worth reiterating that this is substantially better than raw ADL - if you just use `N::eq` and `N::ne` everywhere, you don't have to worry about issues like calling the wrong thing (perhaps some type has a more efficient inequality than simply negating equality? `N::ne` will do the right thing) or it being an invalid implementation (perhaps the user's implementation accidentally took references to non-const and mutated the arguments? This wouldn't compile). But this is _not_ easy to write, and for such a straightforward interface, you can't really tell what it is anyway without some serious study.
 
-CPOs improve upon just raw ADL names by allowing you to verify more things. But they come at some cost. While they provide the user a way to ensure they call the correct implementation and provide checking for the user that they implemented the customization point correctly (to some extent), that comes with a cost: somebody had to write all of that by hand, and it's not necessarily cheap to compile either. Even though we're addressing more of the customization facilities that I'm claiming we want, these are much harder and time-consuming interfaces to write... that nevertheless are quite opaque. 
+CPOs improve upon just raw ADL names by allowing you to verify more things. While they provide the user a way to ensure they call the correct implementation and provide checking for the user that they implemented the customization point correctly (to some extent), that comes with a cost: somebody had to write all of that by hand, and it's not necessarily cheap to compile either. Even though we're addressing more of the customization facilities that I'm claiming we want, these are much harder and time-consuming interfaces to write... that nevertheless are quite opaque. 
 
 ### `tag_invoke`
 
@@ -264,7 +264,7 @@ The `tag_invoke` paper, [P1895](https://wg21.link/p1895), lays out two issues wi
 1. ADL requires globally reserving the identifier. You can't have two different libraries using `begin` as a customization point, really. Ranges claimed it decades ago. 
 2. ADL can't allow writing wrapper types that are transparent to customization.
 
-Now, the second issue is one of those things that actually only happens in an especially narrow set of circumstances, and not one that I've personally ever run into (the paper cites executors and properties as examples, which is a fairly massive thread of discussion that I have not followed at all).
+Now, the second issue is one of those things that actually only happens in an especially narrow set of circumstances, and not one that I've personally ever run into (the paper cites executors and properties as examples, which is a fairly massive thread of discussion that I have no experience with and have not followed at all).
 
 So, instead I'll focus on the first point. This is an unequivocally real and serious issue. C++, unlike C, has namespaces, and we'd like to be able to take advantage that when it comes to customization. But ADL, very much by design, isn't bound by namespace. With virtual member functions, there are no issues with having `libA::Interface` and `libB::Interface` coexist. Likewise with class template specializations - specializing one name in one namespace has nothing to do with specializing a similarly-spelled name in a different namespace. But if `libA` and `libB` decide that they both want ADL customization points named `eq`? You better hope their arguments are sufficiently distinct or you simply cannot use both libraries.
 
@@ -316,7 +316,7 @@ namespace N {
 
 This is... 39 lines of code. Granted, some of the above is spaced for the blog to avoid scroll-bars, so I think in real code this would probably be shorter than the CPO solution by a larger amount than 3 lines.
 
-To what extent does this `tag_invoke`-based implementation of `eq` and `ne` address the customization facilities that regular CPOs fall short on? It does help: we can now explicit opt into the interface (indeed, the only way to opt-in is explicit) ✔️!
+To what extent does this `tag_invoke`-based implementation of `eq` and `ne` address the customization facilities that regular CPOs fall short on? It does help: we can now explicitly opt into the interface (indeed, the only way to opt-in is explicit) ✔️!
 
 But the above is harder to write for the library author (I am unconvinced by the claims that this is easier or simpler) and it is harder to understand the interface from looking at the code (before, the objects clearly invoked `eq` and `ne`, respectively, that is no longer the case). When users opt-in for their own types, the opt-in is improved by being explicit but takes some getting used to:
 
@@ -359,7 +359,7 @@ If you look at the scoreboard, `tag_invoke` seems to meet 3 of the 6 criteria I 
 
 If `tag_invoke` is improving on CPOs (and it is, even when I measure by criteria that are not related to the problems the authors set out to solve), why do I claim, as I do in the title of this post, that `tag_invoke` is not the solution I want?
 
-Because this is how you implement the `eq`/`ne` interface in Rust, which calls this `PartialEq`:
+Because this is how you implement the `eq`/`ne` interface in Rust (wherein this is called `PartialEq`):
 
 ```rust
 trait PartialEq {
@@ -373,11 +373,11 @@ trait PartialEq {
 
 This is 7 lines of code.
 
-And this trivial implementation, which you probably understand even if you don't know Rust, meets my six criteria easily. And unlike CPOs and `tag_invoke`, where the extent of the ability to protect the user from faulty implementations or provide them with interface checks is dependent on the class author writing them correctly, here these checks are handled by and provided by the language. As a result, the checks are more robust, and the interface author doesn't have to do anything. 
+This trivial implementation, which you probably understand even if you don't know Rust, meets my six criteria easily. And unlike CPOs and `tag_invoke`, where the extent of the ability to protect the user from faulty implementations or provide them with interface checks is dependent on the class author writing them correctly, here these checks are handled by and provided by the language. As a result, the checks are more robust, and the interface author doesn't have to do anything. 
 
 Moreover, it even meets one of `tag_invoke`'s stated criteria: it does not globally reserve names. Though it does not meet the other: you cannot transparently implement and pass-through a trait that you do not know about. 
 
-Ultimately, I want us to aspire to more than replacing one set of library machinery that solves a subset of the problem with a different set of library machinery that solves a larger subset of the problem... where neither of set of library machinery actually gives you insight into what the interface is to begin with.
+Ultimately, I want us to aspire to more than replacing one set of library machinery that solves a subset of the problem with a different set of library machinery that solves a larger subset of the problem... where neither set of library machinery actually gives you insight into what the interface is to begin with.
 
 We already have one customization facility in the language: virtual member functions. I think it's high time we added another.
 
