@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Why I hate tag_invoke"
+title: "Why tag_invoke is not the solution I want"
 category: c++
 tags:
   - c++
@@ -8,8 +8,6 @@ tags:
 pubdraft: yes
 permalink: tag-invoke
 ---
-
-With apologies to Lewis Baker, Eric Niebler, and Kirk Shoop.
 
 C++ is a language that lauds itself on the ability to write good, efficient generic code. So it's a little strange that here we are in C++20 and yet have surprisingly little language support for proper customization. 
 
@@ -359,7 +357,7 @@ If you look at the scoreboard, `tag_invoke` seems to meet 3 of the 6 criteria I 
 
 ## This isn't better enough
 
-If `tag_invoke` is improving on CPOs (and it is, even when I measure by criteria that are not related to the problems the authors set out to solve), why do I claim, as I do in the title of this post, the I hate `tag_invoke`?
+If `tag_invoke` is improving on CPOs (and it is, even when I measure by criteria that are not related to the problems the authors set out to solve), why do I claim, as I do in the title of this post, that `tag_invoke` is not the solution I want?
 
 Because this is how you implement the `eq`/`ne` interface in Rust, which calls this `PartialEq`:
 
