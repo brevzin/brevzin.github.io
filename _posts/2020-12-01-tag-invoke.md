@@ -5,8 +5,6 @@ category: c++
 tags:
   - c++
   - c++20
-pubdraft: yes
-permalink: tag-invoke
 ---
 
 C++ is a language that lauds itself on the ability to write good, efficient generic code. So it's a little strange that here we are in C++20 and yet have surprisingly little language support for proper customization. 
@@ -329,7 +327,8 @@ struct Widget {
     return a.i == b.i;
   }
   
-  // with tag_invoke
+  // with tag_invoke: we are visibly opting
+  // into support for N::eq
   constexpr friend bool tag_invoke(std::tag_t<N::eq>,
                                    Widget a, Widget b) {
     return a.i == b.i;
