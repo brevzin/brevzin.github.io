@@ -277,7 +277,7 @@ namespace N {
       requires std::same_as<
         std::tag_invoke_result_t<eq_fn, T const&, T const&>,
         bool>
-    constexpr bool operator()(T const& x, T const& y) {
+    constexpr bool operator()(T const& x, T const& y) const {
       return std::tag_invoke(*this, x, y);
     }
   };
@@ -296,7 +296,7 @@ namespace N {
       requires std::same_as<
         std::tag_invoke_result_t<ne_fn, T const&, T const&>,
         bool>
-    constexpr bool operator()(T const& x, T const& y) {
+    constexpr bool operator()(T const& x, T const& y) const {
       return std::tag_invoke(*this, x, y);
     }
   };
