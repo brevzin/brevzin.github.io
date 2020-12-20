@@ -6,14 +6,13 @@ tags:
   - c++
   - c++20
   - ranges
-pubdraft: yes
 ---
 
 C++20 Ranges bring with them several new ideas by way of solving a lot of different problems.
 
 Two of the new terms in Ranges, _niebloids_ and _customization point objects_ (or CPOs), are very frequently confused and used interchangeably. This confusion is pretty understandable (the two are pretty similar, and we don't even have a language mechanism to implement them differently so the fact that they are different at all is more specification handwaviness than actual implementation difference), but the two exist to solve different problems and apply to different parts of the library.
 
-I just wanted to take the time here to elaborate on the differences and hopefully alleviate some confusion.
+I wanted to take the time here to elaborate on the differences and hopefully alleviate some confusion.
 
 ## Customization Point Objects Solve Customization Dispatch
 
@@ -43,15 +42,15 @@ using namespace std::ranges;
 swap(a, b);
 ```
 
-A second problem with the two step isn't just that it's Yet Another C++ Incantation. If ADL lookup finds a user-provided function, it just gets called and that's that. We don't have the ability to actually _check_ that the user-provided function is correct. What if the user provided `begin(e)` but that's actually a `void` function that starts some execution context and has nothing to do with ranges at all? We don't want to pick that up! Customization point objects also allow you to  impose constraints checking in all cases.
+A second problem with the two step isn't just that it's Yet Another C++ Incantation. If ADL lookup finds a user-provided function, that function gets called and that's that. We don't have the ability to actually _check_ that the user-provided function is correct. What if the user provided `begin(e)` but that's actually a `void` function that starts some execution context and has nothing to do with ranges at all? We don't want to pick that up! Customization point objects also allow you to  impose constraints checking in all cases.
 
-In the standard library, [customization point object](http://eel.is/c++draft/customization.point.object#def:customization_point_object) is a specific term of art that is a semiregular, function object that is const-invocable. And the standard library has a whole bunch of them in the `std::ranges` namespace (`begin`, `end`, `swap`, etc.) but even a few in just plain old `std` (e.g. `strong_order`).
+In the standard library, [customization point object](http://eel.is/c++draft/customization.point.object#def:customization_point_object) is a specific term of art that is a semiregular, function object that is const-invocable. And the standard library has a whole bunch of them in the `std::ranges` namespace (`begin`, `end`, `swap`, etc.) but even a few in plain old `std` (e.g. `strong_order`).
 
 One bonus point of confusion here: customization point objects aren't always customizeable! For instance, `std::ranges::cbegin` has no customization point `cbegin` that it tries to invoke; it only ever calls `begin`.
 
 For more, see [N4381](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4381.html).
 
-## Niebloids solve unintended ADL
+## Niebloids solve undesired ADL
 
 While the term "customization point object" appears in the standard, the term "niebloid" does not. Instead, we have [this text](http://eel.is/c++draft/algorithms#requirements-2):
 
@@ -66,7 +65,7 @@ constexpr OutputIterator copy(InputIterator first, InputIterator last,
                               OutputIterator result);
 ```
 
-Easy, familiar. But consider the return type. `copy` by definition has to go through the entire input range, yet it doesn't return the end _input_ iterator, just the new _output_ iterator. This is okay in C++17 where we have iterator pairs, since you already by definition have the end input iterator. But once C++20 comes around, we might not actually have the end input iterator, we might only have a sentinel. For example:
+Easy, familiar. But consider the return type. `copy` by definition has to go through the entire input range, yet it doesn't return the end _input_ iterator, only the new _output_ iterator. This is okay in C++17 where we have iterator pairs, since you already by definition have the end input iterator. But once C++20 comes around, we might not actually have the end input iterator, we might only have a sentinel. For example:
 
 ```cpp
 struct zstring_sentinel {
@@ -155,7 +154,7 @@ using namespace std::ranges;
 some_algo(first, last, args...);
 ```
 
-Unfortunately, if we implemented `std::ranges::copy` as two overloaded function templates, we could not stop this from happening. We're, basically, doomed.
+Unfortunately, if we implemented `std::ranges::copy` as two overloaded function templates, we could not stop this from happening. We're, basically, doomed. While this is especially bad for `copy` where the return type changes, it's also not ideal for algorithms like `find` or `any_of` where even though the return type is the same, it's still surprising that the two formulations can call different functions entirely. 
 
 However, ADL only kicks in if the initial unqualified lookup either found nothing or found functions or function templates. If unqualified look finds an _object_, no ADL happens. So if instead of declaring:
 
@@ -178,15 +177,15 @@ we declared:
 ```cpp
 namespace ranges {
     struct copy_fn {
-      template<input_iterator I, sentinel_for<I> S, weakly_incrementable O>
-        requires indirectly_copyable<I, O>
-      constexpr copy_result<I, O>
-        operator()(I first, S last, O result) const;
+        template<input_iterator I, sentinel_for<I> S, weakly_incrementable O>
+            requires indirectly_copyable<I, O>
+        constexpr copy_result<I, O>
+            operator()(I first, S last, O result) const;
         
-    template<input_range R, weakly_incrementable O>
-        requires indirectly_copyable<iterator_t<R>, O>
-      constexpr copy_result<borrowed_iterator_t<R>, O>
-        operator()(R&& r, O result) const;
+        template<input_range R, weakly_incrementable O>
+            requires indirectly_copyable<iterator_t<R>, O>
+        constexpr copy_result<borrowed_iterator_t<R>, O>
+            operator()(R&& r, O result) const;
     };
     
     inline constexpr copy_fn copy{};
@@ -197,7 +196,7 @@ Then we have no problem. `std::ranges::copy` and `using namespace std::ranges; c
 
 But... we don't want to specify algorithms as overload function call operators. We want to specify algorithms as, well, algorithms. As functions. So we insert this wording about how magically all of these functions inhibit ADL, so that we can have sane specification. Even though our _only_ current language mechanism for living up to this specification is to make them objects. 
 
-And indeed, the `ranges::copy` I wrote there meets the criteria for a _customization point object_. It's just... not actually customization point object, because we don't want to call it an object. We want to call it a function.
+And indeed, the `ranges::copy` I wrote there meets the criteria for a _customization point object_. It's just... not actually a customization point object, because we just don't want to call it an object. We want to call it a function.
 
 So it became a niebloid.
 
@@ -218,9 +217,23 @@ namespace ranges {
 }
 ```
 
-And the specification is written in a way to allow such future language evolution without having to change anything. Indeed, it is within the implementation purview today for GCC to do something like add a `__gcc_no_adl` specifier that itself magically inhibits ADL and ends up with `std::ranges::copy` not being an object (although they do not do that today).
+For instance, Matt Calabrese's [Customization Point Functions](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1292r0.html) proposal would allow you to declare a function `final` to get this desired ADL-inhibiting behavior.
 
-See also [STL2 Issue #371](https://github.com/ericniebler/stl2/issues/371). I thought I had read about this in a paper or blog at some point, but I can't seem to find one.
+And the specification is written in a way to allow such future language evolution without having to change anything. Indeed, it is within the implementation purview today for GCC to do something like add a `__gcc_no_adl` specifier that itself magically inhibits ADL and ends up with `std::ranges::copy` not being an object (although they do not do that today). Which means that while:
+
+```cpp
+auto f = std::ranges::begin;
+```
+
+is specified to be valid code, the same is not true for:
+
+```cpp
+auto g = std::ranges::copy;
+```
+
+Because `std::ranges::copy` need not actually be an object (though, again, that's the only standard implementation strategy) and even if it were an object, it need not actually be copyable.
+
+See also [STL2 Issue #371](https://github.com/ericniebler/stl2/issues/371). I thought I had read about this in a paper or blog at some point, but I can't seem to find one at the moment.
 
 ## Niebloids vs Customization Point Objects
 
