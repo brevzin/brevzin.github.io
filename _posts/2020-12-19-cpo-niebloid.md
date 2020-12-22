@@ -133,7 +133,7 @@ void f(R&& r) {
     using namespace std::ranges;
     
     // intent is to use std::ranges::copy
-    auto [i, o] = copy(v.begin(), v.end(), somewhere);
+    auto [i, o] = copy(r.begin(), r.end(), somewhere);
 }
 ```
 
@@ -246,3 +246,4 @@ In short:
 These terms are completely disjoint - they refer to different parts of the library and exist as solutions to different problems. A niebloid is not a customization point object (nor even required to be an object), a customization point object is not a niebloid (although, since it is an object, it does also inhibit ADL). 
 
 The More You Know.
+
