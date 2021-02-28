@@ -330,7 +330,12 @@ Produces a range of the `I`th (`elements<I>`) / 1st (`keys`) / 2nd (`values`) el
 [1815, 1912]
 ```
 
-* reference: `tuple_element_t<I, T>` where `T` is the reference type of `r`. For `keys`, `I == 0`. For `values`, `I == 1`.
+* reference: 
+    Let `T` be the reference type of `r`.
+    * If `T` is _not_ a reference type, then `remove_cv_t<tuple_element_t<I, T>>`
+    * If `T` is a reference type, then `copy_cvref_t<T, tuple_element_t<I, remove_cvref_t<T>>>` where `copy_cvref_t` is a type trait that applies the cv- and ref-qualifiers of the first type onto the second (e.g. `copy_cvref_t<int const&, double>` is `double const&` but `copy_cvref_t<int const&, double&>` is `double&`).
+    
+    `keys` and `values` are simply `elements<0>` and `elements<1>`.
 * category: at most random access
 * common: when `r` is common
 * sized: when `r` is sized, in which case the same size as `r`
