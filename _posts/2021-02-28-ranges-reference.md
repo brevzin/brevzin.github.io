@@ -78,7 +78,7 @@ Produces an empty range. `T` must be an object type.
 * category: contiguous
 * common: always
 * sized: always (`== 0`)
-* const-iteratable: always
+* const-iterable: always
 * borrowed: always
     
 ### `single(t: T)` {#single}
@@ -89,7 +89,7 @@ Produces a range consisting of the single value: `t`.
 * category: contiguous
 * common: always
 * sized: always `(== 1`)
-* const-iteratable: always
+* const-iterable: always
 * borrowed: never
     
 ### `iota`
@@ -119,7 +119,7 @@ Produces a range starting with `w` and incrementing it either forever (in the `i
     * otherwise, input
 * common: in the case where the bound is the same type as the initial value
 * sized: when the bound is provided and you can subtract the bound from the initial value
-* const-iteratable: always
+* const-iterable: always
 * borrowed: always (the iterator owns the `W`)
     
 ### `istream_view<T>(s)` {#istream_view}
@@ -130,7 +130,7 @@ Produces a range of `T` by reading (using `operator>>`) from the provided stream
 * category: input
 * common: never (the iterators are non-copyable so there's no benefit to providing an interface that matches C++17 legacy)
 * sized: never
-* const-iteratable: no
+* const-iterable: no
 * borrowed: never
 
 ### `filter(r: [T], f: T -> bool) -> [T]` {#filter}
@@ -146,7 +146,7 @@ Produces a range of the elements of `r` that satisfy the unary predicate `f`
 * category: at most bidirectional
 * common: when `r` is common
 * sized: never
-* const-iteratable: no
+* const-iterable: no
 * borrowed: never
     
 ### `transform(r: [T], f: T -> U) -> [U]` {#transform}
