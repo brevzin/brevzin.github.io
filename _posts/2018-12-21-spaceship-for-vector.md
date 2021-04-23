@@ -37,12 +37,12 @@ using CREF = remove_reference_t<T> const&;
 // Library today. I am just using them for convenience
 template <typename T>
 concept Cpp17EqualityComparable = requires(CREF<T> a, CREF<T> b) {
-  { a == b } -> bool;
+  { a == b } -> convertible_to<bool>;
 };
     
 template <typename T>
 concept Cpp17LessThanComparable = requires(CREF<T> a, CREF<T> b) {
-  { a < b } -> bool;
+  { a < b } -> convertible_to<bool>;
 };
     
 // two operators actually implement functionality
@@ -111,7 +111,7 @@ template <typename T, typename U,
     };
 ```
 
-If we just wrote the requirement as `{ t <=> u } -> Cat`{:.language-cpp}, that would allow for some awkward things like returning a type that isn't a comparison category but happens to have a conversion operator for one. I don't know that anybody would ever actually _write_ that, but it's better to just be more explicit. What we want to say isn't that the type is _convertible_ to `Cat`, we want to say that it's _specifically_ a comparison category that is convertible to `Cat`. That's what `common_comparison_category_t<T, Cat>`{:.language-cpp} is for - that type will either be `void`{:.language-cpp} (if either type isn't actually a comparison category) or the weaker of `T` and `Cat` - we're okay with `Cat` being weaker than `T`, but not vice versa. Hence the `Same`.
+If we just wrote the requirement as `{ t <=> u } -> convertible_to<Cat>`{:.language-cpp}, that would allow for some awkward things like returning a type that isn't a comparison category but happens to have a conversion operator for one. I don't know that anybody would ever actually _write_ that, but it's better to just be more explicit. What we want to say isn't that the type is _convertible_ to `Cat`, we want to say that it's _specifically_ a comparison category that is convertible to `Cat`. That's what `common_comparison_category_t<T, Cat>`{:.language-cpp} is for - that type will either be `void`{:.language-cpp} (if either type isn't actually a comparison category) or the weaker of `T` and `Cat` - we're okay with `Cat` being weaker than `T`, but not vice versa. Hence the `Same`.
 
 The heterogeneous comparison concept follows the pattern of the other standard library concepts. We're not just checking syntax, we're checking full semantics. It's not just that syntactically you can write `t <=> u`{:.language-cpp}, it's that all variations of that make sense, including `t <=> t`{:.language-cpp} and `u <=> u`{:.language-cpp}.
 
