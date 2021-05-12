@@ -166,7 +166,7 @@ struct named_scaled_unit { ... };
 
 This is shorter than what's in the actual library and would be completely unambiguous to humans. What I'm doing here is changing template type parameters to have _no_ introducer at all (no `typename` or `class`) but can instead take an optional trailing constraint after a `:`. 
 
-The general approach of putting the constraint following a `:` isn't new. Several other languages do something like this. And it's not even novel in C++ discussion specifically. *The Design and Evolution of C++*, originally published in 1994, includes this piece of syntax in a section title "Constraits through Derivation" (pg 344, although still including the `class` introducer):
+The general approach of putting the constraint following a `:` isn't new. Several other languages do something like this. And it's not even novel in C++ discussion specifically. *The Design and Evolution of C++*, originally published in 1994, includes this piece of syntax in a section title "Constraints through Derivation" (pg 344, although still including the `class` introducer):
 
 ```cpp
 template <class T : Comparable>
