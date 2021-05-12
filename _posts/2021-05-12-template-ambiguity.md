@@ -16,9 +16,11 @@ From C++98 up through and including C++17, these three kinds were very easily di
 * template template parameters are always introduced by `template </* some parameters */> class` or, since C++17, `template </* some parameters */> typename`
 * anything else is a non-type template parameter (I'm excluding the case where you might have something like `#define Iterator class`)
 
+There's one edge-case: if a parameter starts with `typename T::X`  (as in `typename T::X N`), that itself is a type, and so would be a value template parameter (despite starting with `typename`). 
+
 The kinds of values you could use as value template parameters has greatly been increased from C++98 to C++17 (it used to be quite limited), but the syntactic form of template parameters really hadn't changed all that much. The introduction of `auto` non-type template parameters in C++17 was a new form of parameter, but the `auto` keyword still makes it quite obvious that this is a value parameter and not a type or a template parameter.
 
-As a result, if looking through unfamiliar code, you came across `template <Kind Name>` where you didn't know what `Kind` was, you could rightly conclude that this is a non-type template parameter. Indeed, in C++17, I would guess that it's most likely some kind of enumeration, following by an alias for an integer type, followed by an alias for a function pointer type. But, importantly, you know for sure that it's a value - because types are always introduced by `class` or `typename` and templates are introduced by `template`. You might not know yet what actual type `Kind` is, but at least you do know that it _is_ a type.
+As a result, if looking through unfamiliar code, you came across `template <Kind Name>` where you didn't know what `Kind` was, you could rightly conclude that this is a non-type template parameter. Indeed, in C++17, I would guess that it's most likely some kind of enumeration. If not that, then perhaps an alias for an integer type or even a function pointer type. But, importantly, you know for sure that it's a value - because types are always introduced by `class` or `typename` and templates are introduced by `template`. You might not know yet what actual type `Kind` is, but at least you do know that it _is_ a type.
 
 This all changes dramatically in C++20 due to a confluence of several features.
 
@@ -28,7 +30,7 @@ One of the major new language features in C++20 is concepts, which allow us to w
 
 1. type parameters are extremely common,
 2. type parameters often need to be constrained somehow, and
-3. the introduces `class` and `typename` really are kind of noise anyway
+3. the introducers `class` and `typename` are somewhat noisy anyway
 
 And so as early as 2003 ([N1536](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2003/n1536.pdf)), even before we have any other aspect of concepts that is recognizable as C++20 concepts, we have the introduction of concepts _in place of_ the `class` and `typename` introducers:
 
@@ -164,7 +166,16 @@ struct named_scaled_unit { ... };
 
 This is shorter than what's in the actual library and would be completely unambiguous to humans. What I'm doing here is changing template type parameters to have _no_ introducer at all (no `typename` or `class`) but can instead take an optional trailing constraint after a `:`. 
 
-This syntax is ambiguous with syntax we have today, since I have been able to write this since always:
+The general approach of putting the constraint following a `:` isn't new. Several other languages do something like this. And it's not even novel in C++ discussion specifically. *The Design and Evolution of C++*, originally published in 1994, includes this piece of syntax in a section title "Constraits through Derivation" (pg 344, although still including the `class` introducer):
+
+```cpp
+template <class T : Comparable>
+  class vector {
+    // ...
+  };
+```
+
+But the syntax I'm suggesting, omitting the `class` or `typename` introducer, is ambiguous with syntax we have today, since I have been able to write this since always:
 
 ```cpp
 typedef int Identifier;
