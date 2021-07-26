@@ -113,7 +113,7 @@ The shape of this solution is nearly the same as the C# one. In both cases, we g
 
 I thought this was just an interesting example where grouping `advance` and `done?` together in a single operation addresses a problem that exists largely because the two operations are separate. In a way this is similar to the filter-map problem that exists because `advance` and `read` are separate. 
 
-While there are also clear advantages of `advance` and `read` being separate operations (being able to `advance` cheaply to skip ahead or jump backwards), I haven't yet really thought about what the advantages of `advance` and `done?` being separate are. At the very least, the C++ iterator/sentinel maps a little awkwardly onto the C# model simply because in C# you have to `MoveNext` to get to the first element, and in C++ that means extra state:
+While there are also clear advantages of `advance` and `read` being separate operations (being able to `advance` cheaply to skip ahead or jump backwards), I haven't yet really thought about what the advantages of `advance` and `done?` being separate are. At the very least, the C++ iterator/sentinel model maps a little awkwardly onto the C# model simply because in C# you have to `MoveNext` to get to the first element, and in C++ that means extra state:
 
 ```cpp
 template <input_iterator I, sentinel_for<I> S>
