@@ -10,7 +10,7 @@ tags:
 
 There's a really interesting issue pointed out in the [July 2021 mailing](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/#mailing2021-07) by way of [P2406R0](https://wg21.link/p2406r0).
 
-Basically, in C++, the iterator loop structure ordering is as follows (I wrote it with a goto to make the ordering more obvious. Note that in C++, we start with the `it != end` check, not the `++it` operation, but this is the ordering makes it clearer how each subsequent iteration works):
+Basically, in C++, the iterator loop structure ordering is as follows (I wrote it with a goto to make the ordering more obvious. Note that in C++, we start with the `it != end` check, not the `++it` operation. The point of this ordering is to focus on the transition from one position to the next):
 
 ```cpp
 loop:
