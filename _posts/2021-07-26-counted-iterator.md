@@ -143,7 +143,25 @@ struct CppEnumerator {
 };
 ```
 
-And that extra checking *for all ranges* is probably worse than the extra checking that [P2406R0](https://wg21.link/p2406r0) suggests simply for `counting_iterator` (the paper doesn't do it precisely this way, this is my alteration of it):
+Although it maps exceedingly well onto wanting to read input from a stream:
+
+```cpp
+template <typename T>
+struct IstreamEnumerator {
+    std::istream& is;
+    T value;
+    
+    auto MoveNext() -> bool {
+        return static_cast<bool>(is >> value);
+    }
+    
+    auto Current() -> T& {
+        return value;
+    }
+};
+```
+
+Now, that extra checking *for all ranges* in the general enumerator for an iterator/sentinel pair is probably worse than the extra checking that [P2406R0](https://wg21.link/p2406r0) suggests simply for `counting_iterator` (the paper doesn't do it precisely this way, this is my alteration of it):
 
 ```cpp
 template <input_iterator I>
