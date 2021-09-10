@@ -148,18 +148,20 @@ Even with `span`, there is still some benefit to avoiding template instantiation
 
 ```cpp
 template <range R>
-void takes_any_range(R&& r) {
-    auto cr = views::const_(r);
+void takes_any_range(R&& _r) {
+    auto r = views::const_(_r);
 }
 ```
 
 See [my paper](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2278r0.html#a-viewsconst_) for what this is, based on what was in range-v3 under the same name.
 
-Here, `cr` is a constant range, for sure, regardless of whether `r` was or not (if `r` was already a constant range, we try to avoid instantiating anything further, so `cr` may just be a view of `r` directly - or a view of `as_const(r)`).
+Here, `r` is a constant range, for sure, regardless of whether `_r` was or not (if `_r` was already a constant range, we try to avoid instantiating anything further, so `r` may just be a view of `_r` directly - or a view of `as_const(_r)`).
 
 And on the one hand, that's great. It's... easy to coerce const-ness, even if that coercion happens later than the function template signature where we usually expect it.
 
-On the other hand, now we have two names in scope: `r` and `cr`. And we basically never want to actually use `r` anymore in this algorithm, we really *just* want to use `cr`. In some languages, this would not be a problem, we would have just written:
+On the other hand, now we have two names in scope: `_r` and `r`. And we basically never want to actually use `_r` anymore in this algorithm, we really *just* want to use `r`. Naming the parameter `_r` (a @foonathan suggestion), might be good enough as something you would avoid accidentally using. But it would be nice to not even be able to use it by accident.
+
+In some languages, this would not be a problem, we would have just written:
 
 ```cpp
 template <range R>
@@ -251,5 +253,17 @@ void takes_any_range2_impl(R&& r) {
 template <range R>
 void takes_any_range2(R&& r) {
     takes_any_range2_impl(views::const_(r));
+}
+```
+
+Or simply write one function and stick with a naming convention (such as prefixed `_`) that helps you avoid unintentinoally referring to the original object (with the downside that it may introduce further unnecessary template instantiations into your code):
+
+```cpp
+template <range R>
+void takes_any_range2(R&& _r) {
+    auto r = views::const_(_r);
+    
+    // r is definitely a constant range
+    // never use _r again
 }
 ```
