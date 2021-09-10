@@ -57,7 +57,8 @@ pre[class*="language-"] {
 }
 
 .token.punctuation {
-	color: #ccc;
+	/* color: #ccc; */
+	color: #67cdcc;
 }
 
 .token.tag,
