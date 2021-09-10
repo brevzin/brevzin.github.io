@@ -241,7 +241,9 @@ void takes_ref(T const&);
 
 It may be syntactically quite different, but semantically it's the same: `takes_any_range4` can actually take any range but it both enforces and coerces const-ness internally, in a way that's clearly visible from the signature. Providing a mutable `std::string` still presents as if we provided a constant `std::string`.
 
-But until we have something like (and I wouldn't hold my breath), the best bet to enforce and coerce const-ness for ranges is probably the two-step (possibly constraining the `impl` on `constant_range` instead of `static_assert`-ing, whichever you prefer):
+### But for now
+
+Until we have something like (and I wouldn't hold my breath), the best bet to enforce and coerce const-ness for ranges is probably the two-step (possibly constraining the `impl` on `constant_range` instead of `static_assert`-ing, whichever you prefer):
 
 ```cpp
 template <range R>
