@@ -79,7 +79,7 @@ void f(int i) {
 }
 ```
 
-Imagine if the template rules were a bit different, and deduction actually failed here (because `&i`, as an `int*`, is indeed no kind of `T const*`). That would be pretty user-hostile (even if you think of this as an inconsistency in template deduction rules), because while you do correctly enforce deep constness, the lack of coercion makes that it's up to the user to do it:
+Imagine if the template rules were a bit different, and deduction actually failed here (because `&i`, as an `int*`, is indeed no kind of `T const*`). That would be pretty user-hostile (even if you think of this as an inconsistency in template deduction rules), because while you do correctly enforce deep constness, the lack of coercion makes it so that it's up to the user to do it:
 
 ```cpp
 void f2(int i) {
