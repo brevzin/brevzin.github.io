@@ -6,7 +6,6 @@ tags:
   - c++
   - c++20
   - ranges
-pubdraft: yes
 ---
 
 In C++, template deduction doesn't allow for any conversion. A type matches the pattern, or it's a deduction failure. But there's one sort-of exception to this rule, and it's an exception that everyone has taken advantage of:
