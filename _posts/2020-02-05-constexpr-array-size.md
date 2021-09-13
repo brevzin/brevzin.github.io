@@ -52,7 +52,7 @@ fixed. That's some timing!)
 All of these compilers are actually correct to reject this example. The reason is that in order
 for `array_size(param)`{:.language-cpp} to work, we have to pass that reference to `param` into
 `array_size` - and that involves "reading" the reference. The specific rule
-we're violating is [\[expr.const\]/5.12](http://eel.is/c++draft/expr.const#5.12).
+we're violating is [\[expr.const\]/5.12](https://timsong-cpp.github.io/cppwp/n4861/expr.const#5.12) (C++20).
 The reason we violate the reference
 rule is due to the underlying principle that the constant evaluator has to
 reject all undefined behavior (UB is a compile error during constant evaluation!)
