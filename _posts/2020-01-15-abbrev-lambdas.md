@@ -41,7 +41,7 @@ Because [you must type it three times](https://www.youtube.com/watch?v=I3T4lePH-
 The paper also had two extensions. The same syntax for functions:
 
 ```cpp
-template <typename C> auto begin(C& c) => c.begin(); 
+template <typename C> auto begin(C& c) => c.begin();
 ```
 
 And going one step further and allowing omitting type names:
@@ -75,16 +75,20 @@ Two different semantic models for basically the same feature.
 ### Arbitrary lookahead parsing
 
 With trying to omit type names, consider the beginning of the expression
-`[](a, b)`{:.language-cpp}. This looks like a lambda that takes two (unnamed) parameters of 
+`[](a, b)`{:.language-cpp}. This looks like a lambda that takes two (unnamed) parameters of
 types `a` and `b`. But with the paper, it _could_ be the beginning of an abbreviated
 _generic_ lambda takes two parameters of types `auto&&`{:.language-cpp} and `auto&&`{:.language-cpp}. We don't
-know how to interpret the parameter list until we eventually see a `=>`{:.language-cpp} (or not). 
+know how to interpret the parameter list until we eventually see a `=>`{:.language-cpp} (or not).
 
-There was very strong opposition on this point. 
+There was very strong opposition on this point.
 
 ### Mismatch between the _trailing-return-type_ and the body
 
-One of the subtleties with lambdas today is that name lookup in the 
+**Update** My paper addressing this issue, [P2036](https://wg21.link/p2036), was
+adopted in October 2021 as a defect report that fully addresses the issue
+described in the following section. Progress!
+
+One of the subtleties with lambdas today is that name lookup in the
 _trailing-return-type_ and the body of a lambda actually behave differently.
 Sometimes. Or rather, they always behave differently, but quite frequently
 the result is the same so you may not have noticed.
