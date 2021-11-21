@@ -202,7 +202,7 @@ public:
 }
 ```
 
-The definition of the concept is complicated (see [\[range.zip.transform.iterator\]/1](http://eel.is/c++draft/range.zip.transform.iterator#1)). But importantly it's only present if all the underlying ranges are forward ranges. And then, when it is present, it's just basically the common category of all the underlying ranges. The wording is a bit involved here, but the underlying operation isn't that complex.
+The definition of `iterator_category` is complicated (see [\[range.zip.transform.iterator\]/1](http://eel.is/c++draft/range.zip.transform.iterator#1)). But importantly it's only present if all the underlying ranges are forward ranges. And then, when it is present, it's just basically the common category of all the underlying ranges. The wording is a bit involved here, but the underlying operation isn't that complex.
 
 So... how do you do that?
 
@@ -294,11 +294,11 @@ If we look back on these problems, we used three different language features to 
 * conditional member function: concepts.
 * conditional member type: inheriting from conditional base classes.
 
-Of these, only the last option actually handles all the cases, and only the last option gives you truly a conditional member. It's also the most inconvenient/awkward/tedious/insert derogatory adjective of your choice.
+Of these, only the last option actually handles all the cases, and only the last option gives you truly a conditional member. It's also the most inconvenient/awkward/tedious/insert pejorative of your choice.
 
-However, D gives us what I think is a clear answer for how we could do conditional members in a way that is properly conditional and avoids the kind of tedium that we have to deal with today.
+However, D gives us what I think is a clear answer for how we could do conditional members in a way that is properly conditional and avoids the kind of tedium that we have to deal with today: `if`.
 
-Just use `if` at class scope to declare a conditional member function (no need to come up with a workaround to wrap `T&`):
+We can just use `if` at class scope to declare a conditional member function (no need to come up with a workaround to wrap `T&`):
 
 ```cpp
 template <typename T>
@@ -309,7 +309,7 @@ struct Ptr {
 };
 ```
 
-Just use `if` at class scope to declare a conditional member variable (no need to come up with a workaround for how to declare the type of `current_` such that it's empty, we can directly use the type that we want for the member everywhere - including its initializer):
+We can just use `if` at class scope to declare a conditional member variable (no need to come up with a workaround for how to declare the type of `current_` such that it's empty, we can directly use the type that we want for the member everywhere - including its initializer):
 
 ```cpp
 template <input_range V>
@@ -320,7 +320,7 @@ struct lazy_split_view<V>::outer_iterator {
 };
 ```
 
-Just use `if` at class scope to declare a conditional member type:
+And, most significantly, we can just use `if` at class scope to declare a conditional member type:
 
 ```cpp
 template <typename F, typename... Vs>
@@ -342,7 +342,7 @@ struct zip_transform_view<F, Vs...>::iterator {
 
 Now here we of course run into the scope problem. `if` introduces a scope, so all of these code fragments look very much like they're introducing something which only exist in the scope in which it's declared (which would then be, at best, a completely pointless exercise). It'd be important to work through the rules of what it actually means to introduce these names and members in these contexts, which will, I'm sure, be subtle and full of dark corners.
 
-The direction for reflection ([P2237](https://wg21.link/p2237), [P2320](https://wg21.link/p2320)) does offer something like this. The syntax was always a work in flight, but would be something, instead of this:
+The direction for reflection ([P2237](https://wg21.link/p2237), [P2320](https://wg21.link/p2320)) does offer something like this. The syntax was always a work in flight, but would be something, instead of this example:
 
 ```cpp
 template <input_range V>
@@ -353,7 +353,7 @@ struct lazy_split_view<V>::outer_iterator {
 };
 ```
 
-something like this:
+be something like this (at some point I think the injection operator changed from `<<` to `<-` but I can't find that in the paper, and in any case the specific syntax here is less important than the overal shape of the solution, which I think is about right):
 
 ```cpp
 template <input_range V>
@@ -368,4 +368,8 @@ struct lazy_split_view<V>::outer_iterator {
 
 There are a few new things that are new here: a `consteval` block, a code fragment (the `<struct ... >` part), and an injection statement. And this allows for clear definitions of when things happening (in particular, at the end of a `consteval` block, all the fragments queued for injection are actually injected). There's certainly value in having a clear model for things, especially in an area with as much subtlety as this.
 
-But I'm hard-pressed to see why we can't just... make the former example mean the latter example. Which would allow us to just have conditional members the same way we write all of our other conditions: with `if`.
+I want to be clear that the reason I dislike the `consteval` block approach is not _because_ it's more verbose. It is, but not by a lot. And certainly if I had a choice between the latter and nothing I would choose the latter in an instant. We often talk about verbosity, but I think terseness is only especially important in a few key circumstances (like [lambdas]({% post_url 2020-06-18-lambda-lambda-lambda %})) - and oftentimes terseness is the wrong goal and can significantly harm readability and adoption (c.f. build2). Here the problem isn't strictly that the `consteval` block approach is longer - the problem for me is that none of the additional syntax actually adds meaning on top of the shorter version that's just the `if` statement. The `if` approach isn't just terser for the sake of terseness, and I didn't get there by introducing some grawlix punctuation. It's just the same kind of `if` that we're already familiar with - just in a different context.
+
+As a result I'm hard-pressed to see why we can't just... make the former example mean the latter example. Which would allow us to just have conditional members the same way we write all of our other conditions: with `if`. This isn't to say the `consteval` block approach isn't useful (such as wanting to write a function that returns a code fragment, and inject that - you need some kind of thing to be able to return from such a function, and this is important), just that the simple case probably merits avoiding some of the ceremony.
+
+Regardless, we do need a better way to express conditional members than what we have today. This isn't that rare a problem, and currently we take very different approaches based on the kind of member we're conditioning, each of which has different nuances and issues.
