@@ -7,7 +7,6 @@ tags:
  - c++20
  - reflection
  - metaprogramming
-pubdraft: yes
 ---
 
 I'd previously written a post about `if constexpr` (and how it's [not broken]({% post_url 2019-01-15-if-constexpr-isnt-broken %})). I argued in that post how, broadly speaking, C++20 gives you the tools to solve the problems you want, even if they work a bit differently to D's `static if` (with one notable exception, which this post greatly expands on). Now, over the past couple years, I've been working on a project that really is a deep dive into what Andrei calls "Design by Introspection." This approach (for lack of a better definition), relies on conditioning functionality based on template parameters.
