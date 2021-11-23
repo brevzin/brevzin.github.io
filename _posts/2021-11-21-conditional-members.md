@@ -29,6 +29,7 @@ In C++20, Concepts are basically the way that we solve this problem. In C++17 an
 ```cpp
 template <typename T>
 class Optional {
+public:
     Optional(Optional const&) requires copy_constructible<T>;
 };
 ```
@@ -38,13 +39,16 @@ or:
 ```cpp
 template <input_range R>
 class adapted_range {
+public:
     constexpr auto size() requires sized_range<R>;
 };
 ```
 
-In these examples, `Optional<int>` would be copy constructible, but `Optional<unique_ptr<int>>` wouldn't be. `adapted_view<vector<int>>` would have a `size()` member function but `adapted_range<filter_view<V, F>>` would not.
+In these examples, `Optional<int>` would be copy constructible, but `Optional<unique_ptr<int>>` wouldn't be. `adapted_range<vector<int>>` would have a `size()` member function but `adapted_range<filter_view<V, F>>` would not.
 
-Using C++20 concepts to conditionally control member functions just works great. _Nearly_ all the time. There's one exception. Consider this case of writing a smart pointer. Being a pointer, I want to provide an `operator*`. But, because I also support `void`, and you can't dereference a `void*`, I need to make sure that this member function does not exist in that case. Naturally, I'll use concepts:
+Using C++20 concepts to conditionally control member functions just works great.
+
+_Nearly_ all the time. There's one kind of exception. Consider this case of writing a smart pointer. Being a pointer, I want to provide an `operator*`. But, because I also support `void`, and you can't dereference a `void*`, I need to make sure that this member function does not exist in that case. Naturally, I'll use concepts:
 
 ```cpp
 template <typename T>
@@ -58,15 +62,15 @@ Ptr<void> p; // error
 
 That is [already ill-formed](https://godbolt.org/z/4TbMsfxhc). I'm not even trying to `*p` anywhere, simply creating the type. What happened to my constraint?
 
-The issue here is that Concepts don't actually do conditional member functions. It's not that `Optional<unique_ptr<int>>` _had no_ copy constructor or that `adapted_range<filter_view<V, F>>` _had no_ member function named `size()`. They do have those functions. It's just that, when it comes to overload resoution, those (actually-existing) functions are removed from consideration at that point.
+The issue here is that Concepts don't actually do conditional member functions. It's not that `Optional<unique_ptr<int>>` _had no_ copy constructor or that `adapted_range<filter_view<V, F>>` _had no_ member function named `size()`. They do have those functions. It's just that, when it comes to overload resolution, those (actually-existing) functions are removed from consideration at that point.
 
-Typically, there's no distinction between these cases. There's not really much of a difference between `adapted_range` not having a `size()` member function and it having one that you simply cannot invoke.
+Typically, there's no distinction between these cases. There's not really much of a difference between `adapted_range` not having a `size()` member function and it having one that you simply cannot invoke. You can't really differentiate.
 
 But in this case there is.
 
 The rule is that when a class template is instantiated (as in the declaration of `Ptr<void> p` above), all of the signatures of its member functions are instantiated (this is [\[temp.inst\]/3](http://eel.is/c++draft/temp.inst#3)). And doing so requires forming `T&`, which is not a valid thing to do when `T` is `void`, and this blow ups at that point (gcc and clang's errors clearly point to this, MSVC's not so much).
 
-The way to do this correctly in C++20 is to either wrap the `T&` in something that correctly handles `void`:
+The way to do this correctly in C++20 is to either wrap the `T&` in something that correctly handles `void` (`std::add_lvalue_reference_t<void>` is `void`):
 
 ```cpp
 template <typename T>
@@ -78,7 +82,7 @@ struct Ptr {
 Ptr<void> p; // ok
 ```
 
-Or to turn this into a template to delay its instantiation (this has to be `U&` now, not `T&`):
+Or to turn the whole function into a function template to delay its instantiation (now we're returning `U&`, not `T&`):
 
 ```cpp
 template <typename T>
@@ -98,7 +102,7 @@ But Concepts do help most of the rest of the time. While they don't literally gi
 
 If you browse through the spec for Ranges ([\[ranges\]](http://eel.is/c++draft/ranges)), there are several cases where we want to have a member variable that is present only under certain conditions. Ranges isn't that unique in this sense, there are plenty of situations where this sort of thing comes up.
 
-In the Standard, we write (I'm omitting some of the template parameters here for clarity):
+In the Standard, we write (I'm omitting some of the template parameters here for brevity and clarity):
 
 ```cpp
 template <input_range V>
@@ -120,7 +124,9 @@ struct lazy_split_view<V>::outer_iterator {
 };
 ```
 
-Just like we saw in the previous section, and perhaps more obviously here, this isn't *really* a conditional member. `current_`, as a member, is always present. It's just that we can concoct a solution that avoids space overhead thanks to `[[no_unique_address]]`. If we're especially paranoid, we can help ensure that all of these `empty` types are distinct by taking advantage of lambdas:
+Just like we saw in the previous section, and perhaps more obviously here, this isn't *really* a conditional member. `current_`, as a member, is always present. It's just that we can concoct a solution that avoids space overhead thanks to `[[no_unique_address]]`.
+
+If we're especially paranoid, we can help ensure that all of these `empty` types are distinct by taking advantage of lambdas:
 
 ```cpp
 namespace N {
@@ -145,12 +151,14 @@ struct lazy_split_view<V>::outer_iterator {
 };
 ```
 
-But `current_` is still _always_ present. It's not really a conditional member, only its type is conditional. In my experience with needing conditional members at least, having an empty placeholder has been thankfully sufficient. Because there is a case where we really need the member to be truly conditional, and that is...
+But `current_` is still _always_ present. It's not really a conditional member, only its type is conditional. In my experience with needing conditional members at least, having an empty placeholder has been thankfully sufficient.
+
+But there is a case where we really need the member to be truly conditional, and that is...
 
 
 ## Conditional Member Types
 
-The most familiar example of need a conditional type in C++ is one that I've already hinted at earlier: `std::enable_if`. `enable_if` is nothing more than wanting a type that's either there, or not. If we were specifying it Ranges-style, we'd could write it this way:
+The most familiar example of needing a conditional type in C++ is one that I've already hinted at earlier: `std::enable_if`. `enable_if` is nothing more than wanting a type that's either there, or not. If we were specifying it Ranges-style, we'd write it this way:
 
 ```cpp
 template <bool B, typename T>
@@ -159,7 +167,7 @@ struct enable_if {
 };
 ```
 
-Here, it's critical that `enable_if<false, T>` has no member `type` at all. Not change it to `void` or some other implementation-defined type. No type at all!
+Here, it's critical that `enable_if<false, T>` has no member `type` at all. Not has a member `type` that is `void` or some other implementation-defined type. No type at all!
 
 ![Edna Mode](/assets/edna_mode.jpg)
 
@@ -298,7 +306,7 @@ Of these, only the last option actually handles all the cases, and only the last
 
 However, D gives us what I think is a clear answer for how we could do conditional members in a way that is properly conditional and avoids the kind of tedium that we have to deal with today: `if`.
 
-We can just use `if` at class scope to declare a conditional member function (no need to come up with a workaround to wrap `T&`):
+We could just use `if` at class scope to declare a conditional member function (no need to come up with a workaround to wrap `T&`):
 
 ```cpp
 template <typename T>
@@ -309,7 +317,7 @@ struct Ptr {
 };
 ```
 
-We can just use `if` at class scope to declare a conditional member variable (no need to come up with a workaround for how to declare the type of `current_` such that it's empty, we can directly use the type that we want for the member everywhere - including its initializer):
+We could just use `if` at class scope to declare a conditional member variable (no need to come up with a workaround for how to declare the type of `current_` such that it's empty, we can directly use the type that we want for the member everywhere - including its initializer):
 
 ```cpp
 template <input_range V>
@@ -320,7 +328,7 @@ struct lazy_split_view<V>::outer_iterator {
 };
 ```
 
-And, most significantly, we can just use `if` at class scope to declare a conditional member type:
+And, most significantly, we could just use `if` at class scope to declare a conditional member type:
 
 ```cpp
 template <typename F, typename... Vs>
@@ -340,9 +348,9 @@ struct zip_transform_view<F, Vs...>::iterator {
 };
 ```
 
-Now here we of course run into the scope problem. `if` introduces a scope, so all of these code fragments look very much like they're introducing something which only exist in the scope in which it's declared (which would then be, at best, a completely pointless exercise). It'd be important to work through the rules of what it actually means to introduce these names and members in these contexts, which will, I'm sure, be subtle and full of dark corners.
+Now here we of course run into the scope problem. `if` introduces a scope, so all of these code fragments look very much like they're introducing something which only exist in the scope in which it's declared (which would then be, at best, a completely pointless exercise). It'd be important to work through the rules of what it actually means to introduce these names and members in these contexts, which will, I'm sure, be subtle and full of dark corners. And while I think that here, a scope-less `if` would be valuable, I still don't feel that `if constexpr` is missing much for introducing a scope (indeed, quite the opposite).
 
-The direction for reflection ([P2237](https://wg21.link/p2237), [P2320](https://wg21.link/p2320)) does offer something like this. The syntax was always a work in flight, but would be something, instead of this example:
+The direction for reflection ([P2237](https://wg21.link/p2237), [P2320](https://wg21.link/p2320)) does offer something like this. The syntax is a work in flight, but would replace this example I just showed:
 
 ```cpp
 template <input_range V>
@@ -353,7 +361,7 @@ struct lazy_split_view<V>::outer_iterator {
 };
 ```
 
-be something like this (at some point I think the injection operator changed from `<<` to `<-` but I can't find that in the paper, and in any case the specific syntax here is less important than the overal shape of the solution, which I think is about right):
+with something like this (at some point I think the injection operator changed from `<<` to `<-` but I can't find that in the paper, and in any case the specific syntax here is less important than the overall shape of the solution, which I think is about right):
 
 ```cpp
 template <input_range V>
@@ -370,6 +378,6 @@ There are a few new things that are new here: a `consteval` block, a code fragme
 
 I want to be clear that the reason I dislike the `consteval` block approach is not _because_ it's more verbose. It is, but not by a lot. And certainly if I had a choice between the latter and nothing I would choose the latter in an instant. We often talk about verbosity, but I think terseness is only especially important in a few key circumstances (like [lambdas]({% post_url 2020-06-18-lambda-lambda-lambda %})) - and oftentimes terseness is the wrong goal and can significantly harm readability and adoption (c.f. build2). Here the problem isn't strictly that the `consteval` block approach is longer - the problem for me is that none of the additional syntax actually adds meaning on top of the shorter version that's just the `if` statement. The `if` approach isn't just terser for the sake of terseness, and I didn't get there by introducing some grawlix punctuation. It's just the same kind of `if` that we're already familiar with - just in a different context.
 
-As a result I'm hard-pressed to see why we can't just... make the former example mean the latter example. Which would allow us to just have conditional members the same way we write all of our other conditions: with `if`. This isn't to say the `consteval` block approach isn't useful (such as wanting to write a function that returns a code fragment, and inject that - you need some kind of thing to be able to return from such a function, and this is important), just that the simple case probably merits avoiding some of the ceremony.
+As a result I'm hard-pressed to see why we can't just... make the former example mean the latter example. Which would allow us to just have conditional members the same way we write all of our other conditions: with `if`. This isn't to say the `consteval` block approach isn't useful, it certainly is (such as wanting to write a function that returns a code fragment, and inject that - you need some kind of thing to be able to return from such a function, and this is important). Just that the simple case probably merits avoiding some of the ceremony.
 
 Regardless, we do need a better way to express conditional members than what we have today. This isn't that rare a problem, and currently we take very different approaches based on the kind of member we're conditioning, each of which has different nuances and issues.
