@@ -3,8 +3,6 @@ layout: post
 title: "<code class=\"language-cpp\">T*</code> makes for a poor <code class=\"language-cpp\">optional&lt;T&></code>"
 html_title: T* makes for a poor optional<T&>
 category: c++
-pubdraft: true
-permalink: optional-reference
 tags:
  - c++
  - c++20
@@ -42,7 +40,9 @@ constexpr auto front(R&& r) -> ranges::range_reference_t<R> {
 
 Now, despite the name, the `reference` type of a `range` need not actually be a language reference. If I passed in a `vector<int>`, I'd get back an `int&` that refers to the first element. But if I passed in something like `views::iota(0, 10)`, I'd get back an `int` (not a reference) with value `0`.
 
-Let's say instead of having a precondition that the range is non-empty, I want to handle that case too. I want to write a _total function_ instead of a _partial function_. And the best way to do that is either return _some_ value (if I can) or _no_ value (if I can't). That's an optional, that's what it's for: to handle returning something or nothing. The best way to spell that is:
+Let's say instead of having a precondition that the range is non-empty, I want to handle that case too. I want to write a _total function_ instead of a _partial function_. The best way to do that is either return _some_ value (if I can) or _no_ value (if I can't). That's an optional, that's what it's for: to handle returning something or nothing.
+
+The way to spell that is:
 
 ```cpp
 template <ranges::range R>
@@ -86,9 +86,9 @@ constexpr auto try_front(R&& r)
 
 Does this work? No, it doesn't.
 
-First of all there's the issue that it's possible that even spelling `optional<int&>` is ill-formed (which I think it is allowed for the implementation to do). So the actual implementation of `workaround` would need to be more complex, but let's just ignore that part.
+First of all there's the issue that it's possible that even spelling `optional<int&>` is ill-formed (which I think it is allowed for the implementation to do). So the actual implementation of `workaround<T>` would need to be more complex, but let's just ignore that part.
 
-The reason that this doesn't work is that `int*` actually has many significantly different semantics from `optional<int&>`, and one of those importantly different semantics is: construction. An `optional<int&>` is constructible from an lvalue of type `int`, but an `int*` is not -- pointers require explicit construction syntax, while references have implicit construction syntax.
+The reason that this doesn't work is that `int*` actually has many significantly different semantics from `optional<int&>`, and one of those importantly different semantics is: construction. An `optional<int&>` would be constructible from an lvalue of type `int`, but an `int*` is not -- pointers require explicit construction syntax, while references have implicit construction syntax.
 
 In order to return an `int*` for the `vector<int>` case, I can't do `*begin(v)`, I have to do `&*begin(v)`. But I can't do that for the `views::iota` cause, because there dereferencing the iterator gives me a prvalue. There I _do_ have to do `*begin(v)`.
 
@@ -143,11 +143,10 @@ constexpr auto value_or(P&& ptrish, U&& dflt) {
 And now we can instead write:
 
 ```cpp
-int value = value_or(try_front(r), -1);
+int value = N::value_or(try_front(r), -1);
 ```
 
-So far, we've made ourselves have a worse implementation of `try_front` in order to return `T*`, which in turn led to a worse implementation of the usage of `try_front` to handle the `T*` case.
-
+So far, we've made ourselves have a worse implementation of `try_front()` in order to return `T*`, which in turn led to a worse implementation of the usage of `try_front` to handle the `T*` case. At this point you might bring up something like the pipeline operator (`|>`, which would allow `try_front(r) |> N::value_or(-1)`, which at least has the same shape of the desired expression) or [unified function call syntax]({% post_url 2019-04-13-ufcs-history %}) (which, if you pick the right version, at least lets you write `try_front(r).N::value_or(-1)`, assuming a qualified call is supported there). But we still have the issue where we have to write our own `value_or()` which has to handle both `optional<T>` and `T*`.
 
 Let's look at a different example. In my [CppNow 2021 talk](https://www.youtube.com/watch?v=d3qY4dZ2r4w) and again in my recent CPPP 2021 talk (video pending), I demonstrate what the Rust iterator model looks like if were to implement it in C++. In Rust, an `Iterator` is:
 
@@ -175,12 +174,12 @@ concept rust_iterator = requires (I i) {
 And one of the examples that I show is how to implement a `map` iterator (what in C++20 we call `views::transform`), which looks like this:
 
 ```cpp
-template <rust_iterator I, regular_invocable<I::item_type> F>
+template <rust_iterator I, regular_invocable<typename I::item_type> F>
 struct map_iterator {
     I base;
     F func;
 
-    using item_type = invoke_result_t<F&, I::item_type>;
+    using item_type = invoke_result_t<F&, typename I::item_type>;
 
     auto next() -> optional<item_type> {
         return base.next().map(func);
@@ -248,7 +247,7 @@ void f(vector<T>& v) {
 
 That works for all `T` _except_ `bool`, because `range_reference_t<vector<T>>` is `T&` for all `T` (and thus you can take an lvalue reference to it) _except_ when `T` is `bool`, where it's `vector<bool>::reference`, which is a proxy reference type. Since it's a prvalue, you can't bind a non-const lvalue reference to it. `auto const&` would have worked. `auto&&` would have worked. `auto` would have worked (but have slightly different meaning). Just not `auto&`.
 
-This is why people don't like `vector<bool>`. It's not really a `vector` because it behaves differently.
+This is why people don't like `vector<bool>`. It's not really a `vector<T>` because it behaves differently. Indeed, just this past week at work, we had to work around a `vector<bool>`-specific issue!
 
 But they are still very very similar. They have the same kind of constructors, they have the same member functions, most of whom even have the same semantics. There are many aspects of C++ for which there is wide disagreement in the community about what is good, but people are pretty uniform in the view that `vector<bool>` should _not_ have been a specialization (and that, seprately, a `dynamic_bitset` would have been useful - and probably much better at being a dynamic bitset than `vector<bool>` is anyway).
 
@@ -272,9 +271,9 @@ The last of these I touched on a bit, but it's worth elaborating on. As I noted 
 
 All the operations in the purple circle are highly relevant and useful to this problem. We want to have an optional reference, so it is useful to have the chaining operations that give us a different kind of optional, or to provide a default value, or to emplace or reset, or even to have a throwing accessor.
 
-All the operations in the orange circle are highly _irrelevent_ to this problem and would be completely wrong to use. They are bugs waiting to happen. We don't have an array, so none of the indexing operations are valid. And we don't have an owning pointer, so neither `delete` nor `delete []` are valid. Nevertheless, these operations will actually compile -- even though they are all undefined behavior.
+All the operations in the orange circle are highly _irrelevant_ to this problem and would be completely wrong to use. They are bugs waiting to happen. We don't have an array, so none of the indexing operations are valid. And we don't have an owning pointer, so neither `delete` nor `delete []` are valid. Nevertheless, these operations will actually compile -- even though they are all undefined behavior.
 
-You'll note that I wrote "pattern matching" in both circles, differently, rather than putting them together in the combined set. That's not an oversight. Both [P1371](https://wg21.link/p1371) and Herb's [P2392](https://wg21.link/p2392) support matching both `optional<U>` and `T*`, but both papers (despite their many difference) recognize these types as having different semantics and match them differently:
+You'll note that I wrote "pattern matching" in both circles, differently, rather than putting them together in the combined set. That's not an oversight. Both [P1371](https://wg21.link/p1371) and Herb's [P2392](https://wg21.link/p2392) support matching both `optional<U>` and `T*`, but both papers (despite their many differences) recognize these types as having different semantics and match them differently:
 
 * an `optional<U>` matches against `U` or `nullopt`, because that's what it represents precisely.
 * a `T*` doesn't match against a `T`, rather it matches polymorphically. A `Shape*` could match against a `Circle*` or a `Square*`, but not against a `Shape`.
@@ -285,10 +284,45 @@ All in all, there is a much, much larger difference between `optional<T&>` and `
 
 This is true even if you know for sure you're dealing with an optional reference, in a non-generic context that doesn't need to try to select between `T*` and `optional<U>`. If you know for sure you need an optional reference, you want to return the implementation of optional reference that provides the most useful operations to the user and the one that provides the least pitfalls. That is, unequivocally, `optional<T&>`.
 
+### What about `optional_ref<T>`?
+
+The problem with `T*` as an optional reference is that it has such different semantics from `optional<T>` that basically every use of it requires a workaround. But what if we instead wrote a new type, dedicated to this problem: `optional_ref<T>`. Suppose `optional_ref<T>` were always an optional reference (it has a member `T*`, etc.), that is constructible the same way as `optional<T>` (from an lvalue of type `T`), and has all the same member functions.
+
+Would we still need `optional<T&>` if we had `optional_ref<T>`?
+
+Yes.
+
+A hypothetical `optional_ref<T>` is a lot closer to solving the optional reference problem than `T*` is, but it still leaves a few things to be desired. First, as I pointed out with `T*`, it is spelled differently. This is obvious - its name is `optional_ref<T>` and not `optional<T&>`. The consequence of the different name is that you still need `workaround<T>` to exist - it's just that instead of choosing between `optional<T>` and `add_pointer_t<T>`, it now chooses between `optional<T>` and `optional_ref<remove_reference_t<T>>`. Still awkward.
+
+Second, this duplicates a lot of effort fon the part of algorithms. `optional<T>`'s `map` and `value_or` are the same as `optional_ref<T>`'s `map` and `value_or`, but both types need both algorithms.
+
+Maybe you don't care about how much work the implementer has to do for these types, but you probably do care about how much work you have to do on your end. And that leads into the third problem caused by the distinct spelling: how do _you_ write an algorithm that takes some kind of optional and does something with it? If optional values and optional references were both spelled the same, you could write a non-member `map` like so:
+
+```cpp
+template <typename T, typename F>
+auto map(optional<T>, F) -> optional<invoke_result_t<F&, T&>>
+```
+
+Well, not exactly like that, because you probably don't want to take optional values by value, but it's kind of awkward in C++ to handle this particular kind of case (see [P2481](https://wg21.link/p2481) for some musings). But if we had `optional_ref<T>`, you would have to write two of everything yourself:
+
+```cpp
+template <typename T, typename F>
+auto map(optional<T>, F)     -> workaround<invoke_result_t<F&, T&>>
+
+template <typename T, typename F>
+auto map(optional_ref<T>, F) -> workaround<invoke_result_t<F&, T&>>
+```
+
+Note that the return types are the same for both overloads, because of course they are.
+
+And what did we gain from all of this duplication everywhere? It's unclear to me that we gained anything at all. Sure, if you're not used to the idea that `optional<T>` might be a reference type, it might seem superficially valuable to put that information in the name of the type itself. But it's a really bad tradeoff in terms of all the rest of the usage. `optional_ref<T>` is a much better optional reference than `T*`, but it's still a poor substitute.
+
 ### In conclusion
 
 The ability to have `optional<T&>` as a type, making `optional` a total metafunction, means that in algorithms where you want to return an optional value of some computed type `U`, you can just write `optional<U>` without having to worry about whether `U` happens to be a reference type or not. This makes such algorithms easy to write.
 
 Without `optional<T&>`, we either have to reject reference types in such algorithms (as `optional<T>::transform` currently does) or workaround them by returning a `T*`. But `T*` has different construction semantics from `optional<T>` (so algorithms constructing such a thing have to have more workarounds) and it has a very different set of provided operations. In particular, all the operations provided by `optional<T>` but not by `T*` are useful in the context of having an optional reference, whereas all the operations provided by `T*` but not by `optional<T>` are completely wrong and are simply bugs waiting to happen.
 
-`T*` seems like it basically is `optional<T&>`. After all, they have many properties in common, and the latter is certainly implemented in terms of the former. But `T*` makes for a very poor solution to the problem of wanting an optional reference. Even in non-generic contexts, `optional<T&>` is unequivocally the best optional reference.
+`T*` seems like it basically is `optional<T&>`. After all, they have many properties in common, and the latter is certainly implemented in terms of the former. But `T*` makes for a very poor solution to the problem of wanting an optional reference. Even an `optional_ref<T>` that solves the problem of having all the right functionality and none of the wrong functionality still can't quite offer everything that `optional<T&>` could.
+
+`optional<T&>` is unequivocally the best optional reference.
