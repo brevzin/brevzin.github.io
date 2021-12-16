@@ -118,7 +118,7 @@ layout: default
           </ol>
         {% endif %}
 
-        <span itemprop="articleBody" class="{{lang_tag}}">{% include anchor_headings.html html=content anchorBody="§" beforeHeading="true" %}</span>
+        <span itemprop="articleBody" class="{{lang_tag}}">{% include anchor_headings.html html=content anchorBody="§" beforeHeading="true" anchorClass="self-link" %}</span>
 
         {% if page.series %}
           {% if seriesnext %}
