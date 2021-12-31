@@ -52,7 +52,7 @@ Tina also kept a garden on our roof in the warmer months. A bunch of herbs, pepp
 
 We also went on some road trips - to South Carolina and Delaware for work, to Missouri for fun - and during a drive through the Great Smoky Mountains, Hannah for the first time stuck her whole head out the window while we were driving. She always loved being in a car. It gave her a great opportunity to look out the windows and observe. But this was her first time getting that full rush of wind in her face, turning into a small white fur missile.
 
-![That rush of air](/assets/hannah/in-in-the-wind.jpg)
+![That rush of air](/assets/hannah/in-the-wind.jpg)
 
 Hannah was a great snuggler. We spent so much time together on couches, on lounge chairs, in the car. This past Thanksgiving, we stayed at an AirBnB that had a beanbag chair. The perfect snuggling accessory. Occasionally you had to get up while she was on top of you, and she would just look at you with a stare of deepest betrayal. How could you?
 
