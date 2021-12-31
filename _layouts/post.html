@@ -56,6 +56,7 @@ layout: default
         </small>
       </div>
 
+      {% unless page.category == "personal" %}
       <!-- Prev and Next Posts -->
       <div class="PageNavigation">
         {% assign prev = page.previous %}
@@ -91,11 +92,14 @@ layout: default
             <a class="next" href="{{next.url}}">{{next.title}} &raquo;</a>
         {% endif %}
       </div>
+      {% endunless %}
 
       <div class="content-panel content">
+        {% unless page.category == "personal" %}
         {% if page.pubdraft %}
         <h3 style="color: red">THIS IS A DRAFT</h3>
         {% endif %}
+        {% endunless %}
         {% if page.series %}
           This post is part of the series '{{ page.series }}':
           <ol class="series">
