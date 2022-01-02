@@ -14,6 +14,8 @@ When we first met Hannah, she was probably around six years old, we really don't
 
 She picked up toys pretty quickly though. And she adored squeaky toys. Especially the soft ones that she could both squeeze tightly and also use as a pillow. Her favorite was Lamb-y. You could squeak a toy and she would come flying at you. She liked to have you throw her toys so that she could run and bring them back to you. And, of course, tug. Hannah never gave up on tug. It doesn't matter how few teeth she had, she always held on. Had to be really sly and somehow sneak the toy out while she was adjusting her grip.
 
+![Belly rubs](/assets/hannah/belly-rub.jpg){: width="500" }
+
 One year, for what we decided was her birthday, we gave her a new toy: a squeaky lion (that I always thought resembled a hippo). That one, for whatever reason, she just hated touching. On weekends, to give her a challenge, we would put her kibble in a kong, and put that kong in side one of her toys and stuff it with our toys - so that she would have to pull out all of this stuff in order to eat. She got so good at that -- just ripping toys out left and right and leaving them strewn across the living room carpet. But she always left that hippo in there. Never touched it. Just ate around it.
 
 ![A crabby birthday](/assets/hannah/crabby-birthday.jpg){: width="500" }
@@ -26,14 +28,18 @@ I remember when we took Hannah to the beach for the first time in her life, and 
 
 ![On the beach](/assets/hannah/beach.jpg){: width="500" }
 
-We convinced her to go in the water on occasion. She wasn't really built for swimming. Not enough leg, too much body and head. But she'd come out to us if we were in the water. She liked being close to us.
-
-The last time we went to the beach, in Delaware in April, she wasn't so much up to running. But we had a nice walk up and down anyway.
+We convinced her to go in the water on occasion. She wasn't really built for swimming. Not enough leg, too much body and head. But she'd come out to us if we were in the water. She liked being close to us. The last time we went to the beach, in Delaware in April, she wasn't so much up to running. But we had a nice walk up and down anyway.
 
 I remember when we took Hannah to our cousin's and she rolled around in the grass for the first time. She would do this often, when she would find a spot she would particularly like -- just get on her back and rub against it as much as possible.
 
-![Rolling](/assets/hannah/grass-roll.jpg){: width="500" }
-![Is there something on my face?](/assets/hannah/on-my-face.jpg){: width="500" }
+<table style="border:0px"><tr>
+<td style="border:0px">
+<img src="/assets/hannah/grass-roll.jpg" height="400" alt="Rolling"/>
+</td>
+<td style="border:0px">
+<img src="/assets/hannah/on-my-face.jpg" height="400" alt="Is there something on my face?"/>
+</td>
+</tr></table>
 
 Hannah was a very agile dog when she wanted to be, and a great jumper. She loved jumping up onto our couch and even onto its arm or its back -- this gave her a great vantage point into everything that was going on, while still being far away from anybody bugging her. She also used to love sitting on one of the higher stairs -- she could be there for hours, just watching us.
 
@@ -52,9 +58,11 @@ As she got older, she couldn't quite walk as long as she used to. We decided to 
 ![Sometimes, we had to carry her around](/assets/hannah/travel-buddy.jpg){: width="500" }
 
 
-Covid was good for Hannah - it meant we could spend more time with her over the last two years than we otherwise would have. We got into a nice and regular schedule. She would wake up in the morning, get out of her bed in our bedroom and mozy on over to her bed in Tina's office for her morning nap. Rough life. In the afternoons, the three of us would always go on a walk together -- unless the weather was especially bad. It was a nice break in the day for us to be together. Walks were sometimes a challenge. Hannah wanted to walk where she wanted to walk. Maybe that was through a puddle that was easily avoidable, or into the only muddy area for miles, but that's where she wanted to go so good luck changing her mind. She never liked walking around our home either, for whatever reason. But on weekends we'd drive over to the park and go on a long walk there. She loved the park. So much to sniff.
+Covid was good for Hannah - it meant we could spend more time with her over the last two years than we otherwise would have. We got into a nice and regular schedule. She would wake up in the morning, get out of her bed in our bedroom and mozy on over to her bed in Tina's office for her morning nap. Rough life, I know. She'd end up spending the day with one of us in our respective offices. Just to be close. Sometimes to be very, very close.
 
 ![She made a great office assistant](/assets/hannah/office-assistant.jpg){: width="500" }
+
+In the afternoons, the three of us would always go on a walk together -- unless the weather was especially bad. It was a nice break in the day for us to be together. Walks were sometimes a challenge. Hannah wanted to walk where she wanted to walk. Maybe that was through a puddle that was easily avoidable, or into the only muddy area for miles, but that's where she wanted to go so good luck changing her mind. She never liked walking around our home either, for whatever reason. But on weekends we'd drive over to the park and go on a long walk there. She loved the park. So much to sniff.
 
 During our time at home, Hannah learned some new and important skills. She learned that being in the kitchen when Tina was cooking (or, more importantly, when I was clumsily cutting vegetables) was a really good opportunity for some extra food. She also discovered that the door to our bathroom has a hinge that was a little off, so it wouldn't quite close. She could usually just push it open. When one of us was in the shower, she would regularly just make her way into the room to just lie on the carpet to be close by. Although sometimes, she didn't actually want to come in, she just wanted to open the door. That door was staying open!
 
