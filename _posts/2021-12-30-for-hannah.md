@@ -30,14 +30,14 @@ I remember when we took Hannah to the beach for the first time in her life, and 
 
 We convinced her to go in the water on occasion. She wasn't really built for swimming. Not enough leg, too much body and head. But she'd come out to us if we were in the water. She liked being close to us. The last time we went to the beach, in Delaware in April, she wasn't so much up to running. But we had a nice walk up and down anyway.
 
-I remember when we took Hannah to our cousin's and she rolled around in the grass for the first time. She would do this often, when she would find a spot she would particularly like -- just get on her back and rub against it as much as possible.
+I remember when we took Hannah to our cousin's and she rolled around in the grass for the first time. She would do this often, when she would find a spot she would particularly like -- just get on her back and rub against it as much as possible. Inevitably this frolicking would lead to her gathering an assortment of flora in her face.
 
 <table style="border:0px"><tr>
 <td style="border:0px">
-<img src="/assets/hannah/grass-roll.jpg" height="400" alt="Rolling"/>
+<img src="/assets/hannah/grass-roll.jpg" width="567" alt="Rolling"/>
 </td>
 <td style="border:0px">
-<img src="/assets/hannah/on-my-face.jpg" height="400" alt="Is there something on my face?"/>
+<img src="/assets/hannah/on-my-face.jpg" width="425" alt="Is there something on my face?"/>
 </td>
 </tr></table>
 
