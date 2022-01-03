@@ -66,7 +66,7 @@ In the afternoons, the three of us would always go on a walk together -- unless 
 
 During our time at home, Hannah learned some new and important skills. She learned that being in the kitchen when Tina was cooking (or, more importantly, when I was clumsily cutting vegetables) was a really good opportunity for some extra food. She also discovered that the door to our bathroom has a hinge that was a little off, so it wouldn't quite close. She could usually just push it open. When one of us was in the shower, she would regularly just make her way into the room to just lie on the carpet to be close by. Although sometimes, she didn't actually want to come in, she just wanted to open the door. That door was staying open!
 
-Those door opening skills didn't quite transfer to other problems though. We would occasionally want to keep her in certain areas of the house, and to do so we would build up insurmountable barriers of... empty shoe boxes. She couldn't jumped over them, knocked them over, or simply walked through them. But she respected the barriers. Just whined at them until we gave in.
+Those door opening skills didn't quite transfer to other problems though. We would occasionally want to keep her in certain areas of the house, and to do so we would build up insurmountable barriers of... empty shoe boxes. She could've jumped over them, knocked them over, or simply walked through them. But she respected the barriers. Just whined at them until we gave in.
 
 ![You shall not pass](/assets/hannah/insurmountable.jpg){: width="500" }
 
