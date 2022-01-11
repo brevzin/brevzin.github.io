@@ -20,6 +20,7 @@ _1 < 0                            // 6:  Boost.Lambda
 #(< % 0)                          // 8:  Clojure
 &(&1 < 0)                         // 9:  Elixir
 |e| e < 0                         // 9:  Rust
+\(e) e < 0                        // 10: R 4.1
 { $0 < 0 }                        // 10: Swift
 { it < 0 }                        // 10: Kotlin
 e -> e < 0                        // 10: Java
