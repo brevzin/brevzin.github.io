@@ -31,10 +31,12 @@ e => e < 0                        // 10: C#, JS, Scala
 { e -> e < 0 }                    // 14: Kotlin
 fun e -> e < 0                    // 14: F#, OCaml
 lambda e: e < 0                   // 15: Python
+(λ (x) (< x 0))                   // 15: Racket
 fn x -> x < 0 end                 // 17: Elixir
+(lambda (x) (< x 0))              // 20: Racket/Scheme/LISP
 [](auto e) { return e < 0; }      // 28: C++
 std::bind(std::less{}, _1, 0)     // 29: C++
-func(e int) bool { return e < 0 } // 33: Go 
+func(e int) bool { return e < 0 } // 33: Go
 ```
 
 For the languages that require braces, I'm counting the braces (whether that's fair or not). Also, Clojure can use `%1` instead of `%`.
