@@ -395,3 +395,64 @@ This approach, I think, has clear value:
 It's worth noting that while we have nothing like `ranges::put` today, we do already have an algorithm like `ranges::put_range`: it's called `copy`. That's a fairly commonly used algorithm, and allowing it to be customized like this could lead to better performance.
 
 Sure seems like it'd be worthwhile to me.
+
+### Formatting and Quality of Implementation
+
+Now that I've written all of that, it's probably about time I bring up the motivation for this post: formatting.
+
+In the [{fmt} library](https://github.com/fmtlib/fmt) and `std::format`, formatting is based on using output iterators. You get a context object and `context.out()` is some output iterator you can use to format your type. A lot of the time, you can just `format_to()` and won't do any direct outputting yourself... but when you do use the output iterator, you'll likely alternate needing to put `char`s and `string_view`s.
+
+The former is fine, but the latter brings up a problem. How do you write a `string_view` into an output iterator? This is the same issue we saw with `back_inserter` earlier. Your only option is:
+
+```cpp
+out = std::copy(sv.begin(), sv.end(), out);
+```
+
+But that can be inefficient. Which is why this isn't actually what `{fmt}` does in its implementation. Instead, it has a algorithm called `copy_str`. Its [default implementation](https://github.com/fmtlib/fmt/blob/35c0286cd8f1365bffbc417021e8cd23112f6c8f/include/fmt/core.h#L729-L734) is pretty familiar:
+
+```cpp
+template <typename Char, typename InputIt, typename OutputIt>
+FMT_CONSTEXPR auto copy_str(InputIt begin, InputIt end, OutputIt out)
+    -> OutputIt {
+  while (begin != end) *out++ = static_cast<Char>(*begin++);
+  return out;
+}
+```
+
+But there's this other [important overload too](https://github.com/fmtlib/fmt/blob/35c0286cd8f1365bffbc417021e8cd23112f6c8f/include/fmt/core.h#L1605-L1609):
+
+```cpp
+template <typename Char, typename InputIt>
+auto copy_str(InputIt begin, InputIt end, appender out) -> appender {
+  get_container(out).append(begin, end);
+  return out;
+}
+```
+
+For most of the operations in `{fmt}`, the implementation-defined type-erased iterator is `appender`, so this would be the overload used. And `appender` is a `back_insert_iterator` into a `buffer<char>`, which is a growable buffer not unlike `vector<char>`, and has a [dedicated `append`](https://github.com/fmtlib/fmt/blob/35c0286cd8f1365bffbc417021e8cd23112f6c8f/include/fmt/format.h#L632-L644) for this case:
+
+```cpp
+template <typename T>
+template <typename U>
+void buffer<T>::append(const U* begin, const U* end) {
+  while (begin != end) {
+    auto count = to_unsigned(end - begin);
+    try_reserve(size_ + count);
+    auto free_cap = capacity_ - size_;
+    if (free_cap < count) count = free_cap;
+    std::uninitialized_copy_n(begin, count, make_checked(ptr_ + size_, count));
+    size_ += count;
+    begin += count;
+  }
+}
+```
+
+So here, we know that `std::copy` would be inefficient, so the library provides (and internally uses) a way to special case that algorithm for its particular output iterator.
+
+Users could, technically, do the same for their own specializations of `formatter<T>`, although I should note that this algorithm is `fmt::detail::copy_str<char>`, which doesn't really suggest that it's particularly user-facing.
+
+This begs the question of what the implementations of `std::format` will do. Will they just use `std::copy` or will they try to special case? Implementations _could_ special case their own iterators, that falls under the umbrella Quality of Implementation (QoI) issues.
+
+But while implementations could special-case the specific iterator they choose for `std::format` (since there's really only two: one for `char` and one for `wchar_t`), they can't really even special case the general case of `std::back_inserter<std::vector<T>>` -- since users are allowed to specialize `std::vector<T>`.
+
+And even relying on this kind of implementation strategy strikes me as a bit much. There are other use-cases for efficient range copy that aren't just in {fmt} or `std::format` (which is part of why Victor rejected [my pull request](https://github.com/fmtlib/fmt/pull/2740) to add a dedicated API for this to the format context - we don't need to have multiple different `copy` algorithms), so something like the approach I'm outlining here seems worthwhile to pursue anyway.
