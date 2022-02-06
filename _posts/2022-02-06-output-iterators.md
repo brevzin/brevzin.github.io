@@ -337,13 +337,13 @@ I like this approach more than the typical approach of just writing a function o
 ```cpp
 struct put_fn {
     template <class R, class E>
-        requires std::invocable<decltype(do_put), R, E>
-              or std::invocable<decltype(do_put), R, ranges::subrange<E*>>
-              or ranges::range<E> and std::invocable<put_fn, R, ranges::range_reference_t<E>>
+        requires invocable<decltype(do_put), R, E>
+              or invocable<decltype(do_put), R, ranges::subrange<E*>>
+              or ranges::range<E and invocable<put_fn, R, ranges::range_reference_t<E>>
     constexpr auto operator()(R&& out, E&& e) const {
-        if constexpr (std::invocable<decltype(do_put), R, E>) {
+        if constexpr (invocable<decltype(do_put), R, E>) {
             return do_put(FWD(out), FWD(e));
-        } else if constexpr (std::invocable<decltype(do_put), R, ranges::subrange<E*>>) {
+        } else if constexpr (invocable<decltype(do_put), R, ranges::subrange<E*>>) {
             return do_put(FWD(out), ranges::subrange(&e, &e + 1));
         } else {
             auto first = ranges::begin(e);
