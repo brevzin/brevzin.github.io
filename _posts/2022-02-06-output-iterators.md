@@ -1,13 +1,11 @@
 ---
 layout: post
-title: "Output Iterators"
+title: "Improving Output Iterators"
 category: c++
 tags:
   - c++
   - d
   - ranges
-pubdraft: yes
-permalink: better-output-iterators
 ---
 
 Let's say we had a range, represented by a pair of pointers, that we wanted to copy into another pointer. We might write that like so:
@@ -237,7 +235,7 @@ And, on top of that, there's one more positive aspect worth mentioning here: fun
 
 Also, quite nice.
 
-The downside of the D approach here, especially where C++ is concerned, is the Do-What-I-Mean aspect of it. `put(r, e)` can both put a single-element or a range. The problem example brought up with algorithms like this is `std::any`, not because lots and lots of code uses `std::any` specifically but because its permissive conversions are representative of all manner of implicit conversions (and keep in mind as I'm writing this there is a big discussion on whether or not `vector<char>` should be convertible to `string_view` -- see [P2499R0](https://wg21.link/p2499) and [P2516](https://wg21.link/p2516)).
+The downside of the D approach here, especially where C++ is concerned, is the Do-What-I-Mean aspect of it. `put(r, e)` can both put a single-element or a range. The problem example brought up with algorithms like this is `std::any`, not because lots and lots of code uses `std::any` specifically but because its permissive conversions are representative of all manner of implicit conversions (and keep in mind as I'm writing this there is a big discussion on whether or not `vector<char>` should be convertible to `std::string_view` -- see [P2499R0](https://wg21.link/p2499) and [P2516](https://wg21.link/p2516)).
 
 For a concrete example, let's say you wrote something like:
 
@@ -284,7 +282,7 @@ foreach (element; source)
     put(target, element);
 ```
 
-Avoiding this potential range-or-value ambiguity is why (in [P1206](https://wg21.link/p1206)) we're adding a new `insert_range(pos, r)` to the containers rather than adding another overload of `insert` that takes a range.
+Avoiding this potential range-or-value ambiguity is why (in [P1206](https://wg21.link/p1206)) we're adding a new `insert_range(pos, r)` to the containers rather than adding a new overload `insert(pos, r)` that takes a range.
 
 All in all, several arguably large upsides and one arguably large downside.
 
@@ -316,7 +314,7 @@ inline constexpr auto put = hof::fix(hof::first_of(
         RETURNS(do_put(out, FWD(e))),
     [](auto&&, auto&& out, auto&& e)
         RETURNS(do_put(out, ranges::subrange(&e, &e+1))),
-    []<class R, ranges::range E>(auto&& put, R&& out, E&& e)
+    []<ranges::range E>(auto&& put, auto&& out, E&& e)
         requires requires (ranges::iterator_t<E> it) {
             put(out, *it);
         }
@@ -341,7 +339,7 @@ struct put_fn {
     template <class R, class E>
         requires std::invocable<decltype(do_put), R, E>
               or std::invocable<decltype(do_put), R, ranges::subrange<E*>>
-              or ranges::range<E> && std::invocable<put_fn, R, ranges::range_reference_t<E>>
+              or ranges::range<E> and std::invocable<put_fn, R, ranges::range_reference_t<E>>
     constexpr auto operator()(R&& out, E&& e) const {
         if constexpr (std::invocable<decltype(do_put), R, E>) {
             return do_put(FWD(out), FWD(e));
@@ -400,15 +398,18 @@ Sure seems like it'd be worthwhile to me.
 
 Now that I've written all of that, it's probably about time I bring up the motivation for this post: formatting.
 
-In the [{fmt} library](https://github.com/fmtlib/fmt) and `std::format`, formatting is based on using output iterators. You get a context object and `context.out()` is some output iterator you can use to format your type. A lot of the time, you can just `format_to()` and won't do any direct outputting yourself... but when you do use the output iterator, you'll likely alternate needing to put `char`s and `string_view`s.
+In the [{fmt} library](https://github.com/fmtlib/fmt) and `std::format`, formatting is based on using output iterators. You get a context object and `context.out()` is some output iterator you can use to format your type. A lot of the time, you can just `format_to()` and won't do any direct outputting yourself... but when you do use the output iterator, you'll likely alternate needing to put `char`s and `std::string_view`s.
 
-The former is fine, but the latter brings up a problem. How do you write a `string_view` into an output iterator? This is the same issue we saw with `back_inserter` earlier. Your only option is:
+The former is fine, but the latter brings up a problem. How do you write a `std::string_view` into an output iterator? This is the same issue we saw with `back_inserter` earlier. Your only options are:
 
 ```cpp
 out = std::copy(sv.begin(), sv.end(), out);
+out = std::ranges::copy(sv, out).out;
 ```
 
-But that can be inefficient. Which is why this isn't actually what `{fmt}` does in its implementation. Instead, it has a algorithm called `copy_str`. Its [default implementation](https://github.com/fmtlib/fmt/blob/35c0286cd8f1365bffbc417021e8cd23112f6c8f/include/fmt/core.h#L729-L734) is pretty familiar:
+But that can be inefficient. Which is why this isn't actually what `{fmt}` does in its own implementation.
+
+Instead, it has a algorithm called `copy_str`. Its [default implementation](https://github.com/fmtlib/fmt/blob/35c0286cd8f1365bffbc417021e8cd23112f6c8f/include/fmt/core.h#L729-L734) is pretty familiar:
 
 ```cpp
 template <typename Char, typename InputIt, typename OutputIt>
@@ -429,7 +430,7 @@ auto copy_str(InputIt begin, InputIt end, appender out) -> appender {
 }
 ```
 
-For most of the operations in `{fmt}`, the implementation-defined type-erased iterator is `appender`, so this would be the overload used. And `appender` is a `back_insert_iterator` into a `buffer<char>`, which is a growable buffer not unlike `vector<char>`, and has a [dedicated `append`](https://github.com/fmtlib/fmt/blob/35c0286cd8f1365bffbc417021e8cd23112f6c8f/include/fmt/format.h#L632-L644) for this case:
+For most of the operations in `{fmt}`, the implementation-defined type-erased iterator is `appender`, so this would be the overload used. And `appender` is a `back_insert_iterator` into a `buffer<char>`, which is a growable buffer (not unlike `vector<char>`) which has a [dedicated `append`](https://github.com/fmtlib/fmt/blob/35c0286cd8f1365bffbc417021e8cd23112f6c8f/include/fmt/format.h#L632-L644) for this case:
 
 ```cpp
 template <typename T>
@@ -449,10 +450,10 @@ void buffer<T>::append(const U* begin, const U* end) {
 
 So here, we know that `std::copy` would be inefficient, so the library provides (and internally uses) a way to special case that algorithm for its particular output iterator.
 
-Users could, technically, do the same for their own specializations of `formatter<T>`, although I should note that this algorithm is `fmt::detail::copy_str<char>`, which doesn't really suggest that it's particularly user-facing.
+Users could, technically, use this same algorithm for their own specializations of `formatter<T>`, although I should note that this algorithm is `fmt::detail::copy_str<char>`, which doesn't really suggest that it's particularly user-facing.
 
-This begs the question of what the implementations of `std::format` will do. Will they just use `std::copy` or will they try to special case? Implementations _could_ special case their own iterators, that falls under the umbrella Quality of Implementation (QoI) issues.
+This begs the question of what the implementations of `std::format` will do. Will they just use `std::copy`? Implementations _could_ special case their own iterators, that falls under the umbrella Quality of Implementation (QoI) issues, since they know what their own iterator is.
 
 But while implementations could special-case the specific iterator they choose for `std::format` (since there's really only two: one for `char` and one for `wchar_t`), they can't really even special case the general case of `std::back_inserter<std::vector<T>>` -- since users are allowed to specialize `std::vector<T>`.
 
-And even relying on this kind of implementation strategy strikes me as a bit much. There are other use-cases for efficient range copy that aren't just in {fmt} or `std::format` (which is part of why Victor rejected [my pull request](https://github.com/fmtlib/fmt/pull/2740) to add a dedicated API for this to the format context - we don't need to have multiple different `copy` algorithms), so something like the approach I'm outlining here seems worthwhile to pursue anyway.
+And even relying on this kind of implementation strategy strikes me as a bit much. There are other use-cases for efficient range copy that aren't just in {fmt} or `std::format` (which is part of why Victor rejected [my pull request](https://github.com/fmtlib/fmt/pull/2740) to add a dedicated API for this to the format context - we don't need to have multiple different `copy` algorithms - one in general and one specifically for formatting), so something like the approach I'm outlining here seems worthwhile to pursue anyway.
