@@ -129,7 +129,7 @@ Point point_with_smallest_y = std::ranges::min(points, [](Point const& a, Point 
 });
 ```
 
-And that's a perfectly fine approach. I have before, and will continue to in the future, write code like this. But it does conflate two different things: the `<` part and the repeated `Point.y` part. Repeating is a complete non-issue when it's a single-character member name, but the thing we're comparing could be arbitrarily complex.
+And that's a perfectly fine approach. I have written code like this before and will continue to write codel ike this in the future. But it does conflate two different things: the `<` part and the repeated `Point.y` part. Repeating is a complete non-issue when it's a single-character member name, but the thing we're comparing could be arbitrarily complex.
 
 Projections allow us to separate the concerns:
 
@@ -242,7 +242,7 @@ Note that `ranges::find` technically doesn't fit any of those categories, but it
 
 #### `ranges::lower_bound`
 
-In keeping with my `vector<Point> points` object from earlier, let's say I now what to start maintaining my points in sorted order, including subsequent inserts. But I don't want to sort it fully lexicographically, I just want to sort it by just the x-coordinate. And once I do that, I want to look for a particular x-coordinate using a binary search.
+In keeping with my `vector<Point> points` object from earlier, let's say I now want to start maintaining my points in sorted order, including subsequent inserts. But I don't want to sort it fully lexicographically, I just want to sort it by just the x-coordinate. And once I do that, I want to look for a particular x-coordinate using a binary search.
 
 With the C++17 algorithms, that would look like:
 
@@ -251,7 +251,7 @@ std::sort(points.begin(), points.end(), [](Point const& lhs, Point const& rhs){
     return lhs.x < rhs.x;
 });
 auto it = std::lower_bound(points.begin(), points.end(), x, [](Point const& p, int v){
-    return p.x < y;
+    return p.x < v;
 });
 ```
 
