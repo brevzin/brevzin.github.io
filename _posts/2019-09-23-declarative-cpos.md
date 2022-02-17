@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Declaratively implementing CPOs"
+title: "Declaratively implementing Function Objects"
 category: c++
 tags:
   - c++
@@ -9,9 +9,9 @@ tags:
 
 I like a declarative approach to programming. Ben Deane has given several good talks on what declarative programming is (such as [this one](https://www.youtube.com/watch?v=2ouxETt75R4) from CppNow 2018), and if you haven't seen them, you should. The idea is to try to write your logic using expressions and to make it correct by construction, rather than using statements and having to reason imperatively.
 
-One of the new design patterns in C++20 is something known as a _customization point object_, or CPO. A CPO is a callable function object, which means you can easily pass it around to other functions without having to worry about the struggle that is passing around other kinds of polymorphic callables (like function templates and overload sets). A CPO also can be (but isn't necessarily) a customization point and handles the customization selection for you so that you can just always directly invoke it. Basically, it's state of the art library design for doing generic programming, because the language still isn't helping us out here. 
+One of the new design patterns in C++20 is something known as a _customization point object_ (sometimes abbreviated as CPO, but like... don't). A customization point object is a callable function object, which means you can easily pass it around to other functions without having to worry about the struggle that is passing around other kinds of polymorphic callables (like function templates and overload sets). A customization point object also can be (but isn't necessarily) a customization point (which makes it an odd term) and handles the customization selection for you so that you can just always directly invoke it. Basically, it's state of the art library design for doing generic programming, because the language still isn't helping us out here.
 
-One of the new CPOs from Ranges is `std::ranges::begin`{:.language-cpp}, specified in [\[range.access.begin\]](http://eel.is/c++draft/range.access.begin). `ranges::begin(E)`{:.language-cpp} is expression-equivalent to one of the following, in sequential order:
+One of the new customization point objects from Ranges is `std::ranges::begin`{:.language-cpp}, specified in [\[range.access.begin\]](http://eel.is/c++draft/range.access.begin). `ranges::begin(E)`{:.language-cpp} is expression-equivalent to one of the following, in sequential order:
 
 1. `E+0`{:.language-cpp} if `E`{:.language-cpp} is an lvalue array
 2. `decay_copy(E.begin())`{:.language-cpp} if `E` is an lvalue, that expression is valid, and its type models `input_or_output_iterator`
@@ -19,7 +19,7 @@ One of the new CPOs from Ranges is `std::ranges::begin`{:.language-cpp}, specifi
 
 If none of those work, the call is ill-formed (Note that `decay_copy(E)`{:.language-cpp} is what happens when you do `auto x = E;`{:.language-cpp}, see also [P0849](https://wg21.link/p0849)).
 
-Here's the question: how do we implement `ranges::begin`{:.language-cpp}? And, moreover, how do we implement this _declaratively_? 
+Here's the question: how do we implement `ranges::begin`{:.language-cpp}? And, moreover, how do we implement this _declaratively_?
 
 My solution is quite similar to what I went through in [Higher Order Fun]({% post_url 2018-09-23-higher-order-fun %}), so let's just use Boost.Hof for this (I'm assuming a `FWD` macro for sanity):
 
@@ -27,11 +27,11 @@ My solution is quite similar to what I went through in [Higher Order Fun]({% pos
 namespace impl {
   template <typename T> void begin(T&&) = delete;
   template <typename T> void begin(std::initializer_list<T>&&) = delete;
-  
+
   template <typename T>
   concept decays_to_iterator = std::input_or_output_iterator<
     std::decay_t<T>>;
-  
+
   inline constexpr auto fn = boost::hof::first_of(
     // 1. lvalue array case
     []<typename T, size_t N>(T (&arr)[N]) noexcept
@@ -63,7 +63,7 @@ inline constexpr auto begin = impl::fn;
 
 The member case needs to take a forwarding reference even though it requires an lvalue reference because a const rvalue can still bind to an `auto&`{:.language-cpp} parameter. The array case actually has the same problem (it accidentally accepts rvalue const arrays), but I'm going to punt on this problem until later. I will get back to it.
 
-Other than the array problem, this is actually a complete implementation (it's `constexpr`{:.language-cpp}-correct too!). And I would argue it is pretty easy to just go through and convince yourself it's a correct implementation. We have the three cases laid out in order, the first one of those that works is the one that gets invoked - which is precisely how `ranges::begin`{:.language-cpp} is specified. 
+Other than the array problem, this is actually a complete implementation (it's `constexpr`{:.language-cpp}-correct too!). And I would argue it is pretty easy to just go through and convince yourself it's a correct implementation. We have the three cases laid out in order, the first one of those that works is the one that gets invoked - which is precisely how `ranges::begin`{:.language-cpp} is specified.
 
 I think that's pretty neat. Declarative style for the win.
 
@@ -86,11 +86,11 @@ One solution, as always, is to just wrap it in a lambda:
 namespace impl {
   template <typename T> void begin(T&&) = delete;
   template <typename T> void begin(std::initializer_list<T>&&) = delete;
-  
+
   template <typename T>
   concept decays_to_iterator = std::input_or_output_iterator<
     std::decay_t<T>>;
-  
+
   // inner function object that handles steps 2-4
   inline constexpr auto base = boost::hof::first_of(
     // 2. lvalue array case
@@ -115,7 +115,7 @@ namespace impl {
         return begin(rng);
     }
   );
-  
+
   // 1. outer lambda that constrains on lvalues
   inline constexpr auto fn =
     [](auto&& rng)
@@ -138,11 +138,11 @@ Let's try again and use `boost::hof::first_of`{:.language-cpp} for the whole thi
 namespace impl {
   template <typename T> void begin(T&&) = delete;
   template <typename T> void begin(std::initializer_list<T>&&) = delete;
-  
+
   template <typename T>
   concept decays_to_iterator = std::input_or_output_iterator<
     std::decay_t<T>>;
-  
+
   // can't delete the call operator of a lambda
   // so resort to a struct instead
   struct reject_rvalues {
@@ -150,7 +150,7 @@ namespace impl {
       requires std::is_rvalue_reference_v<T&&>
     void operator()(T&&) const = delete;
   };
-  
+
   inline constexpr auto fn = boost::hof::first_of(
     // 1. reject rvalues
     reject_rvalues{},
@@ -183,7 +183,7 @@ inline constexpr auto begin = impl::fn;
 
 The advantage of this implementation is that I'm back to having a nice, linear order of steps that exactly mirrors the specification. The disadvantage of this implementation is that this doesn't actually work at all.
 
-The way `boost::hof::first_of`{:.language-cpp} works is it finds the first callable that is invocable, and invokes it. If there is no such callable, then the whole thing isn't invocable. But the whole point of `= delete`{:.language-cpp} is to make things _not_ invocable. We end up skipping the `reject_rvalues{}`{:.language-cpp} callable for all arguments, because it's not invocable, so it would never be selected, so it may as well not even be there. 
+The way `boost::hof::first_of`{:.language-cpp} works is it finds the first callable that is invocable, and invokes it. If there is no such callable, then the whole thing isn't invocable. But the whole point of `= delete`{:.language-cpp} is to make things _not_ invocable. We end up skipping the `reject_rvalues{}`{:.language-cpp} callable for all arguments, because it's not invocable, so it would never be selected, so it may as well not even be there.
 
 In other words, `= delete`{:.language-cpp} isn't propagated here. Which is a good thing, because typically we wouldn't actually want it to and that would certainly break our intuition of how `first_of` works. But in this very specific case, we do want to propagate `= delete`{:.language-cpp}. How do we do that?
 
@@ -206,13 +206,13 @@ private:
     using Rest = first_of<Fs...>;
     [[no_unique_address]] F first;
     [[no_unique_address]] Rest rest;
-    
+
 public:
     constexpr first_of(F f, Fs... fs)
         : first(std::move(f))
         , rest(std::move(fs)...)
     { }
-    
+
     template <typename... Args,
         bool First = std::is_invocable_v<F const&, Args...>,
         typename Which = std::conditional_t<First, F, Rest> const&>
@@ -239,7 +239,7 @@ Now, in order to propgate deletion, let's just introduce a specific tag type:
 struct deleted_t { };
 ```
 
-And say that if a callable is (a) invocable with a given set of arguments and (b) returns `deleted_t`, then we propagate that deletion and make our call operator deleted as well. We can get this done with the help of a third C++20 feature, this one much bigger and more publicized than the previous two: Concepts. 
+And say that if a callable is (a) invocable with a given set of arguments and (b) returns `deleted_t`, then we propagate that deletion and make our call operator deleted as well. We can get this done with the help of a third C++20 feature, this one much bigger and more publicized than the previous two: Concepts.
 
 One of the two tiebreakers that are added is that one function candidate beats another if it is _more constrained than_ it. The trivial way this happens is if one candidate has any constraints at all and the other does not (a constraint is using a `concept`{:.language-cpp} in any of the syntax forms), and the more complex way is if the constraints of one _subsume_ the constraints of the other. In our example, we don't need to care about subsumption, so I'm not going to get into it. The key is that if we add a constrained overload, it'll win in overload resolution, and that's precisely what we need to happen here:
 
@@ -261,13 +261,13 @@ private:
     using Rest = first_of<Fs...>;
     [[no_unique_address]] F first;
     [[no_unique_address]] Rest rest;
-    
+
 public:
     constexpr first_of(F f, Fs... fs)
         : first(std::move(f))
         , rest(std::move(fs)...)
     { }
-    
+
     template <typename... Args,
         bool First = std::is_invocable_v<F const&, Args...>,
         typename Which = std::conditional_t<First, F, Rest> const&>
@@ -281,7 +281,7 @@ public:
             return std::invoke(rest, FWD(args)...);
         }
     }
-    
+
     template <typename... Args>
         requires std::invocable<F const&, Args...> &&
             std::same_as<
@@ -301,9 +301,9 @@ Let's just add a nice helper to make the usage more readable:
 template <typename F>
 struct delete_if {
     [[no_unique_address]] F f;
-    
+
     constexpr delete_if(F f) : f(std::move(f)) { }
-    
+
     template <typename... Args>
         requires std::invocable<F const&, Args...>
     auto operator()(Args&&...) -> deleted_t;
@@ -318,14 +318,14 @@ Putting it altogether, we get the following complete and correct implementation 
 namespace impl {
   template <typename T> void begin(T&&) = delete;
   template <typename T> void begin(std::initializer_list<T>&&) = delete;
-  
+
   template <typename T>
   concept decays_to_iterator = std::input_or_output_iterator<
     std::decay_t<T>>;
-    
+
   template <typename T>
   concept rvalue = std::is_rvalue_reference_v<T&&>;
-  
+
   inline constexpr auto fn = first_of(
     // 1. reject rvalues
     delete_if([](rvalue auto&&){}),
