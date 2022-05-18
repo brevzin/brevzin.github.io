@@ -6,7 +6,7 @@ baseurl: ""
 url: https://brevzin.github.io
 title_image: "https://avatars1.githubusercontent.com/u/13238276?s=460&v=4"
 google_analytics: "UA-127711000-1"
-gtag: "G-CF3C82MM6L"
+google_tag: "G-CF3C82MM6L"
 github_repository: https://github.com/BRevzin
 post_limit: 5
 
