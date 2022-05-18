@@ -74,7 +74,9 @@ auto Optional<T>::operator=(Optional<T> const& rhs) -> Optional<T>& {
     if (has_value_ and rhs.has_value_) {
         if (this != &rhs) {
             value_.~T();
+            has_value_ = false;
             ::new (&value_) T(rhs.value_);
+            has_value_ = true;
         }
     } else if (has_value_ and not rhs.has_value_) {
         value_.~T();
@@ -97,19 +99,19 @@ auto Optional<T>::operator=(Optional<T> const& rhs) -> Optional<T>& {
     if (this != &rhs) {
         if (has_value_) {
             value_.~T();
+            has_value_ = false;
         }
 
         if (rhs.has_value_) {
             ::new (&value_) T(rhs.value_);
+            has_value_ = true;
         }
-
-        has_value_ = rhs.has_value_;
     }
     return *this;
 }
 ```
 
-This is suddenly... pretty clean! Basically: if we need to do anything at all, then we first destroy our value (if we have one) then copy construct the other value (if there is one). Done. Take a minute to convince yourself that this implementation is correct.
+This is suddenly... pretty clean! Basically: if we need to do anything at all, then we first destroy our value (if we have one) then copy construct the other value (if there is one). Done. Take a minute to convince yourself that this implementation is correct. The two assignments to `has_value_` there are important to ensure that we handle exceptions properly.
 
 There are a couple of valuable aspects to this implementation.
 
@@ -159,6 +161,7 @@ auto Optional<T>::operator=(T const& rhs) -> Optional<T> {
     if (&value_ != &rhs) {
         if (has_value_) {
             value_.~T();
+            has_value_ = false;
         }
 
         ::new (&value_) T(rhs);
@@ -174,7 +177,7 @@ This operator isn't particularly interesting, it solely exists to ensure that `o
 
 The implementation I showed earlier is pretty enticing. It's easy to understand, scales well, and has the minimal type requirements. But there's unfortunately one thing wrong with it: performance.
 
-In the case of `Optional<string>` (and other similar types), destroy + copy construct can be quite a wasteful way of doing a copy. If both the source and destination strings were "long" (i.e. their buffers are allocated) and the destination is longer than the source, then assignment could be as cheap as a `memcpy`. But the destroy + copy approach would have to deallocate and then allocate again. That can lead to an enormous and unacceptable amount of overhead for this case.
+In the case of `Optional<string>` (and other similar types), destroy + copy construct can be quite a wasteful way of doing a copy. If both the source and destination strings were "long" (i.e. their buffers are allocated) and the destination is longer than the source, then assignment could be as cheap as a `memcpy`. But the destroy + copy approach would have to deallocate and then allocate again. That can lead to an enormous amount of overhead for this case.
 
 As a result, a different approach to copy assignment is usually used - deferring to `T`'s copy assignment:
 
