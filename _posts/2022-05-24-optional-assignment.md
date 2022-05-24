@@ -199,6 +199,8 @@ auto Optional<T>::operator=(Optional<T> const& rhs) -> Optional<T>& {
 
 This will perform better for types like `string`. Such types aren't exactly rare (even though copy assignment for `Optional` probably isn't an exceedingly common operation). So it's probably a good tradeoff: we have a more complex implementation with more type requirements (now we do require copy assignment), but we have better performance.
 
+This also has the potential for better exception safety. If the underlying type's copy assignment provides the strong exception guarantee, then this implementation does as well. The previous implementation could only provide the weak exception guarantee in the case of a throwing copy constructor.
+
 It's tempting to argue that this also has a nice symmetry (implementing `Optional<T>`'s `=` in terms of `T`'s `=`), but we only use that operation in one of the four cases, so it's really not all that symmetric. Moreover, we get a new value of `T` in two different ways here (copy construct or copy assign) whereas in the previous implementation, there was only one.
 
 It bears repeating, though, that while we _can_ implement `Optional<T>`'s copy assignment in terms of `T`'s copy assignment, it is not the case that we _must_ implement `Optional<T>`'s copy assignment this way. It is simply one implementation strategy.
@@ -240,7 +242,9 @@ First, note that in the destroy + copy construct implementation, `ox = oj;` and 
 
 Second, the copy-assign implementation is valuable as an optimization over the destroy + copy construct implementation. In this case, it does something different, which makes it very much not an optimization anymore. There was no other reason to choose this option to begin with.
 
-Third, even more than that, copy-assignment would actually be a _pessimization_ for the `Optional<T&>` case. `Optional<T&>`'s storage would be a `T*`. The destroy + copy construct algorithm here actually devolves into a defaulted copy assignment operator, and the whole type ends up being trivially copyable. Which is great. But the copy-assign algorithm requires actually having a user-defined assignment operator, making this case no longer trivially copyable. As this type is almost exclusively used as either a parameter or return type, this is a big hit. Using `Optional<T&>`, at least in my experience, is much more common than copy-assigning an `Optional<U>` (for types `U` where copy-assign is more performant than destroy + copy construct).
+Third, even more than that, copy-assignment would actually be a _pessimization_ for the `Optional<T&>` case. `Optional<T&>`'s storage would be a `T*`. The destroy + copy construct algorithm here actually devolves into a defaulted copy assignment operator, and the whole type ends up being trivially copyable. Which is great. But the copy-assign algorithm requires actually having a user-defined assignment operator, making this case no longer trivially copyable [^Itanium]. Using `Optional<T&>`, at least in my experience, is much more common than copy-assigning an `Optional<U>` (for types `U` where copy-assign is more performant than destroy + copy construct), so this is a meaningful pessimization.
+
+[^Itanium]: On Itanium, at least, "trivial for the purpose of calls" does not consider assignment - so a user-defined assignment operator would still allow `Optional<T&>` to be passed in registers.
 
 The only argument to be made in favor the copy-assign implementation for `Optional<T&>`'s copy assignment operator is for consistency - that what `Optional<T>`'s copy assignment operator does is invoke the underlying type's copy assignment, therefore the same should hold for `Optional<T&>`. But as I've noted, this premise doesn't actually hold: there is no such requirement for `Optional<T>`'s copy assignment, so there is no such consistency (and even the copy assignment model doesn't always lead to copy assignment, only sometimes).
 
