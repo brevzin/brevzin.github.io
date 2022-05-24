@@ -136,7 +136,7 @@ public:
     Optional(Optional const&);
     Optional(T const&);
     Optional(T&&);
-    auto (Optional<T> const& rhs) -> Optional<T>&;
+    auto operator=(Optional<T> const& rhs) -> Optional<T>&;
 };
 ```
 
