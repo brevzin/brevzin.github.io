@@ -230,6 +230,8 @@ oi = oj;
 
 In both models, `ox = oj` will copy construct the right-hand-side's reference onto the disengaged left-hand-side, ending up with `ox.value_` being a reference to `j`.
 
+But what about `oi = oj`? The copy assignment when the left-hand-side is already engaged?
+
 In the destroy + copy construct implementation, the result of this assignment is that we first destroy the left-hand-side's value (reference) and then copy construct the right hand side's value (reference) onto it. The result of this is that `oi.value_` is now the same reference as `oj.value_` (i.e. `j`) and `i` and `j` remain unchanged. This is usually referred to as _rebinding_ the reference.
 
 In the copy-assign implementation, the result of this operation is syntactically invoking `=`. We do `oi.value_ = oj.value_`. This _assigns through_ the left-hand reference, the result of which is that `oi.value_` is still a reference to `i` but now `i` has the value `2`.
@@ -242,7 +244,7 @@ Second, the copy-assign implementation is valuable as an optimization over the d
 
 Third, even more than that, copy-assignment would actually be a _pessimization_ for the `Optional<T&>` case. `Optional<T&>`'s storage would be a `T*`. The destroy + copy construct algorithm here actually devolves into a defaulted copy assignment operator, and the whole type ends up being trivially copyable. Which is great. But the copy-assign algorithm requires actually having a user-defined assignment operator, making this case no longer trivially copyable. As this type is almost exclusively used as either a parameter or return type, this is a big hit. Using `Optional<T&>`, at least in my experience, is much more common than copy-assigning an `Optional<U>` (for types `U` where copy-assign is more performant than destroy + copy construct).
 
-The only argument to be made in favor the copy-assign implementation for `Optional<T&>`'s copy assignment operator is for consistency - that what `Optional<T>`'s copy assignment operator does is invoke the underlying type's copy assignment, therefore the same should hold for `Optional<T&>`. But as I've noted, this premise doesn't actually hold: there is no such requirement for `Optional<T>`'s copy assignment, so there is no such consistency (and note that copy assignment wouldn't always copy assign, even if that's the model we choose).
+The only argument to be made in favor the copy-assign implementation for `Optional<T&>`'s copy assignment operator is for consistency - that what `Optional<T>`'s copy assignment operator does is invoke the underlying type's copy assignment, therefore the same should hold for `Optional<T&>`. But as I've noted, this premise doesn't actually hold: there is no such requirement for `Optional<T>`'s copy assignment, so there is no such consistency (and even the copy assignment model doesn't always lead to copy assignment, only sometimes).
 
 This argument isn't especially close.
 
@@ -258,13 +260,13 @@ Variant<int&, float&> vb = f;
 va = vb; // ???
 ```
 
-Now, this should obviously change `va` such that it is holding an `float&` referring to `f`. But is it really that obvious? With the destroy + copy-construct model, this clearly follows. But with copy-assign, well... couldn't this effectively do `i = j;`? It doesn't because the copy-assign part of the copy-assign model really only happens in the case where the source and destination are holding the same index (note: not just same type, since `Variant` might have multiple different states of the same type), which is part of what makes the copy-assign model more complex than might appear at first glance.
+Now, this should obviously change `va` such that it is holding an `float&` referring to `f`. But is it really that obvious? With the destroy + copy-construct model, this clearly follows. But with copy-assign, well... couldn't this effectively do `i = j;`? After all, we're deferring syntactically to whatever `=` does. But it doesn't because the copy-assign part of the copy-assign model really only happens in the case where the source and destination are holding the same index (note: not just same type, since `Variant` might have multiple different states of the same type), which is part of what makes the copy-assign model more complex than might appear at first glance.
 
 ### Assignment for `Optional<T&>` from `T&`
 
 As with the [same case for `Optional<T>`](#assignment-for-optionalt-from-t), assigning to an `Optional<T&>` from a `T&` must do the same thing as assigning to it from an `Optional<T&>` engaged with that particular `T&`. In this case, we don't have to worry about the pessimization of the extra `Optional` construction, so an implementation need not even provide this operator.
 
-One common mistake I see in discussion about this topic is the misbelief that there is a difference between the assignment operators of `Optional<T&>` from `Optional<T&>` and from `T&`, but there cannot be. Any such difference would be a glaring inconsistency in the semantics between the two operations.
+One common mistake I see in discussion about this topic is the misbelief that there is a difference between the assignment operators of `Optional<T&>` from `Optional<T&>` and from `T&` (e.g. `Optional<T&>`'s copy assignment operator should assign through the reference, but it's assignment from `T&` should be deleted), but there cannot be. Any such difference would be a glaring inconsistency in the semantics between the two operations.
 
 ### Copy Assignment for `Optional<tuple<T&>>`
 
@@ -292,7 +294,18 @@ ox = oj;
 oi = oj;
 ```
 
-Here, `tuple<T&>`'s assignment does assign-through very much by design: it is a proxy reference type. But `Optional<T>` isn't trying to be a proxy reference type and it certainly isn't trying to _conditionally_ be a proxy reference type. Such behavior is definitely not desired. So how do we fix it?
+Here, `tuple<T&>`'s assignment does assign-through very much by design: it is a proxy reference type. But `Optional<T>` isn't trying to be a proxy reference type and it certainly isn't trying to _conditionally_ be a proxy reference type (i.e. it's a proxy reference only when engaged). Such behavior is definitely not desired.
+
+The problem boils down to what `x = y;` even means, and the fact that it actually in C++ can mean two very different things:
+
+1. Change the value of `x` to be the same as `y` (i.e. `x` is a value type)
+2. Change the value to which `x` refers to be the same as `y` (i.e. `x` is a language reference or a proxy reference)
+
+For `T*`, we have distinct syntax for these cases: `p = q;` or `*p = r;`, but for `T&` we don't (indeed language references don't even support rebinding) [^ref].
+
+[^ref]: One interesting thing in Rust is that Rust references (`&T`) behave mostly like C++ pointers: they're rebindable and assigning through them requires explicit dereferencing. However, Rust also has implicit dereferencing to avoid a lot of the tedious cases - instead of writing `*r1 == *r2` you can just write `r1 == r2` (and if you really want to compare the references themselves for equality, you have to write `std::ptr::eq(r1, r2)`, which coerces the references to pointers). I can't say that I really understand the implicit dereference rules, but I can say that at least Rust avoids this problem of the two distinct meanings of `=`.
+
+So how do we fix it?
 
 We could try to detect such cases. C++20 even comes with a relevant concept for this: `indirectly_writable<Out, T>` (which tries to detect references and proxy references by way of checking `const`-assignability: [\[iterator.concept.writable\]](http://eel.is/c++draft/iterator.concept.writable)). We could take a page out of that book:
 
@@ -332,11 +345,11 @@ inline constexpr bool optional_copy_assign<std::tuple<T...>> =
 // ... etc. ...
 ```
 
-This approach is safe, in the sense that the only types that would use copy-assign would be the ones that explicitly opted in to such support. But there are very many such types. This just seems _incredibly_ tedious. This problem isn't particularly unique to `Optional` either. It's somewhat general to any wrapper type.
+This approach is safe, in the sense that the only types that would use copy-assign would be the ones that explicitly opted in to such support. But there are very, very, very many such types. This just seems _incredibly_ tedious. This problem isn't particularly unique to `Optional` either. It's somewhat general to any wrapper type.
 
 A third approach might be: forget it. Just unconditionally do destroy + copy-construct for all types. Including `Optional<string>`. Sure, we pessimize copy-assignment compared to the theoretical best. But we have a simple design that is definitely semantically correct for all types, and that is very important. How significant is copy-assignment anyway? Note that move-assignment, even in the destroy + copy-construct model, is still fine. Is the added benefit of improved performance sufficient for the added complexity of having to have an opt-in trait to get that performance (or the added pain of having some types having the wrong semantics)?
 
-A fourth approach might be: forget it differently. As in, delete copy assignment. I'm not sure that this is necessarily better than simply unconditional destroy + copy construct. You avoid some operations being more expensive than you might expect, but then some operations just don't work when you'd expect them to. Not sure it's necessarily the right trade-off.
+A fourth approach might be: forget it, just differently. As in, delete copy assignment. I'm not sure that this is necessarily better than simply unconditional destroy + copy construct. You avoid some operations being more expensive than you might expect, but then some operations just don't work when you'd expect them to. Not sure it's necessarily the right trade-off.
 
 
 ### Conclusion
@@ -350,11 +363,19 @@ destroy + copy-construct is a simpler design that is definitely semantically cor
 
 copy-assign is more performant (potentially significantly so) for some types (e.g. `std::string`), equivalent for some types (e.g. trivially copyable ones), and semantically wrong for other types (e.g. references and proxy references). In no uncertain terms: a copy-assign implementation for `Optional<T&>` is wrong.
 
-For `Optional<T&>`, implementations can simply account for this by providing a custom implementation that both implements `Optional<T&>` as a `T*` and also provides for rebinding assignment. But for `Optional<tuple<T&>>`, implementations can't realistically special case this. There are fewer proxy reference types than regular types, but still quite a lot of them. And, besides, what do you do for `Optional<tuple<T&, U>>`?
+For `Optional<T&>`, implementations can simply account for this by providing a custom implementation that both implements `Optional<T&>` as a `T*` and also provides for rebinding assignment. But for `Optional<tuple<T&>>`, implementations can't realistically special case this. There are fewer proxy reference types than regular types, but still quite a lot of them. And, besides, what do you do for `Optional<tuple<T&, U>>` [^tuple]?
+
+[^tuple]: You'd have to destroy + copy-construct such cases, unless you really go wild and try to handle each part of the `tuple` separately? This is the case which really breaks the `proxy_reference_copy` idea, since `std::tuple<U...>` is only const-assignable if _all_ the `U`s are, but we'd need to fall-back to destroy + copy-construct if _any_ of the `U`s are reference-like.
 
 This means that there are, I think, only two viable approaches to implementing `Optional`:
 
 1. Just special-case `Optional<T&>`, leaving `Optional<tuple<T&>>` to have incorrect semantics, but under the premise that assignment is rare for such a type anyway so it's probably not that big a deal.
 2. Always do destroy + copy-construct.
 
-The second approach is more sound and probably just better overall, although I'm not sure if there is an implementation that does it. `std::optional` for sure could not change to do that. Somebody, somewhere, is copy-assigning one engaged `std::optional<std::tuple<T&>>` to another and relying on hat behavior. But the first approach is still definitely an... option!
+The second approach is more sound, consistent, and probably just better overall, although I'm not sure if there is an implementation that does it. `std::optional` for sure could not change to do that. Somebody, somewhere, is copy-assigning one engaged `std::optional<std::tuple<T&>>` to another and relying on the current assign-through behavior [^break].
+
+But the first approach is still definitely an... option! You'll have some types whose copy assignment is wrong (although we could make the check sufficiently complex as to do the right thing for `std::pair` and `std::tuple`), but it's the least inconsistent option available. An `Optional<T&>` whose copy assignment assigns through the reference would be quite bad. An `Optional<T&>` whose copy assignment is deleted is just differently inconsistent in a way that strikes me as gratuitous. But special casing `Optional<T&>` to rebind (even if `Optional<tuple<T&>>` remains unfortunately broken) still provides value - so it's something we should consider.
+
+---
+
+[^break]: How would you even determine whether this is true?
