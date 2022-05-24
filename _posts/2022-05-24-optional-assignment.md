@@ -327,7 +327,8 @@ A second approach might be to do destroy + copy-construct by default, and provid
 
 ```cpp
 template <class T>
-inline constexpr bool optional_copy_assign = false;
+inline constexpr bool optional_copy_assign =
+    std::is_object_v<T> and std::is_trivially_copy_assignable_v<T>;
 
 template <>
 inline constexpr bool optional_copy_assign<std::string> = true;
@@ -347,7 +348,7 @@ inline constexpr bool optional_copy_assign<std::tuple<T...>> =
 // ... etc. ...
 ```
 
-This approach is safe, in the sense that the only types that would use copy-assign would be the ones that explicitly opted in to such support. But there are very, very, very many such types. This just seems _incredibly_ tedious. This problem isn't particularly unique to `Optional` either. It's somewhat general to any wrapper type: it would be helpful to know if the type your wrapping is reference-ish or not.
+This approach is safe, in the sense that the only types that would use copy-assign would be the ones that explicitly opted in to such support. But there are very, very, very many such types (and, by contrast, very few proxy reference types). This just seems _incredibly_ tedious. This problem isn't particularly unique to `Optional` either. It's somewhat general to any wrapper type: it would be helpful to know if the type your wrapping is reference-ish or not.
 
 A third approach might be: forget it. Just unconditionally do destroy + copy-construct for all types. Including `Optional<string>`. Sure, we pessimize copy-assignment compared to the theoretical best. But we have a simple design that is definitely semantically correct for all types, and that is very important. How significant is copy-assignment anyway? Note that move-assignment, even in the destroy + copy-construct model, is still fine [^move]. Is the added benefit of improved performance sufficient for the added complexity of having to have an opt-in trait to get that performance (or the added pain of having some types having the wrong semantics)?
 
