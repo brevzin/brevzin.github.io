@@ -7,8 +7,6 @@ tags:
  - c++
  - c++20
  - optional
-pubdraft: yes
-permalink: opt-assign
 ---
 
 Let's talk about assignment for `optional<T>`. I realize this is a fraught topic, but I want to try to build up proper intuition about how assignment has to work, especially since the debate around this topic has been fairly underwhelming. This post will almost exclusively discuss copy assignment (i.e. the one that takes an `optional<T> const&`), since everything just follows from that.
@@ -345,9 +343,11 @@ inline constexpr bool optional_copy_assign<std::tuple<T...>> =
 // ... etc. ...
 ```
 
-This approach is safe, in the sense that the only types that would use copy-assign would be the ones that explicitly opted in to such support. But there are very, very, very many such types. This just seems _incredibly_ tedious. This problem isn't particularly unique to `Optional` either. It's somewhat general to any wrapper type.
+This approach is safe, in the sense that the only types that would use copy-assign would be the ones that explicitly opted in to such support. But there are very, very, very many such types. This just seems _incredibly_ tedious. This problem isn't particularly unique to `Optional` either. It's somewhat general to any wrapper type: it would be helpful to know if the type your wrapping is reference-ish or not.
 
-A third approach might be: forget it. Just unconditionally do destroy + copy-construct for all types. Including `Optional<string>`. Sure, we pessimize copy-assignment compared to the theoretical best. But we have a simple design that is definitely semantically correct for all types, and that is very important. How significant is copy-assignment anyway? Note that move-assignment, even in the destroy + copy-construct model, is still fine. Is the added benefit of improved performance sufficient for the added complexity of having to have an opt-in trait to get that performance (or the added pain of having some types having the wrong semantics)?
+A third approach might be: forget it. Just unconditionally do destroy + copy-construct for all types. Including `Optional<string>`. Sure, we pessimize copy-assignment compared to the theoretical best. But we have a simple design that is definitely semantically correct for all types, and that is very important. How significant is copy-assignment anyway? Note that move-assignment, even in the destroy + copy-construct model, is still fine [^move]. Is the added benefit of improved performance sufficient for the added complexity of having to have an opt-in trait to get that performance (or the added pain of having some types having the wrong semantics)?
+
+[^move]: Because move construction and move assignment are basically the same for types like `std::string`.
 
 A fourth approach might be: forget it, just differently. As in, delete copy assignment. I'm not sure that this is necessarily better than simply unconditional destroy + copy construct. You avoid some operations being more expensive than you might expect, but then some operations just don't work when you'd expect them to. Not sure it's necessarily the right trade-off.
 
@@ -361,7 +361,7 @@ There are two ways to implement copy assignment for `Optional<T>`:
 
 destroy + copy-construct is a simpler design that is definitely semantically correct for all types.
 
-copy-assign is more performant (potentially significantly so) for some types (e.g. `std::string`), equivalent for some types (e.g. trivially copyable ones), and semantically wrong for other types (e.g. references and proxy references). In no uncertain terms: a copy-assign implementation for `Optional<T&>` is wrong.
+copy-assign is more performant (potentially significantly so) for some types (e.g. `std::string`), equivalent for some types (e.g. trivially copyable ones), and semantically wrong for other types (references and proxy references). In no uncertain terms: a copy-assign implementation for `Optional<T&>` is wrong.
 
 For `Optional<T&>`, implementations can simply account for this by providing a custom implementation that both implements `Optional<T&>` as a `T*` and also provides for rebinding assignment. But for `Optional<tuple<T&>>`, implementations can't realistically special case this. There are fewer proxy reference types than regular types, but still quite a lot of them. And, besides, what do you do for `Optional<tuple<T&, U>>` [^tuple]?
 
