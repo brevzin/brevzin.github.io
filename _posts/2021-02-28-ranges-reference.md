@@ -229,7 +229,7 @@ Produces a range that excludes all the elements that satisfy `f` until the `f` e
 * reference: `T` (same as input range)
 * category: same as `r` (even preserves contiguous)
 * common: when `r` is common
-* sized: never
+* sized: when `sentinel_t<R>` satisfies `sized_sentinel_for<iterator_t<R>>`. The typical case here is when `r` is a common, random access range. 
 * const-iterable: never
 * borrowed: when `r` is borrowed
 
@@ -341,3 +341,4 @@ Produces a range of the `I`th (`elements<I>`) / 1st (`keys`) / 2nd (`values`) el
 * sized: when `r` is sized, in which case the same size as `r`
 * const-iterable: when `r` is const-iterable
 * borrowed: when `r` is borrowed (this is a special case of `transform` where the transform is encoded into the type)
+
