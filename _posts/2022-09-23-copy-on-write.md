@@ -128,7 +128,9 @@ template <class T>
 class CowVector {
 public:
     template <class Self>
-    auto operator[](this Self& self, size_t idx) -> std::copy_const_t<Self, T>& {
+    auto operator[](this Self& self, size_t idx)
+        -> std::copy_const_t<Self, T>&
+    {
         if constexpr (not std::is_const_v<Self>) {
             self.copy_on_write();
         }
@@ -154,7 +156,9 @@ class CowVector {
     auto get_state() const -> State const* { return state; }
 public:
     template <class Self>
-    auto operator[](this Self& self, size_t idx) -> std::copy_const_t<Self, T>& {
+    auto operator[](this Self& self, size_t idx)
+        -> std::copy_const_t<Self, T>&
+    {
         return self.get_state()->elements[idx];
     }
 };
