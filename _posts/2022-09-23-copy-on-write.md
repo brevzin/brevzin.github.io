@@ -276,3 +276,26 @@ You can play around with this implementation [here](https://godbolt.org/z/65jj79
 Deducing `this` is a pretty cool language feature, with use-cases that I'm sure we'll continue to keep discovering over time. Like this implementation strategy for copy-on-write! Or, more generally, a limited ability to decorate the object parameter on member functions.
 
 It may not be the most compelling use-case of this facility, but I thought it was pretty cute.
+
+### Real Conclusion
+
+... but actually, this is a terrible implementation of copy-on-write. As Dave Abrahams pointed out to me, assuming that you need to make a full copy just because you're not unique is a huge pessimization.
+
+Consider, for instance, `clear()`. The efficient thing to do is:
+
+```cpp
+template <class T>
+void CowVector<T>::clear() {
+    if (state_->is_unique()) {
+        // mutate state in place
+    } else {
+        // allocate new empty state
+    }
+}
+```
+
+Importantly, we allocate a new _empty_ state. We do not need to first copy arbitrarily many elements just to then destroy all the copies because we didn't need them to begin with. The implementation I'm demonstrating here would do that. Needless to say, that's suboptimal.
+
+Moreover it's not just that `clear()` is a special case either. Consider `v.push_back(x)`. If `v` isn't unique, we don't want to just copy our state (allocating space for `v.capacity()` elements) - if we're at capacity, that means we'd have to first allocate (and copy) `v.capacity()` elements and then immediately grow, allocating `v.capacity() * 2` elements and copying again. We'd want to be smarter - allocating space for at least `v.size() + 1` elements, so that we only do a single allocation.
+
+So while this was a cute approach to this problem, and there probably is a good use-case out there for using explicit object parameters with a different type, this ain't it.
