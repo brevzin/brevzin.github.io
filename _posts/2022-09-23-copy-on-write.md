@@ -8,11 +8,11 @@ tags:
   - c++23
 ---
 
-One of the new language features for C++23 is [Deducing `this`](), which a feature I co-authored with Gašper Ažman, Sy Brand, and Ben Deane. The interesting history there is that Sy and I were working on solving one problem (deduplication of all the `const` and ref-qualifier overloads) and Gašper and Ben were working on another (forwarding lambdas) and it just so happened that Jonathan Wakely pointed out that we were converging on a similar solution.
+One of the new language features for C++23 is [Deducing `this`](), which is a feature I co-authored with Gašper Ažman, Sy Brand, and Ben Deane. The interesting history there is that Sy and I were working on solving one problem (deduplication of all the `const` and ref-qualifier overloads) and Gašper and Ben were working on another (forwarding lambdas) and it just so happened that Jonathan Wakely pointed out that we were converging on a similar solution.
 
 In short, the facility allows you to declare an _explicit_ object parameter (whereas C++ has always let you have an _implicit_ object parameter, that `this` points to), which is annotated with the keyword `this`. And... that's basically the whole feature - this new function parameter behaves the same as any other kind of function parameter, and all the other rules basically follow from that. Ben gave a [whole talk](https://www.youtube.com/watch?v=jXf--bazhJw) on this at CppCon 2021, and Timur Doumler used this feature as one of the four he talked about in this keynote at CppCon 2022 on how C++23 will change how we write code (I'll post the link when it becomes available).
 
-What makes me most excited about this language feature is that the design we ended up with is a fairly simple one that nevertheless solves a variety of completely unrelated problems. Indeed, a lot of the use-cases we're aware of were not use-cases that we set out to solve - they're just ones that we discovered along the way. Recursive lambdas? Discovered. A better approach to CRTP and builder interfaces? Discovered. Who knows how many other interesting things people will come up with built on this one simple feature.
+What makes me most excited about this language feature is that the design we ended up with is a fairly simple one that nevertheless solves a variety of completely unrelated problems. Indeed, a lot of the use-cases we're aware of were not use-cases that we explicitly set out to solve - they're just ones that we discovered along the way. Recursive lambdas? Discovered. A better approach to CRTP and builder interfaces? Discovered. Who knows how many other interesting things people will come up with built on this one simple feature.
 
 So I thought I'd write a new post about a use-case for deducing `this` that I just thought of last week: implementing copy-on-write.
 
@@ -22,7 +22,7 @@ Copy-on-Write (or, COW, because people love their acronyms) is a strategy to mak
 
 But my goal isn't really to talk about why Copy-on-Write is a good idea or a bad idea. Let's talk about how to implement it.
 
-If I had wanted to write a regular `vector<T>`, I'd have pieces like this (obviously there's more to `Vector` than this, but this is good enough for demonstration purposes)
+If I had wanted to write a regular `Vector<T>`, I'd have something like this (obviously there's more to `Vector<T>` than this, but this is good enough for demonstration purposes)
 
 ```cpp
 template <class T>
@@ -34,8 +34,11 @@ class Vector {
 public:
     // copy constructor always allocates
     Vector(Vector const& rhs) {
-        begin_ = ::operator new(sizeof(T) * (rhs.capacity()), std::align_val_t{alignof(T)});
-        end_ = std::uninitialized_copy(rhs.begin_, rhs.end_, begin_);
+        begin_ = ::operator new(
+            sizeof(T) * (rhs.capacity()),
+            std::align_val_t{alignof(T)});
+        end_ = std::uninitialized_copy(
+            rhs.begin_, rhs.end_, begin_);
         capacity_ = begin_ + rhs.capacity();
     }
 
@@ -64,12 +67,14 @@ class CowVector {
     }
     State* state;
 
-    // if we're not unique, we need to allocate a new State and copy the elements
-    // if we are unique, this is a no-op
+    // if we're not unique, we need to allocate
+    // a new State and copy the elements.
+    // if we are unique, this is a no-op.
     void copy_on_write();
 
 public:
-    // copy constructor *never* allocates. just increments ref-count
+    // copy constructor *never* allocates.
+    // just increments ref-count
     CowVector(Vector const& rhs)
         : state(rhs.state)
     {
@@ -191,8 +196,9 @@ class CowVector {
     }
     State* state;
 
-    // if we're not unique, we need to allocate a new State and copy the elements
-    // if we are unique, this is a no-op
+    // if we're not unique, we need to allocate
+    // a new State and copy the elements.
+    // if we are unique, this is a no-op.
     void copy_on_write();
 
     struct ImmutableState {
@@ -202,13 +208,15 @@ class CowVector {
     struct MutableState : ImmutableState { };
 
 public:
-    // the MutableState conversion ensures that we have unique, mutable state
+    // the MutableState conversion ensures that
+    // we have unique, mutable state
     operator MutableState() {
         copy_on_write();
         return MutableState{state};
     }
 
-    // whereas the ImmutableState conversion is just a thin wrapper
+    // whereas the ImmutableState conversion is
+    // just a thin wrapper that is a no-op
     operator ImmutableState() const {
         return ImmutableState{state};
     }
