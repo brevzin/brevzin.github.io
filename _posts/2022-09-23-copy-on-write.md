@@ -8,7 +8,7 @@ tags:
   - c++23
 ---
 
-One of the new language features for C++23 is [Deducing `this`](), which is a feature I co-authored with Gašper Ažman, Sy Brand, and Ben Deane. The interesting history there is that Sy and I were working on solving one problem (deduplication of all the `const` and ref-qualifier overloads) and Gašper and Ben were working on another (forwarding lambdas) and it just so happened that Jonathan Wakely pointed out that we were converging on a similar solution.
+One of the new language features for C++23 is [Deducing `this`](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html), which is a feature I co-authored with Gašper Ažman, Sy Brand, and Ben Deane. The interesting history there is that Sy and I were working on solving one problem (deduplication of all the `const` and ref-qualifier overloads) and Gašper and Ben were working on another (forwarding lambdas) and it just so happened that Jonathan Wakely pointed out that we were converging on a similar solution.
 
 In short, the facility allows you to declare an _explicit_ object parameter (whereas C++ has always let you have an _implicit_ object parameter, that `this` points to), which is annotated with the keyword `this`. And... that's basically the whole feature - this new function parameter behaves the same as any other kind of function parameter, and all the other rules basically follow from that. Ben gave a [whole talk](https://www.youtube.com/watch?v=jXf--bazhJw) on this at CppCon 2021, and Timur Doumler used this feature as one of the four he talked about in this keynote at CppCon 2022 on how C++23 will change how we write code (I'll post the link when it becomes available).
 
@@ -139,7 +139,7 @@ public:
 };
 ```
 
-In some contexts, this is quite useful, since it can reduce overload sets in a way that reduces code duplication and makes them easier to implement and understand. The paper has some nice examples of this.
+In some contexts, this is quite useful, since it can reduce overload sets in a way that reduces code duplication and makes them easier to implement and understand. [The paper](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p0847r7.html) has some nice examples of this.
 
 But in this _particular_ case, it's kind of a step backwards? Our two overloads don't actually do the same thing, and the conditional copy-on-write call isn't really the best. It could be improved a bit:
 
