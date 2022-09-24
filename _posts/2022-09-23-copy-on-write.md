@@ -53,7 +53,7 @@ public:
 };
 ```
 
-If I wanted to write a copy-on-write `vector<T>`, things would look a bit different. I'd need a reference count that I'd need to allocate. So I might as well just put more stuff in the allocation. And then the mutable case looks quite different:
+If I wanted to write a copy-on-write `Vector<T>`, things would look a bit different. I'd need a reference count that I'd need to allocate. So I might as well just put more stuff in the allocation. And then the mutable case looks quite different:
 
 ```cpp
 template <class T>
@@ -75,7 +75,7 @@ class CowVector {
 public:
     // copy constructor *never* allocates.
     // just increments ref-count
-    CowVector(Vector const& rhs)
+    CowVector(CowVector const& rhs)
         : state(rhs.state)
     {
         ++state->ref;
