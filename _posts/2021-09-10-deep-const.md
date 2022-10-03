@@ -40,7 +40,7 @@ Note that it's `span<T const>` and not `span<T> const&` - `span` has reference s
 
 With `takes_const_span()` as written, you can pass a `vector<int>` or a `vector<int> const` -- both of those invocations work just fine, and regardless of whether the original `vector` is mutable or not, the function has no mutable access. This is part of why `span` is such a useful type -- it is very easy to express and enforce constness like this.
 
-Now, what if we combined these two ideas: using `span` to express deep const-ness while also trying to be more generic across all types and wanting to take advantage of the const-qualification exception? Maybe I have some non-mutating algorithm that works on *all* contiguous ranges, not just those comprised of `int`s? 
+Now, what if we combined these two ideas: using `span` to express deep const-ness while also trying to be more generic across all types and wanting to take advantage of the const-qualification exception? Maybe I have some non-mutating algorithm that works on *all* contiguous ranges, not just those comprised of `int`s?
 
 ```cpp
 template <typename T>
@@ -65,7 +65,7 @@ template <contiguous_range R>
 void takes_contiguous_const_range(R&& r);
 ```
 
-Here, `constant_range` is a concept which enforces that `R` is, well, a constant range. Turns out this is a tricky thing to get right -- because a range of prvalue `int`s isn't mutable, so it should count as const, but a range of prvalue `tuple<int&>`s (or `vector<bool>::reference`) is mutable, so it shouldn't. See [my paper](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2278r0.html#act-iv-stdconst_iterator) for more on this topic. Although given that we're requiring contiguity, we don't really need the trickiness of `constant_range`, it would be sufficient to check that `remove_reference_t<range_reference_t<R>>` is `const`.
+Here, `constant_range` is a concept which enforces that `R` is, well, a constant range. Turns out this is a tricky thing to get right -- because a range of prvalue `int`s isn't mutable, so it should count as const, but a range of prvalue `tuple<int&>`s (or `vector<bool>::reference`) is mutable, so it shouldn't. See [my paper](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2278r4.html#act-iv-stdconst_iterator) (adopted for C++23) for more on this topic. Although given that we're requiring contiguity, we don't really need the trickiness of `constant_range`, it would be sufficient to check that `remove_reference_t<range_reference_t<R>>` is `const`.
 
 This attempt, though, has one big flaw. It *requires* that the incoming range be constant, but it can't *coerce* the incoming range to become constant. Let's go back to our pointer example real quick.
 
@@ -86,7 +86,7 @@ void f2(int i) {
 }
 ```
 
-Imagine having to do this at every call site where you call a function that takes a `T const*` or a `T const&`. 
+Imagine having to do this at every call site where you call a function that takes a `T const*` or a `T const&`.
 
 The same problem holds with this declaration:
 
@@ -127,17 +127,17 @@ template <contiguous_range R>
 void takes_contiguous_range3(R&& r) {
     // figure out what kind of span we want
     using V = range_value_t<R>;
-    
+
     // and manually construct a const one
     takes_generic_const_span(span<V const>(r));
 }
 ```
 
-This is the same `takes_generic_const_span` function template I showed earlier and stated was almost completely useless. And that's still true - it's completely useless as a *user-facing* API. But it's useful here. The user calls `takes_contiguous_range3`, which simply requires contiguity (but cannot enforce const-ness, and as a result note that it is free to mutate elements internally if it so chose). This algorithm then itself coerces const-ness but adding it onto `r` and propagating it onto `takes_generic_const_span`, which then cannot mutate any elements. 
+This is the same `takes_generic_const_span` function template I showed earlier and stated was almost completely useless. And that's still true - it's completely useless as a *user-facing* API. But it's useful here. The user calls `takes_contiguous_range3`, which simply requires contiguity (but cannot enforce const-ness, and as a result note that it is free to mutate elements internally if it so chose). This algorithm then itself coerces const-ness but adding it onto `r` and propagating it onto `takes_generic_const_span`, which then cannot mutate any elements.
 
 For instance, if you call this with a `vector<int>`, the call succeeds (`vector<int>` is indeed a contiguous range). The `value_type` is `int`, so we produce a `span<int const>` from that vector. Which is the same thing that happened in our non-generic `takes_const_span()` case, except that this one now also works with any other value type (like, say, `string`).
 
-Similarly, invoking this algorithm works just fine with `vector<int> const` or `span<double>` or `v | views::drop_while(pred)`. 
+Similarly, invoking this algorithm works just fine with `vector<int> const` or `span<double>` or `v | views::drop_while(pred)`.
 
 ### Enforcing deep const with a template, again again
 
@@ -148,11 +148,11 @@ Even without `span`, there is still some benefit to avoiding template instantiat
 ```cpp
 template <range R>
 void takes_any_range(R&& _r) {
-    auto r = views::const_(_r);
+    auto r = views::as_const(_r);
 }
 ```
 
-See [my paper](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2278r0.html#a-viewsconst_) for what `views::const_` is, based on what was in range-v3 under the same name.
+See [my paper](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2278r0.html#a-viewsconst_) for what `views::as_const` is, based on what was in range-v3 under the same name.
 
 Here, `r` is a constant range, for sure, regardless of whether `_r` was or not (if `_r` was already a constant range, we try to avoid instantiating anything further, so `r` may just be a view of `_r` directly - or a view of `as_const(_r)`).
 
@@ -168,7 +168,7 @@ void takes_any_range(R&& r) {
     // shadow the original r
     // or re-bind the name to a new object
     // whichever wording you prefer
-    auto r = views::const_(r);
+    auto r = views::as_const(r);
 }
 ```
 
@@ -182,7 +182,7 @@ void takes_any_range2_impl(R&& r) {
 
 template <range R>
 void takes_any_range2(R&& r) {
-    takes_any_range2_impl(views::const_(r));
+    takes_any_range2_impl(views::as_const(r));
 }
 ```
 
@@ -196,7 +196,7 @@ void takes_any_range2(R&& r) {
 
 template <range R>
 void takes_any_range2(R&& r) {
-    takes_any_range2(views::const_(r));
+    takes_any_range2(views::as_const(r));
 }
 ```
 
@@ -213,10 +213,10 @@ template <constant_range R>
 void takes_any_range3(R&& r);
 
 template <range R>
-takes_any_range3(R&& r) -> takes_any_range3(views::const_(r));
+takes_any_range3(R&& r) -> takes_any_range3(views::as_const(r));
 ```
 
-Syntax doesn't matter, but the idea here would be that invoking `takes_any_range3(v)` where `v` is a `vector<int>` (mutable) would directly invoke `takes_any_range3` with a constant range (in this case, it would be a `ref_view<vector<int> const>`) without need for a second function template or more manual intervention. 
+Syntax doesn't matter, but the idea here would be that invoking `takes_any_range3(v)` where `v` is a `vector<int>` (mutable) would directly invoke `takes_any_range3` with a constant range (in this case, it would be a `ref_view<vector<int> const>`) without need for a second function template or more manual intervention.
 
 To be honest, I'm not even sure this is better at all than the manual solution of writing two function templates that I just showed -- it's like marginally less code while introducing a world of complexity with how function template deduction guides would even work. But it is some kind of solution so I thought it was worth mentioning anyway.
 
@@ -228,7 +228,7 @@ auto concept constant_range : range<R> {
     auto begin(R& r) {
         return make_const_iterator(possibly_const(r).begin());
     }
-    
+
     auto end(R& r) {
         return make_const_sentinel(possibly_const(r).end());
     }
@@ -256,7 +256,7 @@ vector<int> v = {1, 2, 3};
 takes_any_range4(v); // error
 ```
 
-This would fail, because `r.begin()` would not just be `v.begin()` (which would give you a mutable iterator because `v` is mutable) but rather end up giving you `std::as_const(v).begin()`, which is a constant iterator that you cannot assign through. 
+This would fail, because `r.begin()` would not just be `v.begin()` (which would give you a mutable iterator because `v` is mutable) but rather end up giving you `std::as_const(v).begin()`, which is a constant iterator that you cannot assign through.
 
 This now becomes the perfect analogue of what we've always been able to do with normal references:
 
@@ -284,7 +284,7 @@ void takes_any_range2(R&& r) {
 
 template <range R>
 void takes_any_range2(R&& r) {
-    takes_any_range2(views::const_(r));
+    takes_any_range2(views::as_const(r));
 }
 ```
 
@@ -293,8 +293,8 @@ Or simply write one function and stick with a naming convention (such as prefixe
 ```cpp
 template <range R>
 void takes_any_range2(R&& _r) {
-    auto r = views::const_(_r);
-    
+    auto r = views::as_const(_r);
+
     // r is definitely a constant range
     // never use _r again
 }

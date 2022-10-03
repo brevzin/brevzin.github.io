@@ -8,6 +8,9 @@ tags:
   - span
 ---
 
+**Update from 2022**: my proposal to address this problem, [P2280](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2280r4.html) (Using unknown pointers and references in constant expressions
+), has been adopted for C++23.
+
 This issue was first pointed out to me by Michael Park, and mostly explained to
 me by T.C.
 
@@ -74,7 +77,7 @@ void check(int const (*param)[3]) {
 This case _has_ to be ill-formed, copying a function parameter during constant
 evaluation means it has to itself be a constant expression, and function
 parameters are not constant expressions - even in `constexpr`{:.language-cpp}
-or `consteval`{:.language-cpp} functions. 
+or `consteval`{:.language-cpp} functions.
 
 But if the `param` case is ill-formed, why does the `local` case work? An
 unsatisfying answer is that... there just isn't any rule in [\[expr.const\]](http://eel.is/c++draft/expr.const#4)
@@ -109,7 +112,7 @@ nobody's about to start passing all their containers around _by value_.
 ### Why might we care?
 
 Before getting into more detail about the problem itself, let's take a look at
-why this matters. The following is just one motivating example. I picked it 
+why this matters. The following is just one motivating example. I picked it
 because it's probably the easiest to look at, but just keep in mind that this
 is far from the only reason we might care about this sort of thing.
 
@@ -123,7 +126,7 @@ and fixed extent. Roughly speaking:
 template <typename T, size_t Extent = dynamic_extent>
 struct span {
     T* ptr;
-    
+
     constexpr T* begin() { return ptr; }
     constexpr T* end() { return ptr + Extent; }
     constexpr size_t size() const { return Extent; }
@@ -135,7 +138,7 @@ template <typename T>
 struct span<T, dynamic_extent> {
     T* ptr;
     size_t size;
-    
+
     constexpr T* begin() const { return ptr; }
     constexpr T* end() const { return ptr + size; }
     constexpr size_t size() const { return size; }
@@ -239,7 +242,7 @@ conceptually what we want. One such range? Why `span`, of course:
 
 ```cpp
 constexpr int arr[] = {1, 2, 3, 4, 5};
-constexpr std::span<int> s = arr; 
+constexpr std::span<int> s = arr;
 
 // this is fine, s.size() is a constant expression
 static_assert(s.size() == 5);
@@ -249,7 +252,7 @@ std::span<int, 5> fixed = s;
 ```
 
 `s`'s size is a constant expression, but it's not tied to its type - these type-
-based approaches wouldn't work. 
+based approaches wouldn't work.
 
 So it's, at best, a partial and unsatisfying solution. But at least it does
 offer a way to reliably get the size of an array as a constant expression - it's
@@ -292,7 +295,7 @@ bounds-check) but which things we don't (like actually require that
 `*ptrs_to_arrays[3]`{:.language-cpp} is a constant expression itself)?
 
 Moreover, even if we go this direction. Let's say that we come up with some
-kind of exception in this space, such that the original code we tried to 
+kind of exception in this space, such that the original code we tried to
 write actually works. Just reproducing the relevant code for proximity:
 
 ```cpp
@@ -326,7 +329,7 @@ f(dynamic_span); // still error!
 Even if we say that we can propagate references to our heart's delight during
 constant evaluation, as long as we don't read them, that wouldn't help us here.
 `dynamic_span` is a dynamic `span`, its `size()`{:.language-cpp} member function
-is non-static, so we very much do need to read through the reference. 
+is non-static, so we very much do need to read through the reference.
 
 In order to make this example work, we'd need to not only have a reference
 propagation rule (to make the `c_array` and `cpp_array` cases work), but we'd
@@ -381,12 +384,12 @@ void emplace_back(Arg&& arg) {
 That is, the conversion so `span` happens _inside_ of `emplace_back()`{:.language-cpp}. In order
 for this to still work for `dynamic_span`, we would need to somehow remember
 that `arg` refers to a constant expression. And while `dynamic_span` is a constant
-expression, `bunch_of_spans` doesn't have to be - this could be runtime code. 
+expression, `bunch_of_spans` doesn't have to be - this could be runtime code.
 How can this runtime call remember the "constant-expression-ness" of its
 parameter? Ideally without having to touch `std::vector<T>::emplace_back`{:.language-cpp}
 in any way whatsoever?
 
-I have no idea. 
+I have no idea.
 
 But I would love to get to the point where this code actually compiles:
 
