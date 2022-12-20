@@ -7,9 +7,8 @@
   type: twitter
   icon: 'fab fa-twitter'
 -
-  type: email
-  icon: 'fas fa-envelope'
-  noblank: true            # open link in current tab
+  type: stack_overflow
+  icon: 'fab fa-stack-overflow'
 -
   type: rss
   icon: 'fas fa-rss'

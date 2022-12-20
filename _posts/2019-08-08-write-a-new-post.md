@@ -316,6 +316,25 @@ key: value
 ```
 ````
 
+Some C++ code:
+
+```cpp
+void f() {
+
+}
+```
+
+A mermaid graph:
+
+```mermaid
+classDiagram
+    class BankAccount
+    BankAccount : +String owner
+    BankAccount : +Bigdecimal balance
+    BankAccount : +deposit(amount)
+    BankAccount : +withdrawal(amount)
+```
+
 > The Jekyll tag `{% highlight %}` is not compatible with this theme.
 {: .prompt-danger }
 
