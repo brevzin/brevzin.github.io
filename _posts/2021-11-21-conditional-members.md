@@ -168,7 +168,7 @@ struct enable_if {
 
 Here, it's critical that `enable_if<false, T>` has no member `type` at all. Not has a member `type` that is `void` or some other implementation-defined type. No type at all!
 
-![Edna Mode](/assets/edna_mode.jpg)
+![Edna Mode](/assets/img/edna_mode.jpg)
 
 There is only one way to do this in the language today, which is partial specialization of class templates. You have to do it this way:
 
