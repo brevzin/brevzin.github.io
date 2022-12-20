@@ -49,7 +49,7 @@
 
   <title>
   {%- unless page.layout == "home" -%}
-    {{ page.title | append: " | "}}
+    {{ page.title | replace: '<code class=\"language-cpp\">', '' | replace: '</code>', '' | append: " | "}}
   {%- endunless -%}
     {{ site.title }}
   </title>

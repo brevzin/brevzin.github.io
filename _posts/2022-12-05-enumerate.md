@@ -1,7 +1,6 @@
 ---
 author: brevzin
-title: "What's so hard about views::enumerate?"
-html_title: What's so hard about views::enumerate?
+title: What's so hard about <code class=\"language-cpp\">views::enumerate</code>?
 category: c++
 tags:
   - c++
