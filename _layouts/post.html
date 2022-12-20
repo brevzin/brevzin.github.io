@@ -4,9 +4,7 @@ refactor: true
 panel_includes:
   - toc
 tail_includes:
-  - related-posts
   - post-nav
-  - comments
 ---
 
 <h1 data-toc-skip>{{ page.title }}</h1>
@@ -94,6 +92,7 @@ tail_includes:
 <div class="post-tail-wrapper text-muted">
 
   <!-- categories -->
+  {% comment %}
   {% if page.categories.size > 0 %}
   <div class="post-meta mb-3">
     <i class="far fa-folder-open fa-fw mr-1"></i>
@@ -103,6 +102,7 @@ tail_includes:
     {% endfor %}
   </div>
   {% endif %}
+  {% endcomment %}
 
   <!-- tags -->
   {% if page.tags.size > 0 %}

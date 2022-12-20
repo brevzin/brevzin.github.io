@@ -38,8 +38,8 @@ layout: default
   <div id="panel-wrapper" class="col-xl-3 pl-2 text-muted">
 
     <div class="access">
-      {% include update-list.html %}
-      {% include trending-tags.html %}
+      {% comment %}{% include update-list.html %}
+      {% include trending-tags.html %}{% endcomment %}
     </div>
 
     {% for _include in layout.panel_includes %}
