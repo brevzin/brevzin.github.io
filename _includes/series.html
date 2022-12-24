@@ -1,6 +1,6 @@
 {% if page.series %}
 <div class="pl-0 pr-4 mb-5">
-    <div class="panel-heading pl-3 pt-2 mb-2">Series '{{ page.series }}'</div>
+    <div class="panel-heading pl-3 pt-2 mb-2">Series '{{ page.series | escape }}'</div>
     <ol class="series">
     {% for apost in site.posts reversed %}
         {% if page.series == apost.series %}
