@@ -321,25 +321,25 @@
  .rainbow-braces .token.token.punctuation.brace-level-1,
  .rainbow-braces .token.token.punctuation.brace-level-5,
  .rainbow-braces .token.token.punctuation.brace-level-9 {
-     color: hsl(5, 74%, 59%);
+     color: hsl(5deg, 74%, 59%);
  }
 
  .rainbow-braces .token.token.punctuation.brace-level-2,
  .rainbow-braces .token.token.punctuation.brace-level-6,
  .rainbow-braces .token.token.punctuation.brace-level-10 {
-     color: hsl(119, 34%, 47%);
+     color: hsl(119deg, 34%, 47%);
  }
 
  .rainbow-braces .token.token.punctuation.brace-level-3,
  .rainbow-braces .token.token.punctuation.brace-level-7,
  .rainbow-braces .token.token.punctuation.brace-level-11 {
-     color: hsl(221, 87%, 60%);
+     color: hsl(221deg, 87%, 60%);
  }
 
  .rainbow-braces .token.token.punctuation.brace-level-4,
  .rainbow-braces .token.token.punctuation.brace-level-8,
  .rainbow-braces .token.token.punctuation.brace-level-12 {
-     color: hsl(301, 63%, 40%);
+     color: hsl(301deg, 63%, 40%);
  }
 
  /* Diff Highlight plugin overrides */
@@ -387,7 +387,7 @@
  /* Border around popup */
  .prism-previewer.prism-previewer:before,
  .prism-previewer-gradient.prism-previewer-gradient div {
-     border-color: hsl(0, 0, 95%);
+     border-color: hsl(0deg, 0%, 95%);
  }
 
  /* Angle and time should remain as circles and are hence not included */
@@ -399,11 +399,11 @@
 
  /* Triangles pointing to the code */
  .prism-previewer.prism-previewer:after {
-     border-top-color: hsl(0, 0, 95%);
+     border-top-color: hsl(0deg, 0%, 95%);
  }
 
  .prism-previewer-flipped.prism-previewer-flipped.after {
-     border-bottom-color: hsl(0, 0, 95%);
+     border-bottom-color: hsl(0deg, 0%, 95%);
  }
 
  /* Background colour within the popup */
