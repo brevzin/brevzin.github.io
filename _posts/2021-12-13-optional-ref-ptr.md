@@ -1,6 +1,6 @@
 ---
 layout: post
-title: <code class=\"language-cpp\">T*</code> makes for a poor <code class=\"language-cpp\">optional&lt;T&></code>
+title: "<code class=\"language-cpp\">T*</code> makes for a poor <code class=\"language-cpp\">optional&lt;T&></code>"
 category: c++
 tags:
  - c++

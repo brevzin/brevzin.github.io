@@ -1,6 +1,6 @@
 ---
 layout: post
-title: <code class=\"language-cpp\">optional&lt;T&></code> - Yes, we need it
+title: "<code class=\"language-cpp\">optional&lt;T&></code> - Yes, we need it"
 category: c++
 tags:
  - c++

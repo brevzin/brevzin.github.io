@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Assignment for <code class=\"language-cpp\">optional&lt;T></code>
+title: "Assignment for <code class=\"language-cpp\">optional&lt;T></code>"
 category: c++
 tags:
  - c++

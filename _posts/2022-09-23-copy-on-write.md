@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Copy-on-write with Deducing <code class=\"language-cpp\">this</code>
+title: "Copy-on-write with Deducing <code class=\"language-cpp\">this</code>"
 category: c++
 tags:
   - c++
