@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Improvements to <=>"
+title: Improvements to <code class=\"language-cpp\">&lt;=></code>
 category: c++
 series: operator<=>
 tags:
