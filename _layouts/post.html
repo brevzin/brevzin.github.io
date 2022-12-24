@@ -87,6 +87,9 @@ tail_includes:
 </div> <!-- .post-meta -->
 
 <div class="post-content">
+  {% if page.pubdraft %}
+  <span style="color: red;font-size:24px;">THIS IS A NON-PUBLIC DRAFT</span>
+  {% endif %}
   {{ content }}
 </div>
 

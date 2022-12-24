@@ -3,7 +3,6 @@ layout: post
 title: "For Hannah"
 category: personal
 permalink: for-hannah
-pubdraft: yes
 ---
 
 We drove Hannah home for the first time on November 10, 2012. We drove her home for the final time on December 29, 2021. In between, we got nine years of memories, milestones, and love.

@@ -5,6 +5,7 @@ swcache: true
 
 [
   {% for post in site.posts %}
+  {% unless post.pubdraft %}
   {
     "title": {{ post.title | jsonify }},
     "url": {{ post.url | relative_url | jsonify }},
@@ -16,5 +17,6 @@ swcache: true
     "snippet": {{ _content | truncate: 200 | jsonify }},
     "content": {{ _content | jsonify }}
   }{% unless forloop.last %},{% endunless %}
+  {% endunless %}
   {% endfor %}
 ]

@@ -6,12 +6,12 @@ tags:
  - c++
  - concepts
 series: concepts-2
-pubdraft: yes
---- 
+pubdraft: true
+---
 
-The previous post described the several ways we have today of writing customizable interfaces: polymorphism with `virtual`{:.language-cpp} functions, class template specialization, CRTP, and "well-known" member or non-member functions. They each have their advantages and disadvantages. And really, sometimes simple polymorphism is very much the best solution. But there's a hole in our design space that suggests that we need something more. 
+The previous post described the several ways we have today of writing customizable interfaces: polymorphism with `virtual`{:.language-cpp} functions, class template specialization, CRTP, and "well-known" member or non-member functions. They each have their advantages and disadvantages. And really, sometimes simple polymorphism is very much the best solution. But there's a hole in our design space that suggests that we need something more.
 
-A lack of associated types leads to a proliferation of type traits. Consider a concept like `Invocable<F, Args...>`{:.language-cpp}. All it tells us is whether or not `f(args...)`{:.language-cpp} is valid - it doesn't tell us what type that expression has. While sometimes we don't care (`std::for_each()`{:.language-cpp} doesn't), most of the time we do - and to find that answer out we need to use `invoke_result_t<F, Args...>`{:.language-cpp}. Likewise, `Range<R>`{:.language-cpp}. What is the underlying iterator for the range? `iterator_t<R>`{:.language-cpp}. Underlying value type? `value_type_t<iterator_t<R>>`{:.language-cpp}. And so forth. 
+A lack of associated types leads to a proliferation of type traits. Consider a concept like `Invocable<F, Args...>`{:.language-cpp}. All it tells us is whether or not `f(args...)`{:.language-cpp} is valid - it doesn't tell us what type that expression has. While sometimes we don't care (`std::for_each()`{:.language-cpp} doesn't), most of the time we do - and to find that answer out we need to use `invoke_result_t<F, Args...>`{:.language-cpp}. Likewise, `Range<R>`{:.language-cpp}. What is the underlying iterator for the range? `iterator_t<R>`{:.language-cpp}. Underlying value type? `value_type_t<iterator_t<R>>`{:.language-cpp}. And so forth.
 
 A lack of core customization mechanism leads to the "Two Step":
 
@@ -105,7 +105,7 @@ namespace M {
     // is this really the same thing? I dunno...
     template <typename... Ts>
     void draw(Ts&&...);
-    
+
     struct BadPentagon{ };
 }
 
@@ -159,7 +159,7 @@ struct Squiggle
 {
 private:
     std::string name;
-    
+
     template <>
     concept ::Drawable<Squiggle> {
         void draw(Squiggle const& s, std::ostream& os) {
@@ -223,7 +223,7 @@ auto draw_sq = Drawable<Square>::draw;
 
 draw_sq(Square{}, std::cout); // ok
 // error, Circle not convertible to Square
-draw_sq(Circle{}, std::cout); 
+draw_sq(Circle{}, std::cout);
 
 // this is an object effectively with a
 // template <Drawable T>
@@ -295,12 +295,12 @@ namespace N {
     struct X {
         X(X&&) = delete;
     };
-    
+
     struct Y {
         Y(Y&&) = delete;
         void swap(Y&);
     };
-    
+
     struct Z {
         Z(Z&&) = delete;
         friend void swap(Z&, Z&);
@@ -344,7 +344,7 @@ The type `X` here does satisfy `Drawable`, even if a little oddly. And note that
 
 ```cpp
 // error: can't do void + int
-Drawable::draw(X{}, std::cout) + 42; 
+Drawable::draw(X{}, std::cout) + 42;
 ```
 
 One of the examples that appeared many, many times in concepts papers in the early 2000s was the following (adjusted to C++20 syntax):
@@ -368,7 +368,7 @@ Now consider a type like:
 struct Evil {
     explicit operator bool() const;
     void operator&&(int);
-    
+
     Evil operator<(Evil) const;
 };
 ```
@@ -406,7 +406,7 @@ concept struct Invocable2 {
 
 What's new here is that rather than providing a return type for `operator()`{:.language-cpp}, we're just giving it a name. It's going to be determined by whatever `F(Args...)`{:.language-cpp} actually produces as an invocation result. `operator()`{:.language-cpp} is a little different than the earlier examples in that you cannot actually have a non-member `operator()`{:.language-cpp}, but you can have surrogate call operators.
 
-Now, this definition isn't quite complete - it is not currently satisfied by pointers to members (not for my lack of trying) but those can be explicitly opted into. 
+Now, this definition isn't quite complete - it is not currently satisfied by pointers to members (not for my lack of trying) but those can be explicitly opted into.
 
 The advantage to this declaration, so far, is that we can write:
 
@@ -483,7 +483,7 @@ we use
 LvalueInvocable<F, T const&>::operator()(f, t)
 ```
 
-This will definitely do the right thing. This is the constraint we laid out. It's also 47 characters instead of 13 and nobody outside of war-torn and battle-weary librarians will ever write it, and even they don't want to. 
+This will definitely do the right thing. This is the constraint we laid out. It's also 47 characters instead of 13 and nobody outside of war-torn and battle-weary librarians will ever write it, and even they don't want to.
 
 But within this context, we know we're dealing with `LvalueInvocable<F, T const&>`{:.language-cpp}. That's in our declaration, it's one of the first things we write. Why do we have to keep repeating it? C++0x would implicitly let you access the associated aspects of that concept through the type directly - by way of transforming it. I'm instead proposing to let you _explicitly_ access those things, with a new access operator which I will spell `..`:
 
@@ -531,7 +531,7 @@ template <typename T, typename E,
 expected<vector<T>, E> sequence(R&&);
 ```
 
-Wow is that pleasant to read! 
+Wow is that pleasant to read!
 
 Now, let's go back to `Predicate` and type coercion. We want a few things:
 
@@ -610,8 +610,8 @@ concept struct Range {
     typename Iterator iterator;
     typename Sentinel<Iterator> sentinel;
     typename value_type = iterator..value_type;
-    // ... other useful aliases ... 
-    
+    // ... other useful aliases ...
+
     iterator begin(R&);
     sentinel end(R&);
 };
@@ -700,24 +700,24 @@ explicit concept ViewableRange
     typename value_type = view_type..value_type;
     typename reference = view_type..reference;
     // ... some other aliases
-    
+
     // the one function that needs to be implemented to satisfy
     // this concept (which must be done explicitly)
     virtual view_type view(T&&);
-    
+
     // these are NOT virtual - they are neither checked to ensure
     // that a type satisfies ViewableRange, nor can they be
     // overridden. They are provided as associated functions so
     // they can be used with convenient syntax
     View auto filter(T&& rng, Predicate<reference> auto&& pred) {
         // explicitly satisfy View here
-        struct filter_view : View  
+        struct filter_view : View
         {
             // ...
         };
         return filter_view{FWD(rng)..view(), FWD(pred)};
     }
-    
+
     View auto transform(T&& rng,
         LvalueInvocable<reference> auto&& f)
     {
@@ -728,7 +728,7 @@ explicit concept ViewableRange
         }
         return transform_view{FWD(rng)..view(), FWD(f)};
     }
-    
+
     // lots more adapters here...
 };
 ```
@@ -788,13 +788,13 @@ One of the places where we don't have concepts today that would be interesting t
 template <typename T>
 explicit concept TupleLike {
     virtual constexpr size_t size;
-    
+
     template <size_t I> requires (I < size)
     virtual typename element_type;
-    
+
     template <size_t I> requires (I < size)
     virtual element_type<I>& get(T&);
-    
+
     template <size_t I> requires (I < size)
     virtual element_type<I>&& get(T&& t) {
         if constexpr (is_lvalue_reference_v<element_type<I>>) {
@@ -814,16 +814,16 @@ How does `static_assert(TupleLike<X>)`{:.language-cpp} check that `get` and `ele
 template <typename... Ts>
 concept TupleLike<std::tuple<Ts...>> {
     constexpr size_t size = sizeof...(Ts);
-    
+
     template <size_t I>
     using element_type = std::tuple_element_t<
         I, std::tuple<Ts...>>;
-    
+
     template <size_t I>
     decltype(auto) get(std::tuple<Ts...>& t) {
         return std::get<I>(t);
     }
-    
+
     // don't need to provide the rvalue reference overload
     // the default does the right thing for us
 };
@@ -870,6 +870,6 @@ And that's half way to being able to a standard type erasure library built on co
 
 In short, this design gives us a full customization system, with named conformance instead of structural conformance. It allows us to directly and easily opt-in to interfaces implicitly or explicitly, and use first class syntax in generic algorithms regardless of how the user chooses to opt-in (the "CS1" part of UFCS).
 
-It gives us a new access syntax (`..`) that both provides syntax sugar to ensure that generic algorithms are using the constraints they say they want so that they're doing what they think they're doing, and gives us nice syntax for extension methods (the "CS2" part of UFCS). 
+It gives us a new access syntax (`..`) that both provides syntax sugar to ensure that generic algorithms are using the constraints they say they want so that they're doing what they think they're doing, and gives us nice syntax for extension methods (the "CS2" part of UFCS).
 
-It also gives us CPOs for free and obviates the need for arbitrary type traits, and provides a path forward towards very complex customization and type erasure. 
+It also gives us CPOs for free and obviates the need for arbitrary type traits, and provides a path forward towards very complex customization and type erasure.

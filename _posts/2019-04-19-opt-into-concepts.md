@@ -6,8 +6,8 @@ tags:
  - c++
  - concepts
 series: concepts-2
-pubdraft: yes
---- 
+pubdraft: true
+---
 
 When we write types, we sometimes find ourselves wanting to write functionality that opts in to a particular concept (which, with C++20, will also become `concept`{:.language-cpp}). For the purposes of this post, I want to focus specifically on those cases where the type author is very clearly intending to opt-in to a known concept -- as opposed to writing logic that happens to satisfy a concept that the type author may not even have been aware of. The most familiar and easily recognizable examples of what I mean are:
 
@@ -34,7 +34,7 @@ namespace std {
             p.print(*this);
             return *this;
         }
-        
+
         // other types, etc.
         ostream& operator<<(char);
         ostream& operator<<(int);
@@ -59,7 +59,7 @@ private:
 
 This isn't what most people would consider to be modern C++, and isn't the way we solve this problem today, but it does work. Let's consider the salient features of this approach.
 
-It's a very <span class="token important">explicit</span> opt-in, the only way for `SeqNum` to satisfy `std::Printable`{:.language-cpp} is to inherit from it. That's not going to happen by accident. It's also <span class="token important">intrusive</span> - you have to modify the class itself to add this behavior, both because you need to inherit and to add member functions. An intrusive approach is inherently extremely limiting - can't satisfy concepts for any fundamental types or arrays, or any types you don't own. 
+It's a very <span class="token important">explicit</span> opt-in, the only way for `SeqNum` to satisfy `std::Printable`{:.language-cpp} is to inherit from it. That's not going to happen by accident. It's also <span class="token important">intrusive</span> - you have to modify the class itself to add this behavior, both because you need to inherit and to add member functions. An intrusive approach is inherently extremely limiting - can't satisfy concepts for any fundamental types or arrays, or any types you don't own.
 
 However, this gives us the benefit that the operations we need to customize are <span class="token important">checked early</span>. There are two different things I mean when I want to talk about early checking, directed towards two different people:
 
@@ -109,7 +109,7 @@ struct Ord : Eq {
     }
     virtual bool operator>=(T const& rhs) const {
         return compare(rhs) >= 0;
-    }    
+    }
 private:
     virtual int compare(T const& rhs) const = 0;
 };
@@ -145,7 +145,7 @@ public:
     T const* begin() const override { return begin_; }
     T*       end()         override { return end_; }
     T const* end()   const override { return end_; }
-    
+
 private:
     T* begin_;
     T* end_;
@@ -162,7 +162,7 @@ struct Range {
     using value_type = value_type_t<Iterator>;
     virtual Iterator begin() = 0;
     virtual Sentinel end() = 0;
-    
+
     auto filter(Predicate<value_type> auto&&) const;
     auto transform(Invocable<value_type> auto&&) const;
     auto take(size_t ) const;
@@ -174,7 +174,7 @@ struct Range {
 };
 ```
 
-And now any `Range` at all can do things like `rng.filter(f).transform(g).take(5).accumulate()`{:.language-cpp}. Don't think too hard about the performance of such a model just yet. 
+And now any `Range` at all can do things like `rng.filter(f).transform(g).take(5).accumulate()`{:.language-cpp}. Don't think too hard about the performance of such a model just yet.
 
 ### Template Specialization
 
@@ -186,13 +186,13 @@ Going back to `Printable`, that might be implemented like:
 namespace std {
     template <typename T>
     struct Printable;
-    
+
     // some specializations out of the box
     template <> struct Printable<char> { /* ... */ };
     template <> struct Printable<int>  { /* ... */ };
     // ...
 
-    struct ostream {        
+    struct ostream {
         template <typename T>
         ostream& operator<<(T const& p) {
             Printable<T>::print(*this, p);
@@ -284,10 +284,10 @@ struct Eq {
   friend bool operator==(Derived const& lhs, Derived const& rhs) {
     return lhs.equals(rhs);
   }
-    
+
   friend bool operator!=(Derived const& lhs, Derived const& rhs) {
     return !lhs.equals(rhs);
-  }    
+  }
 };
 
 struct SeqNum : Eq<SeqNum>
@@ -337,7 +337,7 @@ This approach is <span class="token important">implicit</span> - nowhere am I na
 
 The implicitness has consequences - you could unintentionally be opting into a concept you don't even know about. While this is _exceedingly_ unlikely for something like `Range` (where you need two functions that both need to return specific types that themselves have a lot of requirements), it could easily happen with less onerous concepts.
 
-It's not totally outrageous to use the name `begin()`{:.language-cpp} to mean something that isn't an iterator. It's not absurd to use the name `data()`{:.language-cpp} to mean something other than returning a pointer to the beginning of a contiguous range. Those names are reserved in a way - which is kind of okay since it's the standard library and everyone knows them, but what about a concept that I might want to write in my own library? What if I pick a name that you're using for something else? Trouble... 
+It's not totally outrageous to use the name `begin()`{:.language-cpp} to mean something that isn't an iterator. It's not absurd to use the name `data()`{:.language-cpp} to mean something other than returning a pointer to the beginning of a contiguous range. Those names are reserved in a way - which is kind of okay since it's the standard library and everyone knows them, but what about a concept that I might want to write in my own library? What if I pick a name that you're using for something else? Trouble...
 
 Because we typically have a choice - we can write member `begin()`{:.language-cpp} or non-member `begin()`{:.language-cpp} and we could even go wild and have a member `begin()`{:.language-cpp} with a non-member `end()`{:.language-cpp} - this is an <span class="token important">unobtrusive</span> customization mechanism. The member syntax gives users a much nicer ergonomic experience than the non-member syntax, so users might prefer to use those where possible. But the member syntax isn't always possible - you cannot add members to types you don't own, and you definitely cannot add members to things like the fundamental types or arrays. As a result, any generic program must be able to deal with both - which requires having non-member syntax that just defers to member syntax:
 
@@ -374,7 +374,7 @@ We also get <span class="token important">no associated functions</span> and the
 
 Even further consider:
 
-- my [previous post]({% post_url 2019-04-13-ufcs-history %}) went through the history of language proposals in the space of a unified function call syntax, or UFCS. It is precisely these problems that those proposals tried to solve: the variability in type author choice for opting into concepts by "just" declaring functions and being able to do so using either member or non-member functions, and wanting to have nice syntax for associated functions. 
+- my [previous post]({% post_url 2019-04-13-ufcs-history %}) went through the history of language proposals in the space of a unified function call syntax, or UFCS. It is precisely these problems that those proposals tried to solve: the variability in type author choice for opting into concepts by "just" declaring functions and being able to do so using either member or non-member functions, and wanting to have nice syntax for associated functions.
 - an [earlier post]({% post_url 2018-10-20-concepts-declarations %}) went through the difficulties in constructing certain kinds of constrained declarations. These difficulties result from a lack of associated types.
 
 ### Inheritance, Specialization, CRTP, and Functions
@@ -392,8 +392,8 @@ To summarize the differences:
 If I could have anything I want, what would I actually want out of here?
 
 - I'd want an <span class="token important">explicit</span> opt-in mechanism. In all of these cases, I'm explicitly opting into a particular concept when I write the code anyway. I don't see much value in being able to omit that. It also makes the intent clear, and makes it impossible to accidentally opt into someone else's concept.
-- I'd absolutely require an <span class="token important">unobtrusive</span> opt-in mechanism. It's essential to be able to implement support for various concepts for fundamental types or for types you don't own. 
-- I'd want my opt-in to be <span class="token important">checked early</span>. Of course, the earlier I catch my mistakes the better. 
+- I'd absolutely require an <span class="token important">unobtrusive</span> opt-in mechanism. It's essential to be able to implement support for various concepts for fundamental types or for types you don't own.
+- I'd want my opt-in to be <span class="token important">checked early</span>. Of course, the earlier I catch my mistakes the better.
 - I'd want to be able to <span class="token important">provide associated functions and types</span>. Both because it provides the maximal benefit of customization and because it can provide a good ergonomic story for users.
 
-As you can see in the table above, we have no such thing in the language today. But maybe that's the direction we should be considering. Several languages provide something that fits those boxes: Rust traits, Swift protocols, Haskell type classes. And C++0x concepts did as well. 
+As you can see in the table above, we have no such thing in the language today. But maybe that's the direction we should be considering. Several languages provide something that fits those boxes: Rust traits, Swift protocols, Haskell type classes. And C++0x concepts did as well.

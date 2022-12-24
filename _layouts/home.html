@@ -4,7 +4,7 @@ layout: page
 ---
 
 {% assign pinned = site.posts | where: "pin", "true" %}
-{% assign default = site.posts | where_exp: "item", "item.pin != true and item.hidden != true" %}
+{% assign default = site.posts | where_exp: "item", "item.pin != true and item.hidden != true" | where_exp: "item", "item.pubdraft != true" %}
 
 {% assign posts = "" | split: "" %}
 

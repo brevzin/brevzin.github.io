@@ -3,10 +3,32 @@
 -->
 
 <div class="post-navigation d-flex justify-content-between">
-  {% if page.previous.url %}
-  <a href="{{ site.baseurl }}{{ page.previous.url }}" class="btn btn-outline-primary"
+  {% assign prev = page.previous %}
+  {% for counter in (0..9) %}
+    {% unless prev.url %}
+      {% break %}
+    {% endunless %}
+    {% unless prev.pubdraft %}
+      {% break %}
+    {% endunless %}
+    {% assign prev = prev.previous %}
+  {% endfor %}
+
+  {% assign next = page.next %}
+  {% for counter in (0..9) %}
+    {% unless next.url %}
+      {% break %}
+    {% endunless %}
+    {% unless next.pubdraft %}
+      {% break %}
+    {% endunless %}
+    {% assign next = next.next %}
+  {% endfor %}
+
+  {% if prev.url %}
+  <a href="{{ site.baseurl }}{{ prev.url }}" class="btn btn-outline-primary"
     prompt="{{ site.data.locales[site.lang].post.button.previous }}">
-    <p>{{ page.previous.title }}</p>
+    <p>{{ prev.title }}</p>
   </a>
   {% else %}
   <div class="btn btn-outline-primary disabled"
@@ -15,10 +37,10 @@
   </div>
   {% endif %}
 
-  {% if page.next.url %}
-  <a href="{{ site.baseurl }}{{page.next.url}}" class="btn btn-outline-primary"
+  {% if next.url %}
+  <a href="{{ site.baseurl }}{{next.url}}" class="btn btn-outline-primary"
     prompt="{{ site.data.locales[site.lang].post.button.next }}">
-    <p>{{ page.next.title }}</p>
+    <p>{{ next.title }}</p>
   </a>
   {% else %}
   <div class="btn btn-outline-primary disabled"
