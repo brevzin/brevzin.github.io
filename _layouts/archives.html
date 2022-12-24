@@ -9,6 +9,7 @@ layout: page
 <div id="archives" class="pl-xl-3">
 
 {% for post in site.posts %}
+  {% unless post.pubdraft %}
   {% capture cur_year %}{{ post.date | date: "%Y" }}{% endcapture %}
 
   {% if cur_year != last_year %}
@@ -28,7 +29,7 @@ layout: page
   </li>
 
   {% if forloop.last %}</ul>{% endif %}
-
+  {% endunless %}
 {% endfor %}
 
 </div>
