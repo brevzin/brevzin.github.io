@@ -1,0 +1,23 @@
+{% if page.series %}
+<div class="pl-0 pr-4 mb-5">
+    <div class="panel-heading pl-3 pt-2 mb-2">Series '{{ page.series }}'</div>
+    <ol class="series">
+    {% for apost in site.posts reversed %}
+        {% if page.series == apost.series %}
+        <li>
+            {% if page.title == apost.title %}
+                {% assign nextpost = true %}
+                {{ apost.title }}
+            {% else %}
+                {% if nextpost == true %}
+                    {% assign seriesnext = apost %}
+                {% endif %}
+                {% assign nextpost = false %}
+                <a href="{{ apost.url }}">{{ apost.title }}</a>
+            {% endif %}
+        </li>
+        {% endif %}
+    {% endfor %}
+    </ol>
+</div>
+{% endif %}
