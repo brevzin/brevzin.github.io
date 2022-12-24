@@ -1,5 +1,4 @@
 ---
-author: brevzin
 title: What's so hard about <code class=\"language-cpp\">views::enumerate</code>?
 category: c++
 tags:
