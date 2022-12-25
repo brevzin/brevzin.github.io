@@ -28,7 +28,7 @@
   {% if prev.url %}
   <a href="{{ site.baseurl }}{{ prev.url }}" class="btn btn-outline-primary"
     prompt="{{ site.data.locales[site.lang].post.button.previous }}">
-    <p>{{ prev.title | escape }}</p>
+    <p>{{ prev.title | strip_html }}</p>
   </a>
   {% else %}
   <div class="btn btn-outline-primary disabled"
@@ -40,7 +40,7 @@
   {% if next.url %}
   <a href="{{ site.baseurl }}{{next.url}}" class="btn btn-outline-primary"
     prompt="{{ site.data.locales[site.lang].post.button.next }}">
-    <p>{{ next.title | escape }}</p>
+    <p>{{ next.title | strip_html }}</p>
   </a>
   {% else %}
   <div class="btn btn-outline-primary disabled"
