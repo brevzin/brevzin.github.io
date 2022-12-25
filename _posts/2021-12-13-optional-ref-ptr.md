@@ -266,7 +266,7 @@ The first of these is what required me to use `workaround<U>` instead of simply 
 
 The last of these I touched on a bit, but it's worth elaborating on. As I noted at the very beginning of the post, there _are_ operations in common between `optional<T&>` and `T*`... but there are even more operations that only apply to one or the other:
 
-![Venn Diagram](/assets/optional-vs-ptr.png)
+![Venn Diagram](/assets/img/optional-vs-ptr.png)
 
 All the operations in the purple circle are highly relevant and useful to this problem. We want to have an optional reference, so it is useful to have the chaining operations that give us a different kind of optional, or to provide a default value, or to emplace or reset, or even to have a throwing accessor.
 
