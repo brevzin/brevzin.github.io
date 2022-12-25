@@ -21,7 +21,7 @@ timezone: America/Chicago
 
 title: Barry's C++ Blog                          # the main title
 
-tagline: Just a blog about C++ things   # it will display as the sub-title
+tagline: Just a blog about C++   # it will display as the sub-title
 
 description: >-                        # used by seo meta and the atom feed
   A collection of articles about a variety of C++ topics.
