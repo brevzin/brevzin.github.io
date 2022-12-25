@@ -36,5 +36,3 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
 
-      - name: Test Site
-        run: bash tools/test.sh
