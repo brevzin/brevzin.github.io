@@ -506,7 +506,7 @@ The example demonstrates different format specifiers producing very different ki
 
 The example also ends up demonstrating the limitation of having _only_ standard specifiers. That's simply all that you have available to you, so you have to pick from what's there.
 
-In C++, I showed how you can have a `Point` that's printed either `c`artesian or `p`olar, by providing that specifier, which is fairly straightforward to implement. In Rust, you can't use either specifier - those letters just aren't available to you.
+In C++, I showed how you can have a `Point` that's printed either `c`artesian or `p`olar, by providing that specifier, which is fairly straightforward to implement. In Rust, we can use 'p' (that's `fmt::Pointer`) but you can't use either `c` or `r` - those letters just aren't available to you.
 
 There _is_ technically the ability to use an arbitrary character, but only with alignment. That is:
 
