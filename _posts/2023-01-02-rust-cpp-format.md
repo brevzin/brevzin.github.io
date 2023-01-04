@@ -140,7 +140,7 @@ But Rust doesn't let you do `{}` (i.e. automatic numbering) for dynamic width , 
 println!("{:>1$}", "hello", 25);
 ```
 
-> Rust here allows a mix of automatic (for the string) and manual (for the width) indexing. Neither C++ nor Python allow this - you can write either `{0:>1}` or `{:>{}}` in those two languages, but not `{:>{1}}` or `{0:>{}}`.
+> Rust here allows a mix of automatic (for the string) and manual (for the width) indexing. Neither C++ nor Python allow this - you can write either `{0:>{1}}` or `{:>{}}` in those two languages, but not `{:>{1}}` or `{0:>{}}`.
 {:.prompt-info}
 
 I'm not sure why Rust differs here - I think the visual distinction between `{:>25}` and `{:>{}}` is quite a bit larger than `{:>25}` and `{:>1$}`, since the latter seems like it could easily be misread to be a width of `1`.
@@ -263,6 +263,9 @@ This is because in the C++ model, the format context just has some arbitrary out
 > ```
 >
 > You can see the impact of the missing `advance_to` call [here](https://godbolt.org/z/qPcqqfvxh).
+{:.prompt-info}
+
+> And that still isn't even completely right. Output iterators in C++20 are allowed to be move-only, so `ctx.advance_to(out)` might not compile. Like I said, it's hard to get this right.
 {:.prompt-info}
 
 [^output]: For those output iterators that aren't already input iterators, I think the output iterator API is a bit lacking, and I go over this in more detail in my [output iterators post]({% post_url 2022-02-06-output-iterators %})
@@ -552,7 +555,7 @@ In C++, whether in `{fmt}` or the standard library, there are no such helpers. Y
 
 ## Chrono
 
-On the other hand, the custom specifier support allows for a lot more functionality to be handled by the formatting library itself. Let's say I want to print today's date. I can do that:
+On the other hand, the custom specifier support allows for a lot more functionality to be handled by the formatting library itself. Let's say I want to print today's date in UTC. I can do that:
 
 ```cpp
 std::println("Today is {:%Y-%m-%d}", std::chrono::system_clock::now());
@@ -563,17 +566,15 @@ Chrono basically has its own mini-language of placeholders that you can use to b
 Rust also has a chrono library, which gives you time points that are printable:
 
 ```rust
-let now = chrono::offset::Local::now();
-println!("{}", now);    // 2023-01-02 03:18:57.477157070 +00:00
-println!("{:?}", now);  // 2023-01-02T03:18:57.477157070+00:00
+let now = chrono::offset::Utc::now();
+println!("{}", now);    // 2023-01-02 03:18:57.477157070 UTC
+println!("{:?}", now);  // 2023-01-02T03:18:57.477157070Z
 ```
-
-I guess that tells you something about where the Rust Playground is located.
 
 Rust's chrono crate _does_ support this sort of arbitrary placeholder logic that C++ does, and with the same placeholder syntax too. It's just that you have to do it differently:
 
 ```rust
-let now = chrono::offset::Local::now();
+let now = chrono::offset::Utc::now();
 println!("Today is {}", now.format("%Y-%m-%d")); // Today is 2023-01-02
 ```
 
@@ -616,7 +617,7 @@ That, instead, prints:
 Map { iter: Iter([1, 2, 3, 4, 5]) }
 ```
 
-> Neither `Vec<T>` nor any of the iterators implement `fmt::Display`, only `fmt::Debug`
+> Neither `Vec<T>` nor any of the iterators implement `fmt::Display`, only `fmt::Debug`.
 {:.prompt-info}
 
 
@@ -626,7 +627,7 @@ I quoted from the Rust documentation earlier that, for `fmt::Debug`:
 
 So the goal of `Debug` for `Map` isn't necessarily to print the elements that you get out - it's to represent the internal state of the `Map` itself. That does make sense on some level.
 
-But `Map` doesn't implement `fmt::Display`. None of these types do. So what do I do if I did want the `[1, 4, 9, 16, 25]` output that I get out of the box in C++? There's actually no solution in the Rust standard library. We instead of have to turn to the `itertools` create to add some extensions for us:
+But `Map` doesn't implement `fmt::Display`. None of these types do. So what do I do if I did want the `[1, 4, 9, 16, 25]` output that I get out of the box in C++? There's actually no solution in the Rust standard library. We instead of have to turn to the [`itertools` create](https://docs.rs/itertools/latest/itertools/) to add some extensions for us:
 
 ```rust
 println!("[{}]", v.iter().map(|i| i * i).format(", "));
@@ -660,7 +661,7 @@ Now here's the question: what if I had a range of dates, and I wanted to print t
 std::println("{::%Y-%m-%d}", dates);
 ```
 
-But in Rust, for the chrono time point, this isn't a format specifier. We had to do this other function call. So we need a new mechanism to be able to pass this in. The `itertools` crate provides this for us under the name `format_with`:
+But in Rust, for the chrono time point, this isn't a format specifier. We had to do this whole other function call to get that behavior. So we need a new mechanism to solve this problem. The `itertools` crate provides this for us under the name `format_with`:
 
 ```rust
 println!(
