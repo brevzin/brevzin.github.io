@@ -964,7 +964,7 @@ $sidebar-display: "sidebar-display";
       @extend %link-hover;
     }
 
-    span {
+    span.crumb {
       &:not(:last-child) {
         &::after {
           content: "›";

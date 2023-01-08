@@ -10,14 +10,14 @@
 
     {% if paths.size == 0 or page.layout == 'home' %}
       <!-- index page -->
-      <span>{{ site.data.locales[site.lang].tabs.home | capitalize }}</span>
+      <span class="crumb">{{ site.data.locales[site.lang].tabs.home | capitalize }}</span>
 
     {% else %}
 
       {% for item in paths %}
 
         {% if forloop.first %}
-          <span>
+          <span class="crumb">
             <a href="{{ '/' | relative_url }}">
               {{ site.data.locales[site.lang].tabs.home | capitalize }}
             </a>
@@ -26,13 +26,13 @@
         {% elsif forloop.last %}
 
           {% if page.collection == 'tabs' %}
-            <span>{{ site.data.locales[site.lang].tabs[item] | default: page.title }}</span>
+            <span class="crumb">{{ site.data.locales[site.lang].tabs[item] | default: page.title }}</span>
           {% else %}
-            <span>{{ page.title }}</span>
+            <span class="crumb">{{ page.title }}</span>
           {% endif %}
 
         {% elsif page.layout == 'category' or page.layout == 'tag' %}
-          <span>
+          <span class="crumb">
             <a href="{{ item | relative_url }}">
               {{ site.data.locales[site.lang].tabs[item] | default: page.title }}
             </a>
