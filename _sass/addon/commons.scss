@@ -963,13 +963,13 @@ $sidebar-display: "sidebar-display";
     a:hover {
       @extend %link-hover;
     }
+  }
 
-    span.crumb {
-      &:not(:last-child) {
-        &::after {
-          content: "›";
-          padding: 0 0.3rem;
-        }
+  #breadcrumb > span {
+    &:not(:last-child) {
+      &::after {
+        content: "›";
+        padding: 0 0.3rem;
       }
     }
   }
