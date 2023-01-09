@@ -91,6 +91,15 @@ println!("Point is at (x={p.x}, y={p.y}, z={p.z})");
 
 It is much easier to understand what's being formatted in the second line and, importantly, it's easier to ensure that you format all of your arguments in the correct order - since seeing `"y={p.z}"`{:.language-rust} is clearly wrong.
 
+> It's been pointed to me by numerous people that Rust's interpolation feature doesn't actually support `{p.x}` like that. The fstrings crate _does_ support that usage (you can see examples in their docs), but the RFC explicitly [rejects this](https://rust-lang.github.io/rfcs/2795-format-args-implicit-identifiers.html#alternative-solution---interpolation) on the basis that once you allow arbitrary expressions, they become too hard to read. Not sure I agree with this line of reasoning - seems like the sort of thing you should leave up to the community:
+>
+> > If any expressions beyond identifiers become accepted in format strings, then the RFC author expects that users will inevitably ask "why is my particular expression not accepted?". This could lead to feature creep, and before long perhaps the following might become valid Rust:
+> > ```rust
+> > println!("hello { if self.foo { &self.person } else { &self.other_person } }");
+> > ```
+> > This no longer seems easily readable to the RFC author.
+{:.prompt-warning}
+
 As with `#[derive]`{:.language-rust}, f-strings don't add any functionality - these two lines really do the same thing. But this is the kind of language feature that once you start using regularly in one language (in my case, Python), you really want to use it everywhere, all at once.
 
 See also David Sankel's [Rust Features That I Want In C++](https://www.youtube.com/watch?v=cWSh4ZxAr7E&t=1264s) from CppNow 2022.
