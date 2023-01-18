@@ -36,7 +36,7 @@ public:
 
 Should `Optional<T>` be constructible from `U`, if `T` is constructible from `U`? This would be allowing `Optional<int>` to be constructed from a `long` or `Optional<string>` to be constructed from a `char const*`.
 
-Similar converting constructors exist for other tuples (e.g. `tuple<int>` is constructible from `tuple<long>`), so it seems reasonable to allow this one as well.
+Similar converting constructors exist for other tuples (e.g. `tuple<int>` is constructible from `long`), so it seems reasonable to allow this one as well.
 
 That gets us to this state:
 
