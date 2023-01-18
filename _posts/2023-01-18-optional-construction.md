@@ -103,8 +103,8 @@ That is, this test should hold for all copy constructible types:
 template <typename T>
 void test(T const& x) {
     Optional<T> opt(x);
-    REQUIRE(x);
-    REQUIRE(*x == x);
+    REQUIRE(opt);
+    REQUIRE(*opt == x);
 }
 ```
 
