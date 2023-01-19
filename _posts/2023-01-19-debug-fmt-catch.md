@@ -302,7 +302,7 @@ But that's... kind of the extent of our options I think:
 
 These are fairly underwhelming options. Especially since this `StringMaker` specialization only helps Catch2 users with tests that specifically check expressions whose types are `Optional`.
 
-What if we our users use [doctest](https://github.com/doctest/doctest), for instance? That framework _also_ has to address the issue of debug formatting, and does so in a similar way to Catch2. It's just that its mechanism is `doctest::StringMaker<T>` instead of `Catch::StringMaker<T>`. What if our users use [GoogleTest](https://github.com/google/googletest)? There, the customization point is a function called `PrintTo()`. Every test framework invents its own mechanism of doing debug formatting.
+What if our users use [doctest](https://github.com/doctest/doctest), for instance? That framework _also_ has to address the issue of debug formatting, and does so in a similar way to Catch2. It's just that its mechanism is `doctest::StringMaker<T>` instead of `Catch::StringMaker<T>`. What if our users use [GoogleTest](https://github.com/google/googletest) instead? There, the customization point is a function called `PrintTo()`. Every test framework invents its own mechanism of doing debug formatting.
 
 Do we need to provide all of these as well? All in different headers or all in the same header?
 
