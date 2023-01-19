@@ -135,7 +135,7 @@ But, because it's using the underlying type's stream operator, this isn't great 
 
 ```
 optional.cxx:157: FAILED:
-  CHECK( Optional<char>('\n') == Optional<char>('\t) )
+  CHECK( Optional<char>('\n') == Optional<char>('\t') )
 with expansion:
   Some(
   ) == Some(    )
@@ -179,9 +179,9 @@ Adding that specialization improves our error messages for our prior failing tes
 
 ```
 optional.cxx:157: FAILED:
-  CHECK( Optional<char>('\n') == Optional<char>('\t) )
+  CHECK( Optional<char>('\n') == Optional<char>('\t') )
 with expansion:
-  Some('\n') == Some(\t)
+  Some('\n') == Some('\t')
 
 optional.cxx:212: FAILED:
   CHECK( o1 == o2 )
