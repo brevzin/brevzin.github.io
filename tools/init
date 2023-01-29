@@ -46,6 +46,11 @@ check_init() {
   fi
 }
 
+checkout_latest_tag() {
+  tag=$(git describe --tags $(git rev-list --tags --max-count=1))
+  git reset --hard "$tag"
+}
+
 init_files() {
   if $_no_gh; then
     rm -rf .github
@@ -60,10 +65,6 @@ init_files() {
     sed -i.$TEMP_SUFFIX "s/^img_cdn:.*/img_cdn:/;s/^avatar:.*/avatar:/" _config.yml
     rm -f _config.yml.$TEMP_SUFFIX
   fi
-
-  # trace the gem lockfile on user-end
-  sed -i.$TEMP_SUFFIX "/Gemfile.lock/d" .gitignore
-  rm -f ".gitignore.$TEMP_SUFFIX"
 
   # remove the other fies
   rm -rf _posts/*
@@ -99,5 +100,7 @@ while (($#)); do
     ;;
   esac
 done
+
+checkout_latest_tag
 
 init_files
