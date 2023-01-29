@@ -9,7 +9,7 @@ pubdraft: true
 ---
 
 
-At the beginning of this year, I wrote a post comparing [Rust and C++ formatting]({% post_url 2023-01-02-rust-cpp-format %}). One of the big differences between the two is that Rust has a standard way of doing _debug_ formatting (`Debug`), as distinct from its standard way of doing _display_ formatting (`Display`). Python similarly also has such a distinction (`repr` vs `str`). Rust also provides a very easy way to opt-in to `Debug`, but the important part for the purposes of this post is that `Debug` exists. Not so in C++.
+At the beginning of this year, I wrote a post comparing [Rust and C++ formatting]({% post_url 2023-01-02-rust-cpp-format %}). One of the big differences between the two is that Rust has a standard way of doing _debug_ formatting (`Debug`), as distinct from its standard way of doing _display_ formatting (`Display` and a bunch of others). Python similarly also has such a distinction (`repr` vs `str`). Rust also provides a very easy way to opt-in to `Debug`, but the important part for the purposes of this post is that `Debug` exists. Not so in C++.
 
 ## Formattable Types in C++
 
@@ -38,9 +38,11 @@ with expansion:
 
 This is quite nice for the programmer, since you get to see all the values right there.
 
-I'm not going to get into how Catch2 decomposes the expressions in the test macros, but I am going to talk about how the formatting side of things. In particular: how does Catch2 format an argument when a test fails? It always needs to print _something_, even if the type isn't printable.
+I'm not going to get into how Catch2 decomposes the expressions in the test macros, but I am going to talk about how the formatting side of things. In particular: how does Catch2 format an argument when a test fails?
 
-A starting point (in C++20) might be:
+One approach might be to _require_ streaming. That is, require `Display`. This is a highly limiting approach, because lots and lots of types aren't streamable (e.g. `std::vector<int>` isn't, and won't be, streamable, even though in C++23 it will at least become formattable). Requiring streaming thus reduces too many checks to writing `CHECK(bool(a == b))` and getting no useful output.
+
+A different start point (in C++20) might be to print _something_, even if the type isn't printable:
 
 ```cpp
 template <typename T>
@@ -195,7 +197,7 @@ Debug printing is pretty cool.
 
 Here's where we run into problems. In C++, we have the ~~Highlander~~ one definition rule (ODR): there can only be one definition of anything. One aspect of this is that a specialization of a template `C` for some parameter `T` has to pick the same specialization everywhere in the program, across all translation units.
 
-That aspect is the subject of the C++ limerick (as found in [\[temp.expl.spec\]/8](https://eel.is/c++draft/temp.expl.spec#8.sentence-2):
+That aspect is the subject of the C++ limerick (as found in [\[temp.expl.spec\]/8](https://eel.is/c++draft/temp.expl.spec#8.sentence-2)):
 
 > When writing a specialization,<br>
 > be careful about its location;<br>
@@ -233,7 +235,9 @@ But this allows running into a situation like this:
 
 That is: we have two unit test source files that have a bunch of `CHECK`s or `REQUIRE`s on `Optional`, but only one of those source files included the specialization `StringMaker<Optional<T>>`. Both source files compile - they just provide different definitions for, say, `stringify(Optional<char>)`, because they end up using different specializations of `StringMaker<Optional<char>>`. That is a violation of the one definition rule - which means that I don't even have a valid program.
 
-The important thing to keep in mind here is that the primary template of `StringMaker<T>` is always available for all types. Worst case you just get `{?}`, but it's there. That's a big difference from iostreams or format. With those libraries, I could get away with providing a dedicated headers, like `<optional_stream.h>` for `<<` and an `optional_fmt.h>` for the `formatter` specialization, since if users forgot to include them, their code would simply not compile. But in this case, there _is_ a default, so you can't rely on a compile error - if you don't reliably include `<catch_helpers.h>`, you can run into this ODR issue.
+The important thing to keep in mind here is that the primary template of `StringMaker<T>` is always available for all types. Worst case you just get `{?}`, but it's there. That's a big difference from iostreams or format. With those libraries, I could get away with providing dedicated headers, like `<optional_stream.h>` for `<<` and an `optional_fmt.h>` for the `formatter` specialization, since if users forgot to include them, their code would simply not compile.
+
+But in this case, there _is_ a default. So you can't rely on a compiler error to remind you to reliably include `<catch_helpers.h>`. And if you forget to do so, you can run into this ODR issue.
 
 In practice, the ODR violation is probably benign: both test source files will still print _something_ for the `Optional` values. It's just that either of the two files could end up using either of the two definitions. If both use the `StringMaker<Optional<char>>` specialization, great! If both use the `StringMaker<T>` primary template, then you're going to get worse output than ideal - which could be very confusing, especially if you have a test case failing in the source file that's actually providing the specialization. But at least, it's likely the worst case scenario here is simply confusion.
 
@@ -302,7 +306,7 @@ But that's... kind of the extent of our options I think:
 
 These are fairly underwhelming options. Especially since this `StringMaker` specialization only helps Catch2 users with tests that specifically check expressions whose types are `Optional`.
 
-What if our users use [doctest](https://github.com/doctest/doctest), for instance? That framework _also_ has to address the issue of debug formatting, and does so in a similar way to Catch2. It's just that its mechanism is `doctest::StringMaker<T>` instead of `Catch::StringMaker<T>`. What if our users use [GoogleTest](https://github.com/google/googletest) instead? There, the customization point is a function called `PrintTo()`. Every test framework invents its own mechanism of doing debug formatting.
+What if our users use [doctest](https://github.com/doctest/doctest), for instance? That framework _also_ has to address the issue of debug formatting, and does so in a similar way to Catch2. It's just that its mechanism is `doctest::StringMaker<T>` instead of `Catch::StringMaker<T>`. What if our users use [GoogleTest](https://github.com/google/googletest) instead? There, the customization point is a function called `PrintTo()`. Every test framework invents its own mechanism of doing debug formatting, because debug formatting is pretty important.
 
 Do we need to provide all of these as well? All in different headers or all in the same header?
 
@@ -352,12 +356,29 @@ Notably, while types like `std::string` and `char` have this function, types lik
 
 There are currently a few ongoing conversations on `formatter` semantics:
 
-* changing the library to allow omitting the call to `parse()` if there is no _`format-specifier`_ for a given argument
+* changing the library to allow omitting the call to `parse()` if there is no _`format-specifier`_ for a given argument ([P2733](https://wg21.link/p2733))
 * changing the API to be `set_debug_format(bool )` to allow for enabling or disabling debug formatting, not simply enabling (which would be necessary if we make that first change)
 
-I am wondering at this point if we shouldn't just take the opportunity to come up with a way to provide first-class debug formatting as part of the `formatter` API and make this the standard way of providing debug formatting. The benefits of having standard debug formatting are pretty clear - everyone wouldn't have to reinvent a new way of doing this.
+I am wondering at this point if we shouldn't just take the opportunity to come up with a way to provide first-class debug formatting as part of the `formatter` API and make this the standard way of providing debug formatting.
 
-Here is a potential approach. We could add a new `debug_formatter`, which consists of a single function:
+The benefits of having standard debug formatting are pretty clear:
+
+* everyone wouldn't have to reinvent a new way of doing this.
+* it provides an easy answer to the question of where to provide those specializations.
+
+Additionally, if there _were_ a standard debug formatting mechanism, then test frameworks wouldn't have to worry about providing _default_ formatting for not-otherwise-printable types. Because all types really should be debug-formattable, you could just require that (as Rust's assertions do require `Debug`). No ODR concern either.
+
+Of course, there's just one small question: how do you do it?
+
+## Approach 1: Dedicate `?`
+
+One potential approach is to dedicate the `?` specifier to mean debug formatting. That is, we have the following rules:
+
+1. If no _`format-specifier`_ is provided, then `formatter<T>::parse()` is not called, and `formatter<T>::format()` must have been provided. That will be the formatting function that is called.
+2. Otherwise, if _`format-specifier`_ is provided, and its _`format-spec`_ is just `?`, then `formatter<T>::parse()` is not called and indeed `formatter<T>` need not have been specialized at all. Instead, `debug_formatter<T>::format()` must have been provided. That will be the formatting function that is called (I'll illustrate this below).
+3. Lastly, if _`format-specifier`_ is provided and its not just `?`, then `formatter<T>::parse()` will be called as usual and then `formatter<T>::format()`.
+
+Here, `debug_formatter` consists of a single function:
 
 ```cpp
 template <typename T, typename Char>
@@ -367,13 +388,9 @@ struct debug_formatter {
 };
 ```
 
-If no _`format-specifier`_ is provided, then `formatter<T>::parse()` is not called, and `formatter<T>::format()` must have been provided. That will be the formatting function that is called.
+Formatting for ranges and tuples will, by default, try to call the underlying type's `debug_formatter<T>::format()` (if it exists), otherwise will call the underlying type's `formatter<T>::format()` (as it does today). This is instead of doing the `set_debug_format()` logic that we currently have.
 
-If _`format-specifier`_ is provided, and its _`format-spec`_ is just `?`, then `formatter<T>::parse()` is not called and indeed `formatter<T>` need not have been specialized at all. Instead, `debug_formatter<T>::format()` must have been provided. That will be the formatting function that is called.
-
-Formatting for ranges and tuples will, by default, try to call the underlying type's `debug_formatter<T>::format()` (if it exists), otherwise will call the underlying type's `formatter<T>::format()` (as it does today). This is instead of doing the `set_debug_format()` logic that we have today.
-
-Standard library types will all provide `debug_formatter<T>::format()` - which for some types just calls `formatter<T>::format()` (like `int`) but for other types will juts produce some useful output, even if there is no `formatter<T>::format()` at all (like `std::optional<int>`).
+Standard library types will all provide `debug_formatter<T>::format()` - which for some types just calls `formatter<T>::format()` (like `int`) but for other types will juts produce some useful output, even if there is no `formatter<T>::format()` at all (like `std::optional<int>`). The standard library will also provide a `debug_formatter_memberwise<T, Char>` that will, with the help of reflection, implement debug formatting as simply iterating through the members and printing all their names and values.
 
 An implementation for `Optional` that additionally supports arbitrary specifiers might then look like this:
 
@@ -383,13 +400,19 @@ template <typename T>
 struct debug_formatter<Optional<T>> {
     auto format(Optional<T> const& v, auto& ctx) const {
         if (v) {
-            return format_to(ctx.out(), "Some({?})", *v);
+            return format_to(ctx.out(), "Some({:?})", *v);
         } else {
             return format_to(ctx.out(), "None");
         }
     }
 };
+```
 
+So far so good. This is quite easy to provide, and easy enough to nest, since we simply reserve `?`.
+
+The more interesting question is what do we do for `formatter<Optional<T>>`? What we have today looks like this: `Optional<T>` is formattable when `T` is, and defers the way it handles its format specifiers to `T`:
+
+```
 template <typename T>
     requires formattable<T>
 struct formatter<Optional<T>> {
@@ -409,6 +432,116 @@ struct formatter<Optional<T>> {
         }
     }
 }
+```
+
+And this is pretty sensible, I think. In Rust terms, we've implemented `Display` in terms of `Display` and `Debug` in terms of `Debug`.
+
+But that's not exactly what we did for ranges. There we are providing `Display` in terms of either `Debug` or `Display`, depending on the choice of specifier you provide. For instance:
+
+```cpp
+std::vector<char> v = {'h', 'e', 'l', 'l', 'o'};
+fmt::print("{}\n", v);     // ['h', 'e', 'l', 'l', 'o']
+fmt::print("{::}\n", v);   // [h, e, l, l, o]
+fmt::print("{::d}\n", v);  // [104, 101, 108, 108, 111]
+```
+
+The first line is the default choice for ranges, using the debug formatting of the underlying element type (which prints `char` quoted). The second one, because we're providing a _format-specifier_ explicitly (even if it's empty), is using the default formatting of the underlying type (which does not quote `char`). And the last line uses the `d` specifier for each element (printing the `char`s as integers).
+
+If we skip the first colon for simplicity here, how do you implement `formatter` for a range in this model?
+
+Maybe you're thinking what we have is already incorrect: if I want debug formatting, that's `?`, and if I want display formatting, that's... not `?`. So the above isn't right, `{}` and `{::}` would format the same (unquoted `char`), but if I wanted to get quoting I would use `{::?}` as the specifier.
+
+But even so - how do you implement _that_?
+
+The issue becomes that `formattable<R>` for a range requires _either_ `debug_formattable` _or_ `formattable`. Something like... this:
+
+```cpp
+template <ranges::input_range R>
+    requires formattable<remove_cvref_t<ranges::range_reference_t<R>>>
+          or debug_formattable<remove_cvref_t<ranges::range_reference_t<R>>>
+struct formatter<R> {
+    using T = remove_cvref_t<ranges::range_reference_t<R>>;
+
+    // see below
+    maybe_formatter<T> underlying;
+
+    // parse needs to be provided unconditionally - even if T is only
+    // debug-formattable, the format-spec for the type might be ?, which is good
+    // enough
+    constexpr auto parse(auto& ctx) {
+        return underlying.parse(ctx);
+    }
+
+    auto format(R const& rng, auto& ctx) const {
+        auto out = ctx.out();
+        *out++ = '[';
+        bool first = true;
+        for (auto it = ranges::begin(rng); it != ranges::end(rng); ++it) {
+            if (not first) {
+                *out++ = ',';
+                *out++ = ' ';
+            }
+            ctx.advance_to(out);
+            out = underlying.format(*it, ctx)
+        }
+        *out++ = ']';
+        return out;
+    }
+};
+```
+
+This doesn't look so bad actually. I hid the the complexity in `maybe_formatter<T>`:
+
+```cpp
+template <typename T>
+    requires formattable<T> or debug_formattable<T>
+struct maybe_formatter {
+    // pretend this is valid syntax
+    if (formattable<T>) {
+        formatter<T> underlying;
+    }
+    if (debug_formattable<T>) {
+        bool use_debug_formatting = false;
+    }
+
+    constexpr auto parse(auto& ctx) {
+        auto it = ctx.begin();
+        if (it == ctx.end() or *it == '}') {
+            // typically, we just return here and are happy. But now, this means
+            // we have an empty spec, which is only allowed if T is formattable
+            if constexpr (formattable<T>) {
+                // NB: we still call underlying.parse, even though we know the
+                return underlying.parse(ctx);
+            } else {
+                throw format_error("T isn't formattable but using empty spec");
+            }
+        }
+
+        // here we have at least one character. we need to special-case if the
+        // entirety of the context is just ?. Presumably in this case we would
+        // add a convenience function on the context for this
+        if (*it == '?' and (it + 1 == ctx.end() or it[1] == '}')) {
+            if constexpr (debug_formattable<T>) {
+                use_debug_formatting = true;
+                return it + 1;
+            } else {
+                throw format_error("T isn't debug formattable");
+            }
+        }
+
+        // Otherwise, we don't care what the spec is - we just have to parse it
+        // If we can
+        if constexpr (formattable<T>) {
+            return underlying.parse(ctx);
+        } else {
+            throw format_error("T isn't formattable");
+        }
+    }
+
+    auto format(T const& value, auto& ctx) const {
+        // at this point, we know we had a valid format-spec
+    }
+};
 ```
 
 But that isn't really what I want, since formatting `Optional<char>('\t')` with `{}` should give you `Some(\t)` and not `Some(    )`. But formatting with `{:d}` should give you `Some(9)`.
