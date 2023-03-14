@@ -376,7 +376,7 @@ One potential approach is to dedicate the `?` specifier to mean debug formatting
 
 1. If no _`format-specifier`_ is provided, then `formatter<T>::parse()` is not called, and `formatter<T>::format()` must have been provided. That will be the formatting function that is called.
 2. Otherwise, if _`format-specifier`_ is provided, and its _`format-spec`_ is just `?`, then `formatter<T>::parse()` is not called and indeed `formatter<T>` need not have been specialized at all. Instead, `debug_formatter<T>::format()` must have been provided. That will be the formatting function that is called (I'll illustrate this below).
-3. Lastly, if _`format-specifier`_ is provided and its not just `?`, then `formatter<T>::parse()` will be called as usual and then `formatter<T>::format()`.
+3. Lastly, if _`format-specifier`_ is provided and it's not just `?`, then `formatter<T>::parse()` will be called as usual and then `formatter<T>::format()`.
 
 Here, `debug_formatter` consists of a single function:
 
@@ -385,6 +385,105 @@ template <typename T, typename Char>
 struct debug_formatter {
     template <typename FormatContext>
     auto format(T const&, FormatContext&) const -> FormatContext::iterator;
+};
+```
+
+If we had something like that, then implementing formatting and debug formatting for `Optional` would look like this:
+
+```cpp
+template <typename T>
+    requires debug_formattable<T>
+struct debug_formatter<Optional<T>> {
+    auto format(Optional<T> const& v, auto& ctx) const {
+        if (v) {
+            return format_to(ctx.out(), "Some({:?})", *v);
+        } else {
+            return format_to(ctx.out(), "None");
+        }
+    }
+};
+
+template <typename T>
+    requires formattable<T>
+struct formatter<Optional<T>> {
+    formatter<remove_cvref_t<T>> underlying;
+
+    constexpr auto parse(auto& ctx) {
+        return underlying.parse(ctx);
+    }
+
+    auto format(Optional<T> const& v, auto& ctx) const {
+        if (v) {
+            ctx.advance_to(format_to(ctx.out(), "Some("));
+            ctx.advance_to(underlying.format(*v, ctx));
+            return format_to(ctx.out(), ")");
+        } else {
+            return format_to(ctx.out(), "None");
+        }
+    }
+};
+```
+
+In this case, `Optional<T>` supports whatever `T`'s specifiers are for formatting. It's a little repetitive, since the approach for `debug_formatter<T>::format()` and `formatter<T>::format()` are the same, it's just the way we actually format the underlying `T` that differs between the two cases - where for debug we just provide `{:?}` (because now I'm saying that is _always_ debug) and for regular formatting we have to call `underlying.format` instead, which is a little awkward. Perhaps those ergonomics could be improved a bit (and the resulting implementation more symmetric, but providing something like this):
+
+```cpp
+auto format(Optional<T> const& v, auto& ctx) const {
+    if (v) {
+        return format_to(ctx.out(), "Some({})", underlying.with(*v));
+    } else {
+        return format_to(ctx.out(), "None");
+    }
+}
+```
+
+Okay. That's not so bad.
+
+Let's back up a sec - here what I'm showing is that `Optional<T>` debug formatting uses `T`'s debug formatting, and `Optional<T>`'s regular formatting uses `T`'s regular formatting. That makes a lot of sense - these are both formatting but they're somewhat distinct operations. But that's entirely how we're doing things today. Ranges' _regular_ formatting sometimes uses the underlying types _debug_ formatting:
+
+```cpp
+std::vector<char> v = {'h', 'e', 'l', 'l', 'o'};
+fmt::print("{}\n", v);     // ['h', 'e', 'l', 'l', 'o']
+fmt::print("{::}\n", v);   // [h, e, l, l, o]
+fmt::print("{::d}\n", v);  // [104, 101, 108, 108, 111]
+fmt::print("{::?}\n", v);  // ['h', 'e', 'l', 'l', 'o']
+```
+
+That's status quo: the first and last line currently use `char`'s debug formatting (the first implicitly, the last explicitly) and the other two use `char`'s regular formatting (the second with no specifier, the third using `d` to format as integers).
+
+That approach _is_ still doable with the debug split, with some care. Let's say we're formatting `vector<T>`, for simplicitly. We provide `debug_formatter<vector<T>>` if `T` is `debug_formattable`, which simply loops over all the elements using the underlying debug formatting. Don't need to worry about anything else, because debug formatting doesn't have any additional complications:
+
+```cpp
+template <debug_formattable T>
+struct debug_formatter<vector<T>> {
+    auto format(vector<T> const& v, auto& ctx) const {
+        auto out = format_to(ctx.out(), "[");
+
+        auto it = v.begin();
+        auto end = v.end();
+
+        if (it != end) {
+            out = format_to(out, "{:?}", *it);
+            for (++it, it != end; ++it) {
+                out = format_to(out, ", {:?}", *it);
+            }
+        }
+
+        return format_to(out, "]");
+    }
+};
+```
+
+Now let's do regular formatting. `vector<T>` is formattable when `T` is formattable, only. It's just that, under some situations, we want to switch over to use `T`'s debug formatter instead of `T`'s regular formatter. That looks something like:
+
+```cpp
+template <formattable T>
+struct formatter<vector<T>> {
+    formatter<T> underlying;
+    bool use_debug = true;
+
+    constexpr auto parse(auto& ctx) {
+        // we consider
+    }
 };
 ```
 
