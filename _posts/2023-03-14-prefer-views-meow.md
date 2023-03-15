@@ -12,17 +12,20 @@ tags:
 With the adoption of Ranges in C++20 (and with a lot of new additions in C++23), we have a lot of new, composable, range-based algorithms at our disposal. There are, however, several ways to spell the usage of such algorithms:
 
 ```cpp
-vector<int> v = {1, 2, 3};
+std::vector<int> v = {1, 2, 3};
 auto square = [](int i){ return i * i; };
 
-auto a = v | views::transform(square);
-auto b = views::transform(v, square);
-auto c = ranges::transform_view(v, square);
+auto a = v | std::views::transform(square);
+auto b = std::views::transform(v, square);
+auto c = std::ranges::transform_view(v, square);
 ```
 
 Which should you prefer?
 
 The answer is either `a` or `b`, never `c`.
+
+> The use of `std::views::transform` here is valid, you do not have to write out `std::ranges::views::transform`. The standard library provides `std::views` as a namespace alias for `std::ranges::views` - as you can see in the [synopsis](https://eel.is/c++draft/ranges.syn) for `<ranges>` (towards the end).
+{: .prompt-info}
 
 ## `views::meow` is the algorithm
 
