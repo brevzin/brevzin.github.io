@@ -28,6 +28,10 @@ The answer is either `a` or `b`, never `c`.
 
 `views::meow` is the actual, user-facing algorithm. It takes a `viewable_range`, and possibly some other arguments, and produces a new `view` whose behavior meets the goal of the algorithm. In the above example, `views::transform` takes a range (`v`) and a unary function (`square`) and produces a view whose elements are the result of applying that function to every element of the original range.
 
+
+> The use of `meow` here is as a [metasyntactic variable](https://en.wikipedia.org/wiki/Metasyntactic_variable). Other people might use `foo` or some other more obvious placeholder like `XXX`. I somehow picked up this practice from STL and Tim Song, even though my avatar for this blog is a dog.
+{: .prompt-info }
+
 In the typical case, the way to _implement_ `views::meow` is by creating a new type, `ranges::meow_view`, that wraps the original view and those other arguments and has the expected behavior. For an algorithm like `transform`, this is [quite simply](https://eel.is/c++draft/range.transform#overview-2) what it does:
 
 > Given subexpressions E and F, the expression `views​::​transform(E, F)` is expression-equivalent to `transform_­view(E, F)`.
