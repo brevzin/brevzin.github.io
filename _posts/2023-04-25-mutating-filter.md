@@ -40,7 +40,9 @@ An input range (a range whose iterator is an input iterator) is a single-pass ra
 > ```cpp
 > auto j = i++;
 > ```
-> `j` is immediately invalidated by the increment of `i`. Not the most useful operation. This is why in C++20, postfix increment on an iterator is allowed to (and should) return `void`.
+> If postfix increment returns the same iterator type, `j` is immediately invalidated by the increment of `i`. Not the most useful operation. This is why in C++20, postfix increment on an iterator is allowed to (and should) return `void`. In the old requirements, postfix increment (in order to be valid) could have returned a proxy object that basically holds a reference to `i` - which is just weird.
+>
+> For similar reasons, input-only iterators are allowed to be non-copyable in C++20.
 
 A forward range is a significant increase in functionality. A forward range is multi-pass, and can have multiple independent iterators into it at any given time.
 
@@ -155,7 +157,7 @@ We could fix the laziness by making `filter` eager, but I don't think that's rea
 
 We could fix the multi-pass allowance by simply making `filter` unconditionally an input range.
 
-And we could fix the mutation allowance by... actually no we can't. Even if the range we were filtering were a range of prvalue `int`s, which is a range that has no direct mutation capability - we can't change the `int`s, and they're not something like `int*`s that allow you directly to write somewhere else - that range could _still_ be mutated in a way that causes issues. For instance, those prvalue `int`s could be indices into a `std::vector`, the `filter` predicate could be based on the values in the `std::vector`, which we could then mutate. There's nothing `filter` could do to prevent that mutation. We'd need a wholesale overhaul in the language to introduce borrow checking to catch this.
+And we could fix the mutation allowance by... actually no we can't. Even if `filter` also performed `views::as_const`, that's insufficient. A range of `int&` would turn into a range of `int const&`, that's good. But a range of `int*` would stay a range of `int*` (we can't mutate the pointers, so it would become a constant range), and we can still mutate _through_ the pointer. So we'd need a stronger `views::as_const` that would also turn ranges of `T*` into ranges of `T const*`. That's... potentially feasible. But then you'd also need to turn a range of `span<T>` into a range of `span<T const>`. And a range of `struct S { int* p; };` into... well... something? There's not really a feasible way to prevent _any_ kind of mutation.
 
 So that leaves making `filter` unconditionally input. Is that a good idea? Today, `filter` is up to a bidirectional range. And that's pretty useful - there are a lot of things you can do with a bidirectional range. Some of them (like mutating while iterating over `pairwise`) are bad, and lead to unexpected behavior, but a lot of them are quite good and it would be unfortunate if we missed out on that functionality.
 
@@ -163,7 +165,9 @@ But once you allow `filter` to be multi-pass, you have to say something about th
 
 > Modification of the element a `filter_view​::​iterator` denotes is permitted, but results in undefined behavior if the resulting value does not satisfy the filter predicate.
 
-This is a fairly strong and broad statement. I've been stressing in this post that this kind of mutation (that changes an element from satisfying to not satisfying the predicate) is really only problematic in the multi-pass case. This sentence, on the other hand, calls it always undefined behavior, regardless.
+This is a fairly strong and broad statement. I've been stressing in this post that this kind of mutation (that changes an element from satisfying to not satisfying the predicate [^preserving]) is really only problematic in the multi-pass case. This sentence, on the other hand, calls it always undefined behavior, regardless.
+
+[^preserving]: Predicate-preserving mutations are totally fine. `i += 2`, for instance? No issues. Note also that other kinds of mutation, such as having a predicate like `[](int& i){ i += 1; return i % 2 == 0; }`, are also UB because they fail to meet the semantic requires of `std::predicate`: invoking the function with the same input has to give the same output. But situations like that just obviously broken in a way that the other situations I'm talking about here are not.
 
 The reason for this isn't so much that the standard library hates you, but more that it is actually exceedingly difficult to come up with a way to accurately describe what the specific situation is that leads to undefined behavior. So the standard library takes a broader outlook. Suggestions are always welcome.
 
@@ -182,9 +186,7 @@ This is, per the wording of the standard library, undefined behavior.
 
 But this example is... fine. We're doing a single pass through the elements, so even though we're doing the bad kind of mutation (changing our elements from satisfying the predicate to not), there's no place for our algorithm (the `for` loop) to get into a wacky state.
 
-It's only when you add multi-pass into the mix that things can go wrong, and it's in these situations that such mutation [^preserving] should definitely be avoided:
-
-[^preserving]: Predicate-preserving mutations are totally fine. `i += 2`, for instance? No issues.
+It's only when you add multi-pass into the mix that things can go wrong, and it's in these situations that such mutation should definitely be avoided:
 
 ```cpp
 auto evens = coll | std::views::filter(isEven);
@@ -208,4 +210,6 @@ Does this mean `filter` is broken? As I said, this behavior is inherent once you
 
 Importantly, one thing I haven't mentioned thus far is caching. That's because caching isn't really relevant to this problem. A `filter` that didn't cache would run into the same issues. Not with the two-loop example above, but still with the `pairwise` example from earlier.
 
-It's a pretty interesting scenario to carefully consider, but I just don't think it's reasonable to call `views::filter` is broken in this scenario. There's just no way to making a lazy, multi-pass, mutating filter do the "right" thing.
+It's a pretty interesting scenario to carefully consider, but I just don't think it's reasonable to call `views::filter` broken in this scenario. There's just no way to making a lazy, multi-pass, mutating filter do the "right" thing.
+
+---
