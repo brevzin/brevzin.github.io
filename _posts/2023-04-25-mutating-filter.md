@@ -31,7 +31,7 @@ As with a lot of my explanations, we have to start from the beginning.
 
 The C++ iterator model has a number of iterator categories: input, forward, bidirectional, random access, and (since C++20) contiguous. This post only needs to consider the first two.
 
-An input range (a range whose iterator is an input iterator) is a single-pass range. You can only even call `begin()` one time on it. You can't have multiple different input iterators into the same range - incrementing one immediately invalidates any existing copies.
+An input range (a range whose iterator is an input iterator) is a single-pass range. You can only ever call `begin()` one time on it. You can't have multiple different input iterators into the same range - incrementing one immediately invalidates any existing copies.
 
 {:.prompt-info}
 > Postfix increment on an input iterator is a pretty weird operation, since given
@@ -139,7 +139,7 @@ pairwise(evens.begin(), evens.end(), [](int& i, int& j){
 
 This [now prints](https://godbolt.org/z/We444MW8s) `(2, 4)` and then... `(6, 6)`?? That's pretty weird! What happened to our two independent iterators referring to different elements? Suddenly `first` caught up with `next`?
 
-What happened here is that we changed the `4` to no longer satisfy the predicate (`is_even`). This means we changed its position in the filtered range - to no longer in the range. Since we're lazily filtering the range, this means that when we advanced `first` (which referred to the `2`), the next even element is actually `6`. This now breaks `pairwise` - which promised to give us two _different_ elements.
+What happened here is that we changed the `4` to no longer satisfy the predicate (`is_even`). This means we changed its position in the filtered range - to no longer be in the range. Since we're lazily filtering the range, this means that when we advanced `first` (which referred to the `2`), the next even element is actually `6`. This now breaks `pairwise` - which promised to give us two _different_ elements.
 
 ## Whose fault is it?
 
@@ -182,7 +182,7 @@ for (int& i : coll | std::views::filter(isEven)) {
 
 This is, per the wording of the standard library, undefined behavior.
 
-But this example is... fine. We're doing a single pass through the elements, so even though we're doing the bad kind of mutation (changing our elements from satisfying the predicate to not), there's no place for our algorithm (the `for` loop) to get into a wacky state.
+But this example is... fine. It's going to work as expected. We're doing a single pass through the elements, so even though we're doing the bad kind of mutation (changing our elements from satisfying the predicate to not), there's no place for our algorithm (the `for` loop) to get into a wacky state.
 
 It's only when you add multi-pass into the mix that things can go wrong, and it's in these situations that such mutation should definitely be avoided:
 
@@ -204,7 +204,9 @@ This isn't a multi-pass algorithm like `pairwise` and `min_element` were, but I 
 
 So, in short: with `filter` (but, notably, neither `take_while` nor `drop_while`), you have to be careful about mutating elements in a way that causes them to no longer satisfy the predicate. This will cause unexpected behavior for multi-pass algorithms. But if you're just doing a single pass, then you can get away with it. It's fine?
 
-Does this mean `filter` is broken? As I said, this behavior is inherent once you have lazy filtering, with a multi-pass algorithm, that does mutation. We can't fix this by making it eager or somehow preventing mutation, but we could fix it by prohibiting multi-pass. That's a big loss in functionality though, and I'm not sure the tradeoff is really worth it.
+Does this mean `filter` is broken? As I said, this behavior is inherent once you have lazy filtering, with a multi-pass algorithm, that does mutation. We can't fix this by making it eager or somehow preventing mutation, but we could fix it by prohibiting multi-pass [^input_view]. That's a big loss in functionality though, and I'm not sure the tradeoff is really worth it.
+
+[^input_view]: Rather than having `filter` just unconditionally lower itself to be an input-only range, it's possible to add an adapter `views::demote_to_input` that demotes the range to be input-only, as an algorithm. So `vec | views::filter(p)` might be directional, but both `vec | views::demote_to_input | views::filter(p)` and `vec | views::filter(p) | views::demote_to_input` would be input-only. This would prevent any uses of multi-pass algorithms from compiling, but it can't catch the misuse with two loops. Such an adapter is fairly straightforward to write, and might be something we add for C++26.
 
 Importantly, one thing I haven't mentioned thus far is caching. That's because caching isn't really relevant to this problem. A `filter` that didn't cache would run into the same issues. Not with the two-loop example above, but still with the `pairwise` example from earlier.
 
