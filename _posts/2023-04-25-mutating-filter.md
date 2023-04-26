@@ -6,8 +6,6 @@ tags:
  - c++
  - c++20
  - ranges
-pubdraft: yes
-permalink: mutating-filter
 ---
 
 ## Introduction
