@@ -38,7 +38,7 @@ An input range (a range whose iterator is an input iterator) is a single-pass ra
 > ```cpp
 > auto j = i++;
 > ```
-> If postfix increment returns the same iterator type, `j` is immediately invalidated by the increment of `i`. Not the most useful operation. This is why in C++20, postfix increment on an iterator is allowed to (and should) return `void`. In the old requirements, postfix increment (in order to be valid) could have returned a proxy object that basically holds a reference to `i` - which is just weird.
+> If postfix increment returns the same iterator type, `j` is immediately invalidated by the increment of `i`. Not the most useful operation. This is why in C++20, postfix increment on an iterator is allowed to (and should) return `void`. In the old requirements, postfix increment (in order to be valid) could have returned a proxy object that basically holds a copy of `*i` prior to the increment - which is just weird.
 >
 > For similar reasons, input-only iterators are allowed to be non-copyable in C++20.
 
