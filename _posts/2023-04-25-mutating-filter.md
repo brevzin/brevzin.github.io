@@ -147,7 +147,19 @@ The problem here is that we have a multipass algorithm (`pairwise`) that we muta
 
 It's important to point out that once you have lazy filtering, mutability, and multipass - you can run into this situation. It doesn't actually even matter what the iterator model is [^rust].
 
-[^rust]: Rust protects you here in the usual way - trying to construct an example that runs into a problem here involves having either two mutable borrows or one mutable and one immutable one. There's probably some way to construct something that breaks, I'm just not creative enough.
+[^rust]: Even with the Rust iterator model and even in Rust, you can run into this situation. [Here is](https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=6cfec4ebb7e5e963e0cbeae4b9ce1e93) the exact same behavior, courtesy of r/cpp user [CUViper](https://www.reddit.com/r/cpp/comments/12zyh36/comment/jhvp7ec/?utm_source=reddit&utm_medium=web2x&context=3):
+    ```rust
+    fn main(){
+        let v: Vec<_> = (1..=6).map(Cell::new).collect();
+        let evens = v.iter().filter(|x| x.get() % 2 == 0);
+        for (i, j) in evens.clone().zip(evens.skip(1)) {
+            println!("({}, {})", i.get(), j.get());
+            j.set(j.get() + 1);
+        }
+    }
+    ```
+
+Rust protects you here in the usual way - trying to construct an example that runs into a problem here involves having either two mutable borrows or one mutable and one immutable one. There's probably some way to construct something that breaks, I'm just not creative enough.
 
 But it's at least worth asking: is there a different design of `filter` that doesn't have this issue? Well, the problem happens because of (1) lazy, (2) multipass and (3) mutation. If we only made a single pass, then there's no inconsistency with iterators that could come up. And if we didn't mutate, well, then of course we'd have no problem. And if the whole operation were eager - say `r | views::filter(pred)` simply returned a `vector` (which wouldn't be much of a view...) - then there's pretty obviously no problem.
 
