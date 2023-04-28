@@ -159,8 +159,6 @@ It's important to point out that once you have lazy filtering, mutability, and m
     }
     ```
 
-Rust protects you here in the usual way - trying to construct an example that runs into a problem here involves having either two mutable borrows or one mutable and one immutable one. There's probably some way to construct something that breaks, I'm just not creative enough.
-
 But it's at least worth asking: is there a different design of `filter` that doesn't have this issue? Well, the problem happens because of (1) lazy, (2) multipass and (3) mutation. If we only made a single pass, then there's no inconsistency with iterators that could come up. And if we didn't mutate, well, then of course we'd have no problem. And if the whole operation were eager - say `r | views::filter(pred)` simply returned a `vector` (which wouldn't be much of a view...) - then there's pretty obviously no problem.
 
 We could fix the laziness by making `filter` eager, but I don't think that's really much of an option. That really wouldn't be `views::filter`. Laziness is valuable.
