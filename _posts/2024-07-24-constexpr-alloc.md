@@ -72,9 +72,9 @@ public:
     constexpr auto operator=(unique_ptr&& rhs) noexcept
         -> unique_ptr&
     {
+        delete ptr;
         ptr = rhs.ptr;
         rhs.ptr = nullptr;
-        delete rhs.ptr;
         return *this;
     }
 
