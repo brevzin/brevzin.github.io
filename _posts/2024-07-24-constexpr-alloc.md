@@ -7,6 +7,7 @@ tags:
  - c++20
  - c++26
 mermaid: true
+series: "What's so hard about"
 ---
 
 ## Setting the Stage
