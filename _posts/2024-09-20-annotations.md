@@ -1,0 +1,497 @@
+---
+layout: post
+title: "Code Generation in Rust vs C++26"
+category: c++
+tags:
+ - c++
+ - c++26
+ - reflection
+---
+
+One of the things I like to do is compare how different languages solve the same problem — especially when they end up having very different approaches. It's always educational. In this case, a bunch of us have been working hard on trying to get reflection — a really transformative language feature — into C++26. Fundamentally, reflection itself can be divided into two pieces:
+
+1. Introspection — the ability to ask questions about your program during compilation
+2. Code Generation — the ability to have your code write new code
+
+[P2996](https://wg21.link/p2996) (Reflection for C++26) is the (huge) core proposal that fundamentally deals with the first problem, along with setting the foundation for being able to extend this feature in lots of different directions in the future, including generation (for which our design is [P3294](https://wg21.link/p3294)). But introspection, while valuable, is only half of the piece. Andrei Alexandrescu went so far as to claim in his CppCon talk that introspection without generation is useless.
+
+> Or at least he did in the early slides he sent me and I told him to tone it down a notch, so perhaps in the actual talk (whose video I have not seen yet), he just called it... Mostly Useless.
+{:.prompt-info}
+
+Now, C++ does have one code generation facility today: C macros. It's just a very poor and primitive one. Poor because of their complete lack of hygiene to the point where you could be accidentally invoking macros without knowing it (and standard library implementations guard against that), and primitive because even remarkably simple things conceptually (like iteration or conditions) require true wizardry to implement. That said, there are still plenty of problems today for which C macros are the best solution — which really says something about the need for proper code generation facilities.
+
+On the other hand, if we look at Rust — Rust does not actually have any introspection facilities *at all*, but it does have a mature code generation facility in the form of its declarative and procedural macros. Today, this post is just going to look at procedural macros — specifically the derive macro. We're going to look at two problems solved by using the derive macro, how those actually work, and how we are proposing to solve the same problems in a very different way for C++26.
+
+> Now, I'm not a Rust programmer, so I apologize in advance for getting things wrong here. Please let me know if I make any egregious mistakes.
+{:.prompt-warning}
+
+## Pretty-Printing a Struct
+
+Once you learn how to declare a type with some new members, one of the first things you're going to want to do is to make your type debug-printable. Not only because in general that's a very useful operation, but also because it's _extremely_ easy to do:
+
+```rust
+#[derive(Debug)]
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main() {
+    let p = Point { x: 1, y: 2 };
+    // prints: p=Point { x: 1, y: 2 }
+    println!("p={p:?}");
+}
+```
+
+That first line of code makes `Point` debug-printable — which means it prints the type name and then all the member names and values, in order.
+
+> In my copy of the Rust Programming Language book, you're shown how to declare a `struct` on page 82 and how to make it debug-printable on page 89. It's quite prompt.
+{:.prompt-info}
+
+And since this is a programmatic annotation, if I go back later and add a new field to `Point` (let's say I decide that I wanted this to be 3-dimensional and I need a `z`), the debug-printing will be automatically updated to print the new field.
+
+All of which is to say: Pretty easy!
+
+The question you might ask is — how, *specifically*, does this work? What is the interaction between the `derive` macro and the `Debug` trait that causes this to work?
+
+As I mentioned earlier, unlike what we're proposing for C++26, Rust doesn't have any kind of _introspection_. There is no mechanism in the language to ask for the members of `Point` and iterate over them.
+
+Instead, the `derive` macro does something very different: it is a function that takes a token stream of the struct that it annotates and its job is to return a token stream of code to inject after the input. That injected code doesn't actually need to be remotely related to the input (the [Rust docs](https://doc.rust-lang.org/reference/procedural-macros.html#derive-macros) have an example which completely ignores the input and just injects a function which returns `42`).
+
+In this case, we sidestep the lack of introspection by actually getting the token sequence input of `Point`, _parsing it_, and using that parsed result to produce the output we need.
+
+Specifically, the `derive` macro for this example will emit (which I got from `cargo expand`):
+
+```rust
+#[automatically_derived]
+impl ::core::fmt::Debug for Point {
+    #[inline]
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        ::core::fmt::Formatter::debug_struct_field2_finish(
+            f,
+            "Point",
+            "x",
+            &self.x,
+            "y",
+            &&self.y,
+        )
+    }
+}
+```
+
+It's not especially complicated code, but the point is that Rust programmers don't have to deal with writing this boilerplate. They just have to learn how to write one line of code: `#[derive(Debug)]`{:.lang-rust}. That's the power of code generation.
+
+Nevertheless, even here the result is quite informative. Why is it `&self.x` but `&&self.y`, with the extra reference? Here, Rust's inability to do introspection comes into place. In Rust, your last field can be an unsized type. An unsized type can be printed, [but needs an extra indirection](https://github.com/rust-lang/rust/blob/74fd001cdae0321144a20133f2216ea8a97da476/compiler/rustc_builtin_macros/src/deriving/debug.rs#L101-L102). The derive macro has no way of knowing whether `y` is sized or not (in this case it's an `i32`, which is `Sized`), so in an effort to support both cases, it just preemptively adds the extra indirection.
+
+
+In C++, with what we're proposing, if I try to be as familiar to Rust as possible, we can make it work [like this](https://godbolt.org/z/bcYE7nY4s):
+
+```cpp
+struct [[=derive<Debug>]] Point {
+    int x;
+    int y;
+};
+
+int main() {
+    auto p = Point{.x=1, .y=2};
+    // prints p=Point{.x=1, .y=2}
+    std::println("p={}", p);
+}
+```
+
+Now, fundamentally, there are some similarities between how C++ and Rust do formatting (which I've [touched on before]({% post_url 2023-01-02-rust-cpp-format %})). In Rust, you have to provide an `impl` for the `Debug` trait. In C++, you have to specialize `std::formatter` (we don't differentiate between `Debug` and `Display`). As I showed earlier, the Rust `#[derive(Debug)]`{:.lang-rust} macro invocation injects the correct `impl` of `Debug` for the type. But in C++, we're... not actually doing that at all.
+
+The specific language feature I'm making use of here is called an *annotation*. It will be proposed in [P3394](https://brevzin.github.io/cpp_proposals/3394_annotations/p3394r0.html) and was first revealed by Daveed Vandevoorde at his CppCon closing keynote. The goal of the proposal is to let you annotate declaration in a way that introspection can observe. Notably, no injection is happening. We're just extending introspection a bit.
+
+However, given that C++ _does_ have introspection (or will, with P2996), that's sufficient to get the job done. We can, up front, provide a specialization of `std::formatter` that is enabled if the type is annotated with `derive<Debug>`, which it itself just an empty value:
+
+```cpp
+template <auto V> struct Derive { };
+template <auto V> inline constexpr Derive<V> derive;
+
+inline constexpr struct{} Debug;
+
+template <class T> requires (has_annotation(^^T, derive<Debug>))
+struct std::formatter<T> {
+    // ...
+};
+```
+
+And once we have that, the body of the specialization can introspect on `T` to get all the information that we need to display: we can iterate over all the non-static data members, formatting their name and value. A simplified implementation would be (the link above has a more complicated implementation):
+
+```cpp
+template <class T> requires (has_annotation(^^T, derive<Debug>))
+struct std::formatter<T> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+
+    auto format(T const& m, auto& ctx) const {
+        auto out = std::format_to(ctx.out(), "{}", display_string_of(^^T));
+        *out++ = '{';
+
+        bool first = true;
+        [:expand(nonstatic_data_members_of(^^T)):] >> [&]<auto nsdm>{
+            if (not first) {
+                *out++ = ',';
+                *out++ = ' ';
+            }
+            first = false;
+
+            out = std::format_to(out, ".{}={}", identifier_of(nsdm), m.[:nsdm:]);
+        };
+
+        *out++ = '}';
+        return out;
+    }
+};
+```
+
+In a way, we're still generating code — templates are kind of a form of code generation in C++. But it's interesting that here we're achieving the same end with a very different mechanism.
+
+## JSON Serialization
+
+Building on the debug-printing example, where we just wanted to print all the members in order. What if we wanted to do something slightly more involved? When dealing with serialization, it's quite common to want the serialized format to not be _exactly_ the same as the names of all of your members. Sometimes, the desired format is impossible to replicate in the language — the field name you want to serialize into might happen to be a language keyword, or have a space in it, or so forth.
+
+This is why [serde](https://serde.rs/) library provides a lot of attributes you can add to types and members to control the logic. Taking a simple example:
+
+```rust
+se serde::Serialize;
+use serde_json;
+
+#[derive(Serialize)]
+struct Person {
+    #[serde(rename = "first name")]
+    first: String,
+
+    #[serde(rename = "last name")]
+    last: String,
+}
+
+fn main() {
+    let person = Person {
+        first: "Peter".to_owned(),
+        last: "Dimov".to_owned(),
+    };
+    let j = serde_json::to_string(&person).unwrap();
+
+    // prints {"first name":"Peter","last name":"Dimov"}
+    println!("{}", j);
+}
+```
+
+As with `Debug`, the derive macro for `Serialize` will inject an implementation for us, which, in this case, looks like this:
+
+```rust
+#[doc(hidden)]
+#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+const _: () = {
+    #[allow(unused_extern_crates, clippy::useless_attribute)]
+    extern crate serde as _serde;
+    #[automatically_derived]
+    impl _serde::Serialize for Person {
+        fn serialize<__S>(
+            &self,
+            __serializer: __S,
+        ) -> _serde::__private::Result<__S::Ok, __S::Error>
+        where
+            __S: _serde::Serializer,
+        {
+            let mut __serde_state = _serde::Serializer::serialize_struct(
+                __serializer,
+                "Person",
+                false as usize + 1 + 1,
+            )?;
+            _serde::ser::SerializeStruct::serialize_field(
+                &mut __serde_state,
+                "first name",
+                &self.first,
+            )?;
+            _serde::ser::SerializeStruct::serialize_field(
+                &mut __serde_state,
+                "last name",
+                &self.last,
+            )?;
+            _serde::ser::SerializeStruct::end(__serde_state)
+        }
+    }
+};
+```
+
+Here you can see the desired field names (`"first name"` and `"last name"`) coupled with their actual members. The funny construct `false as usize + 1 + 1`{:.lang-rust}, which is the number of fields to be serialized (which in this case is obviously `2`) is a consequence of wanting to support a different attribute.
+
+For example, if we added a middle name that we wanted to serialize only if it wasn't empty, there's an attribute for that:
+
+```rust
+#[derive(Serialize)]
+struct Person {
+    #[serde(rename = "first name")]
+    first: String,
+
+    #[serde(rename = "middle name", skip_serializing_if = "String::is_empty")]
+    middle: String,
+
+    #[serde(rename = "last name")]
+    last: String,
+}
+```
+
+Which generates the following code:
+
+```rust
+#[doc(hidden)]
+#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+const _: () = {
+    #[allow(unused_extern_crates, clippy::useless_attribute)]
+    extern crate serde as _serde;
+    #[automatically_derived]
+    impl _serde::Serialize for Person {
+        fn serialize<__S>(
+            &self,
+            __serializer: __S,
+        ) -> _serde::__private::Result<__S::Ok, __S::Error>
+        where
+            __S: _serde::Serializer,
+        {
+            let mut __serde_state = _serde::Serializer::serialize_struct(
+                __serializer,
+                "Person",
+                false as usize + 1 + if String::is_empty(&self.middle) { 0 } else { 1 }
+                    + 1,
+            )?;
+            _serde::ser::SerializeStruct::serialize_field(
+                &mut __serde_state,
+                "first name",
+                &self.first,
+            )?;
+            if !String::is_empty(&self.middle) {
+                _serde::ser::SerializeStruct::serialize_field(
+                    &mut __serde_state,
+                    "middle name",
+                    &self.middle,
+                )?;
+            } else {
+                _serde::ser::SerializeStruct::skip_field(
+                    &mut __serde_state,
+                    "middle name",
+                )?;
+            }
+            _serde::ser::SerializeStruct::serialize_field(
+                &mut __serde_state,
+                "last name",
+                &self.last,
+            )?;
+            _serde::ser::SerializeStruct::end(__serde_state)
+        }
+    }
+};
+```
+
+What would this look like in our annotations model? In C++, we don't really have something like `serde` — where serialization splits up the pieces being serialized and what they are serialized into. At least, I'm not personally aware of such a library. Instead, we just have JSON libraries that handle JSON serialization, TOML libraries that handle TOML serialization, etc. Maybe that's a consequence of missing the language support necessary to make it easy to do this kind of opt in? On the other hand, we _do_ have this model for hashing — that's [Types Don't Know #](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3980.html).
+
+In any event, while Rust's and C++'s formatting approaches are similar, so the resulting implementations look similar — this isn't true here. So instead of crafting a serde-like library in C++, I'm simply going to show what this might look like for serializing into Boost.JSON.
+
+We'll start with just support for `derive<Serialize>` and `rename`. That's all we need to get [this code to work](https://godbolt.org/z/WYecTKPvY):
+
+```cpp
+struct [[=derive<serde::Serialize>]] Point {
+    int x, y;
+};
+
+struct [[=derive<serde::Serialize>]] Person {
+    [[=serde::rename("first name")]] std::string first;
+    [[=serde::rename("last name")]] std::string last;
+};
+
+int main() {
+    // prints {"x":1,"y":2}
+    std::cout << boost::json::value_from(Point{.x=1, .y=2}) << '\n';
+    // prints {"first name":"Peter","last name":"Dimov"}
+    std::cout << boost::json::value_from(Person{.first="Peter", .last="Dimov"}) << '\n';
+}
+```
+
+And this whole thing is... 20 lines of code, if I keep the same `derive` variable template from before:
+
+```cpp
+namespace serde {
+    inline constexpr struct{} Serialize{};
+    struct rename { char const* field; };
+}
+
+namespace boost::json {
+    template <class T>
+        requires (has_annotation(^^T, derive<serde::Serialize>))
+    void tag_invoke(value_from_tag const&, value& v, T const& t) {
+        auto& obj = v.emplace_object();
+        [:expand(nonstatic_data_members_of(^^T)):] >> [&]<auto M>{
+            constexpr auto field = annotation_of<serde::rename>(M)
+                .transform([](serde::rename r){
+                    return std::string_view(r.field);
+                })
+                .value_or(identifier_of(M));
+
+            obj[field] = boost::json::value_from(t.[:M:]);
+        };
+    }
+}
+```
+
+This should look familiar after the formatting implementation — since we're basically also doing formatting. It's just that instead of printing a bunch of `name=value` pairs, we're adding them to a JSON object. And then instead of automatically using the identifier of the non-static data member in question, we first try to see if there's a `rename` annotation. `annotation_of<T>` gives us an `optional<T>`, so we either get the `Rename` (and its underlying string) or just fallback to `identifier_of(M)`.
+
+Adding support for `skip_serializing_if` isn't that much more work, and I think helps really illustrate the difference between the C++ and Rust approaches. In Rust, you provide a string — that is injected to be invoked internally. In C++, we'd just provide a callable.
+
+That requires adding a new annotation type:
+
+```cpp
+namespace serde {
+      inline constexpr struct{} Serialize{};
+      struct rename { char const* field; };
+      template <class F> struct skip_serializing_if { F pred; };
+  }
+```
+
+And then the mildly annoying part is parsing it. We need to pull out an annotation that is some specialization of `serde::skip_serializing_if`. If we find one, then we try to invoke its `pred` member — skipping serializing the value if it evaluates to `true`.
+
+The search looks like this (note that we need `skip_if` to be `constexpr` because we need to splice it to invoke it). I'm sure this part can be cleaned up a little with a nicer library API (at the very least an `is_specialization_of`?):
+
+```cpp
+constexpr auto skip_if = []() -> std::meta::info {
+    auto res = std::meta::info();
+    for (auto A : annotations_of(M)) {
+        auto type = type_of(A);
+        if (has_template_arguments(type)
+            and template_of(type) == ^^serde::skip_serializing_if) {
+            // found a specialization
+            // but check to make sure we haven't found two different ones.
+            if (res != std::meta::info() and res != value_of(A)) {
+                throw "unexpected duplicate";
+            }
+
+            res = value_of(A);
+        }
+    }
+
+    return res;
+}();
+```
+
+And then, if we _have_ such an annotation, we then invoke it to see if we need to skip this member. This needs to be an `if constexpr` because if `skip_if` is the null reflection, we can't splice it. Other than that, this logic is exactly what we have to do: if we have such a `skip_serializing_if` annotation, invoke it and, if it's false, skip this member:
+
+```cpp
+if constexpr (skip_if != std::meta::info()) {
+    if (std::invoke([:skip_if:].pred, t.[:M:])) {
+        return;
+    }
+}
+```
+
+You can see the full solution in action [here](https://godbolt.org/z/hvqra8M7K). It has now ballooned to... still not 50 lines of code:
+
+```cpp
+template <auto V> struct Derive { };
+template <auto V> inline constexpr Derive<V> derive;
+
+namespace serde {
+    inline constexpr struct{} Serialize{};
+    struct rename { char const* field; };
+    template <class F> struct skip_serializing_if { F pred; };
+}
+
+namespace boost::json {
+    template <class T>
+        requires (has_annotation(^^T, derive<serde::Serialize>))
+    void tag_invoke(value_from_tag const&, value& v, T const& t) {
+        auto& obj = v.emplace_object();
+        [:expand(nonstatic_data_members_of(^^T)):] >> [&]<auto M>{
+            constexpr auto field = annotation_of<serde::rename>(M)
+                .transform([](serde::rename r){
+                    return std::string_view(r.field);
+                })
+                .value_or(identifier_of(M));
+
+            constexpr auto skip_if = []() -> std::meta::info {
+                auto res = std::meta::info();
+                for (auto A : annotations_of(M)) {
+                    auto type = type_of(A);
+                    if (has_template_arguments(type)
+                        and template_of(type) == ^^serde::skip_serializing_if) {
+                        // found a specialization
+                        // but check to make sure we haven't found two different ones.
+                        if (res != std::meta::info() and res != value_of(A)) {
+                            throw "unexpected duplicate";
+                        }
+
+                        res = value_of(A);
+                    }
+                }
+
+                return res;
+            }();
+
+            if constexpr (skip_if != std::meta::info()) {
+                if (std::invoke([:skip_if:].pred, t.[:M:])) {
+                    return;
+                }
+            }
+
+            obj[field] = boost::json::value_from(t.[:M:]);
+        };
+    }
+}
+```
+
+## Rust Attributes vs C++ Annotations
+
+In the context of looking at serde, one thing stands out to me most for the syntax difference on the usage side. This was my Rust declaration:
+
+```rust
+#[derive(Serialize)]
+struct Person {
+    #[serde(rename = "first name")]
+    first: String,
+
+    #[serde(rename = "middle name", skip_serializing_if = "String::is_empty")]
+    middle: String,
+
+    #[serde(rename = "last name")]
+    last: String,
+}
+```
+
+And this was my C++ one:
+
+```cpp
+struct [[=derive<serde::Serialize>]] Person {
+    [[=serde::rename("first name")]]
+    std::string first;
+
+    [[=serde::rename("middle name")]]
+    [[=serde::skip_serializing_if(&std::string::empty)]]
+    std::string middle = "";
+
+    [[=serde::rename("last name")]]
+    std::string last;
+};
+```
+
+The C++ annotations are... busier. This is because in Rust, the annotations are really just arbitrary token streams themselves that are parsed by the library that recognizes them. `serde(rename = "first name")`{:.lang-rust} isn't valid Rust, you can really put whatever you want there. But `serde::rename("first name")` and `serde::skip_serializing_if(&std::string::empty)` are valid C++ — and no parsing is performed in the library at all, we just get the values directly.
+
+One consequence of this is that the usage side for Rust annotations can be much nicer, since the library can invent appropriate syntax. Which library then has to be pay for by parsing that nice syntax — the implementations of the derive macros for `Debug` and `serde::Serialize` are quite a bit more complicated than what I'm presenting here.
+
+Now it's tempting to wondering about reusing the (exceedingly oddly specific) attribute `using` syntax and allowing `using serde:` here. But it wouldn't save that much typing at all:
+
+```cpp
+struct [[=derive<serde::Serialize>]] Person {
+    // old version: 83 chars
+    [[=serde::rename("middle name"), =serde::skip_serializing_if(&std::string::empty)]]
+    std::string middle = "";
+
+    // new version: 82 chars
+    [[using serde: =rename("middle name"), =skip_serializing_if(&std::string::empty)]]
+    std::string middle = "";
+};
+```
+
+The Rust version is only 74 characters. It's not _much_ shorter, but it's at least comfortably on the left side of the 80 column mark. I'm not sure that there's really much we can do for the syntax here.
+
+## Reminiscences of a Metaclass Operator
+
