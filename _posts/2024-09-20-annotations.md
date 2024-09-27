@@ -126,7 +126,8 @@ struct std::formatter<T> {
     constexpr auto parse(auto& ctx) { return ctx.begin(); }
 
     auto format(T const& m, auto& ctx) const {
-        auto out = std::format_to(ctx.out(), "{}", display_string_of(^^T));
+        auto out = std::format_to(ctx.out(),
+                                  "{}", display_string_of(^^T));
         *out++ = '{';
 
         bool first = true;
@@ -137,7 +138,9 @@ struct std::formatter<T> {
             }
             first = false;
 
-            out = std::format_to(out, ".{}={}", identifier_of(nsdm), m.[:nsdm:]);
+            out = std::format_to(out,
+                                 ".{}={}",
+                                 identifier_of(nsdm), m.[:nsdm:]);
         };
 
         *out++ = '}';
@@ -366,7 +369,8 @@ constexpr auto skip_if = []() -> std::meta::info {
         if (has_template_arguments(type)
             and template_of(type) == ^^serde::skip_serializing_if) {
             // found a specialization
-            // but check to make sure we haven't found two different ones.
+            // but check to make sure we haven't found two
+            // different ones.
             if (res != std::meta::info() and res != value_of(A)) {
                 throw "unexpected duplicate";
             }
@@ -389,7 +393,7 @@ if constexpr (skip_if != std::meta::info()) {
 }
 ```
 
-You can see the full solution in action [here](https://godbolt.org/z/hvqra8M7K). It has now ballooned to... all of 50 lines of code (with the new logic to support `skip_serializing_if` highlighted):
+You can see the full solution in action [here](https://godbolt.org/z/hvqra8M7K). It has now ballooned to... all of 51 lines of code (with the new logic to support `skip_serializing_if` highlighted):
 
 ```cpp
 template <auto V> struct Derive { };
@@ -420,7 +424,8 @@ namespace boost::json {
                     if (has_template_arguments(type)
                         and template_of(type) == ^^serde::skip_serializing_if) {
                         // found a specialization
-                        // but check to make sure we haven't found two different ones.
+                        // but check to make sure we haven't found
+                        // two different ones.
                         if (res != std::meta::info() and res != value_of(A)) {
                             throw "unexpected duplicate";
                         }
@@ -469,8 +474,9 @@ consteval {
             continue;
         }
 
+        auto underlying = is_type(m) ? m : ^^std::meta::info;
         specs.push_back(data_member_spec(
-            substitute(^^std::optional, {is_type(m) ? m : ^^std::meta::info}),
+            substitute(^^std::optional, {underlying}),
             {.name=identifier_of(m)}));
     }
 
@@ -496,7 +502,10 @@ namespace boost::json {
                 .value_or(identifier_of(M));
 
             if constexpr (attrs.skip_serializing_if) {
-                if (std::invoke([:*attrs.skip_serializing_if:].pred, t.[:M:])) {
+                if (std::invoke(
+                    [:*attrs.skip_serializing_if:].pred,
+                    t.[:M:]))
+                {
                     return;
                 }
             }
