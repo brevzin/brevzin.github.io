@@ -47,6 +47,8 @@ fn main() {
 That first line of code makes `Point` debug-printable — which means it prints the type name and then all the member names and values, in order.
 
 > In my copy of the Rust Programming Language book, you're shown how to declare a `struct` on page 82 and how to make it debug-printable on page 89. It's basically one of the first things you're shown how to do.
+>
+> Also for this specific task, Rust has `dbg!(p)`{:.lang-rust}, but I'm using `println!`{:.lang-rust} just to be closer to the eventual C++ solution.
 {:.prompt-info}
 
 And since this is a programmatic annotation, if I go back later and add a new field to `Point` (let's say I decide that I wanted this to be 3-dimensional and I need a `z`), the debug-printing will be automatically updated to print the new field.
@@ -102,7 +104,7 @@ int main() {
 
 Now, fundamentally, there are some similarities between how C++ and Rust do formatting (which I've [touched on before]({% post_url 2023-01-02-rust-cpp-format %})). In Rust, you have to provide an `impl` for the `Debug` trait. In C++, you have to specialize `std::formatter` (we don't differentiate between `Debug` and `Display`). As I showed earlier, the Rust `#[derive(Debug)]`{:.lang-rust} macro invocation injects the correct `impl` of `Debug` for the type. But in C++, we're... not actually doing that at all.
 
-The specific language feature I'm making use of here is called an *annotation*. It will be proposed in [P3394](https://wg21.link/p3394) (link will work when it's published in October 2024) and was first revealed by Daveed Vandevoorde at his [CppCon closing keynote](https://www.youtube.com/watch?v=wpjiowJW2ks). The goal of the proposal is to let you annotate declaration in a way that introspection can observe. Notably, no injection is happening. We're just extending introspection a bit.
+The specific language feature I'm making use of here is called an *annotation*. It will be proposed in [P3394](https://wg21.link/p3394) (link will work when it's published in October 2024) and was first revealed by Daveed Vandevoorde at his [CppCon closing keynote](https://www.youtube.com/watch?v=wpjiowJW2ks). The goal of the proposal is to let you annotate declarations in a way that introspection can observe. Notably, no injection is happening. We're just extending introspection a bit.
 
 However, given that C++ _does_ have introspection (or will, with P2996), that's sufficient to get the job done. We can, up front, provide a specialization of `std::formatter` that is enabled if the type is annotated with `derive<Debug>`, which it itself just an empty value:
 
@@ -152,7 +154,7 @@ struct std::formatter<T> {
 
 In a way, we're still generating code — templates are kind of a form of code generation in C++. But it's interesting that here we're achieving the same end with a very different mechanism.
 
-Note also that this is the _complete_ implementation. Not a lot of code.
+Note also that this is the _complete_ implementation. It is not a lot of code.
 
 ## JSON Serialization
 
@@ -223,7 +225,7 @@ const _: () = {
 };
 ```
 
-Here you can see the desired field names (`"first name"` and `"last name"`) coupled with their actual members. The funny construct `false as usize + 1 + 1`{:.lang-rust}, which is the number of fields to be serialized (which in this case is obviously `2`) is a consequence of wanting to support a different attribute.
+Here you can see the desired field names (`"first name"` and `"last name"`) coupled with their actual members. The funny construct `false as usize + 1 + 1`{:.lang-rust} is the number of fields to be serialized (which in this case is obviously `2`). This spelling in particular  is a consequence of wanting to support a different attribute.
 
 For example, if we added a middle name that we wanted to serialize only if it wasn't empty, there's an attribute for that:
 
@@ -241,7 +243,7 @@ struct Person {
 }
 ```
 
-Which generates the following code:
+Which generates the following code (with the new additions highlighted):
 
 ```rust
 #[doc(hidden)]
@@ -291,6 +293,7 @@ const _: () = {
     }
 };
 ```
+{: data-line="18-19,26-37"  }
 
 What would this look like in our annotations model? In C++, we don't really have something like `serde` — where serialization splits up the pieces being serialized and what they are serialized into. At least, I'm not personally aware of such a library. Instead, we just have JSON libraries that handle JSON serialization, TOML libraries that handle TOML serialization, etc. Maybe that's a consequence of missing the language support necessary to make it easy to do this kind of opt in? On the other hand, we _do_ have this model for hashing — that's [Types Don't Know #](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3980.html).
 
@@ -343,9 +346,12 @@ namespace boost::json {
 ```
 {: .line-numbers }
 
-This should look familiar after the formatting implementation — since we're basically also doing formatting. It's just that instead of printing a bunch of `name=value` pairs, we're adding them to a JSON object. And then instead of automatically using the identifier of the non-static data member in question, we first try to see if there's a `rename` annotation. `annotation_of<T>` gives us an `optional<T>`, so we either get the `Rename` (and its underlying string) or just fallback to `identifier_of(M)`.
+This should look familiar after the formatting implementation — since we're basically also doing formatting. It's just that instead of printing a bunch of `name=value` pairs, we're adding them to a JSON object. And then instead of automatically using the identifier of the non-static data member in question, we first try to see if there's a `rename` annotation. `annotation_of<T>()` gives us an `optional<T>`, so we either get the `rename` (and its underlying string) or just fallback to `identifier_of(M)`.
 
 Adding support for `skip_serializing_if` isn't that much more work, and I think helps really illustrate the difference between the C++ and Rust approaches. In Rust, you provide a string — that is injected to be invoked internally. In C++, we'd just provide a callable.
+
+> This is because Rust's attribute grammar can't support a callable here.
+{:.prompt-info}
 
 That requires adding a new annotation type:
 
@@ -519,7 +525,7 @@ namespace boost::json {
 
 Sure, we moved the most complicated logic (parsing the annotations) into a function, which I'm not including in the above code block. But this is pretty nice right?
 
-You can see the full implementation using this approach [here](https://godbolt.org/z/jaKTe57Gf).
+You can see the full implementation using this approach [here](https://godbolt.org/z/jaKTe57Gf). As I said, this is a bit overkill when we only have two attributes. But this approach means that all it takes to add a new `serde` attribute is to declare a new class or class template in the namespace and then just use it in the implementation.
 
 
 ## Rust Attributes vs C++ Annotations
@@ -556,11 +562,9 @@ struct [[=derive<serde::Serialize>]] Person {
 };
 ```
 
-The C++ annotations are... busier. This is because in Rust, the annotations are really just arbitrary token streams themselves that are parsed by the library that recognizes them. `serde(rename = "first name")`{:.lang-rust} isn't valid Rust, you can really put whatever you want there. But `serde::rename("first name")` and `serde::skip_serializing_if(&std::string::empty)` are valid C++ — and no parsing is performed in the library at all, we just get the values directly.
+The C++ annotations are... busier, but this is mostly a syntactic question. Rust's are lighter because annotations follow different grammar from the rest of the language — `serde(rename = "first name")`{:.lang-rust} isn't valid Rust, and there is no call to a function named `serde` being performed here. One consequence of this is that the usage side for Rust annotations can be nicer, since it really reads like assigning values to options. And you get some flexibility with how you can use the contents of these "calls", since you can write `#[arg(short)]`{:.lang-rust} or `#[arg(short = 'k')]`{:.lang-rust} as a nice way of indicating that you want the "default" value of `short` as opposed to specifically the value `k` (this is from [clap](https://docs.rs/clap/latest/clap/)).
 
-One consequence of this is that the usage side for Rust annotations can be much nicer, since the library can invent appropriate syntax. Which library then has to be pay for by parsing that nice syntax — the implementations of the derive macros for `Debug` and `serde::Serialize` are quite a bit more complicated than what I'm presenting here.
-
-Now it's tempting to wondering about reusing the (exceedingly oddly specific) attribute `using` syntax and allowing `using serde:` here. But it wouldn't save that much typing at all:
+Now it's tempting to wonder about reusing the (exceedingly oddly specific) attribute `using` syntax and allowing `using serde:` here. But it wouldn't save that much typing at all:
 
 ```cpp
 struct [[=derive<serde::Serialize>]] Person {
@@ -574,21 +578,16 @@ struct [[=derive<serde::Serialize>]] Person {
 };
 ```
 
-The Rust version is only 74 characters. It's not _much_ shorter, but it's at least comfortably on the left side of the 80 column mark. So if I was building a system for real production use where I was very focused on user experience, I'd probably try to shoot for something more like this:
+The Rust version is only 74 characters. It's not _much_ shorter, but it's at least comfortably on the left side of the 80 column mark.
 
-```cpp
-struct [[=derive<serde::Serialize>]] Person {
-    // old version: 83 chars
-    [[=serde::rename("middle name"), =serde::skip_serializing_if(&std::string::empty)]]
-    std::string middle = "";
+On the flip side though, it's useful to note what Rust pays for to achieve this. With the C++ annotations design, the annotations are *just* values. There's only a little bit of new grammar to learn (specifically the use of prefix `=`), but other than that you can already see what's going on here. The contents of an annotation aren't some incantation whose meaning is purely defined by the library, they are actual C++ values. Syntax highlighting already does the right thing. It's *just* code. If you don't know what `serde::skip_serializing_if` means, you can just go to its definition.
 
-    // new version: 82 chars
-    [[=serde{.rename = "middle name", .skip_serializing_if = &std::string::empty}]]
-    std::string middle = "";
-};
-```
+One thing you might have noticed that I did not comment on when going through the implementations of these examples was how to parse the values out of the annotations. This is because I did not need to actually do any parsing at all! The compiler does it for me. The only work I had to do was to parse the annotations I care about from a list of annotations — but that's simply picking out values from a list. There's no actual parsing involved. Rust libraries have to _actually parse_ these token streams. For serde, that's [nearly 2,000 lines of code](https://github.com/serde-rs/serde/blob/31000e1874ff01362f91e7b53794e402fab4fc78/serde_derive/src/internals/attr.rs). That's a lot of logic that C++ annotation-based libraries will simply not have to ever write. And that matters.
 
-On the flip side though, it's interesting to note what Rust pays for to achieve this. With the C++ annotations design, the annotations are just values. I had to do work to parse the annotations I care about from a list of annotations — but that's picking out values from a list. There's no actual parsing involved. Rust libraries have to _actually parse_ these token streams. For serde, that's [nearly 2,000 lines of code](https://github.com/serde-rs/serde/blob/31000e1874ff01362f91e7b53794e402fab4fc78/serde_derive/src/internals/attr.rs). That's a lot of logic that C++ annotation-based libraries will simply not have to ever write. And that matters.
+> To be fair, `serde` is an older library, and newer Rust has something called [derive macro helper attributes](https://doc.rust-lang.org/reference/procedural-macros.html#derive-macro-helper-attributes) which will make this easier to do. Nevertheless, it is still up to the Rust library to do the kind of parsing that we will not have to do in C++.
+>
+> Also, I didn't pick `serde` just because it has a particularly large parsing component — I picked it because it's so well-known and widely used as a library that even I, not a Rust programmer, am aware of it.
+{:.prompt-info}
 
 Another interesting thing is that while the Rust and C++ approaches here end up doing similar things in different ways, they're not _quite_ the same. With Rust, `#[derive(Debug)]`{:.lang-rust} injects the appropriate `impl` for `Debug`. With the C++ annotations approach, we are _not_ injecting the appropriate specialization of `formatter`, we're just adding a global constrained one.
 
@@ -615,24 +614,24 @@ Well, I'd have to make two small changes. The specialization I originally presen
 
 ```cpp
 template <class T> requires (has_annotation(^^T, derive<Debug>))
-struct std::formatter<T> {
+struct std::formatter<T> { /* ... */ };
 ```
 
 but if I instead make it:
 
 ```cpp
 template <class T, class Char> requires (has_annotation(^^T, derive<Debug>))
-struct std::formatter<T, Char> {
+struct std::formatter<T, Char> { /* ... */ };
 ```
 
-then it becomes ambiguous with the formatter for ranges that I added for C++23. This can be worked around by [disabling an extra variable template](https://godbolt.org/z/c6rKqnrPY):
+then it [becomes ambiguous](https://godbolt.org/z/sbcx6MW85) with the formatter for ranges that I added for C++23. This can be worked around by disabling an extra variable template (which is preprocessed out in the link):
 
 ```cpp
 template <class T> requires (has_annotation(^^T, derive<Debug>))
 inline constexpr auto std::format_kind<T> = std::range_format::disabled;
 ```
 
-This seems surprising that it's necessary — since again conceptually the C++ approach is the same as the Rust one, and you might expect that adding the annotation injects the very specific, explicit specialization which cannot possibly be ambiguous with anything. It's just that it can't really work like that. So these kind of partial specialization ambiguities will almost certainly be an issue.
+This seems surprising that it's necessary — since again conceptually the C++ approach is the same as the Rust one, and you might expect that adding the annotation injects the very specific, explicit specialization which cannot possibly be ambiguous with anything. It's just that it can't really work like that. So these kind of partial specialization ambiguities will almost certainly be an issue. Perhaps in the future we can come up with a way for annotations like `[[=derive<Debug>]]` to actually inject a specialization to avoid this problem. It certainly seems worth considering.
 
 ## This is not the End
 
