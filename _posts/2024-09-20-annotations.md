@@ -448,7 +448,7 @@ namespace boost::json {
     }
 }
 ```
-{: data-line="7,22-39,41-45" .line-numbers }
+{: data-line="7,22-46" .line-numbers }
 
 At this point, I thought there's another fun approach to solving this problem. With just two attributes, it probably doesn't make sense, but if I were to actually implement all of `serde`, it'd be nice to have an implementation strategy that doesn't just handle each attribute parsing in a vacuum. Instead, what if we were to collect all the attributes into a class type — and then use that class type instead?
 
@@ -609,7 +609,7 @@ int main() {
     std::println("p={}", p); // error: ambiguous
 }
 ```
-{: data-line="5-7" }
+{: data-line="5-7" .line-numbers }
 
 Well, I'd have to make two small changes. The specialization I originally presented was declared like:
 
