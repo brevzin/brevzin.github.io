@@ -530,7 +530,11 @@ You can see the full implementation using this approach [here](https://godbolt.o
 
 ## Rust Attributes vs C++ Annotations
 
-In the context of looking at serde, one thing stands out to me most for the syntax difference on the usage side. This was my Rust declaration:
+In the context of looking at serde, there are two things that stood out to me when comparing the C++ and Rust solutions: syntax and library design.
+
+### Syntax
+
+The first thing which stood out to me most for the syntax difference on the usage side. This was my Rust declaration:
 
 ```rust
 #[derive(Serialize)]
@@ -633,6 +637,46 @@ inline constexpr auto std::format_kind<T> = std::range_format::disabled;
 
 This seems surprising that it's necessary — since again conceptually the C++ approach is the same as the Rust one, and you might expect that adding the annotation injects the very specific, explicit specialization which cannot possibly be ambiguous with anything. It's just that it can't really work like that. So these kind of partial specialization ambiguities will almost certainly be an issue. Perhaps in the future we can come up with a way for annotations like `[[=derive<Debug>]]` to actually inject a specialization to avoid this problem. It certainly seems worth considering.
 
+### Library Design
+
+In Rust's `serde` library, serialization is a two-stage process. The type author opts in to serialization, which emits an implementation that functions sort of like an immediate representation of the type. Then authors of various protocols effectively can implement different backends.
+
+In the implementation for `Person`, Rust emits an `impl` for `serde::Serialize` which takes in an arbitrary type which satisfies `serde::Serializer` (note the extra `r`). We then make a bunch of serialization calls into that `serializer` — which can then do whatever it sees fit with them. Whatever is appropriate for that protocol — whether it's JSON or CBOR or YAML or TOML or ...
+
+A C++-ification of that implementation would look like this (to avoid getting bogged down in error handling, which isn't relevant here, I'm just going to assume these functions throw on error rather than returning a `Result` as they do in Rust):
+
+```cpp
+template <Serializer S>
+auto serialize(Person const& p, S& serializer) -> void {
+    auto state = serializer.serialize_struct(
+        "Person",
+        2 + (p.middle.empty() ? 0 : 1));
+    state.serialize_field("first name", p.first);
+    if (not p.middle.empty()) {
+        state.serialize_field("middle name", p.middle);
+    } else {
+        state.skip_field("middle name", p.middle);
+    }
+    state.serialize_field("last name", p.last);
+    state.end();
+}
+```
+{: data-line="4-5,10" .line-numbers }
+
+This is a nice design for the decoupling it allows.
+
+However, you might notice that the C++ implementation I showed earlier doesn't do this at all. Not because I was lazy — but rather because it's completely unnecessary with the existence of introspection. In C++, we didn't need to emit this intermediate representation because we _already_ have it in the form of basic type introspection. The Boost.JSON implementation just does all of the serialization work directly from the data members.
+
+It's not just a matter of writing less code, it's a matter of not even having to deal with this extra layer of abstraction at all. It's not like this layer is computationally expensive, I'm sure it compiles down pretty easily. It's just that it's unnecessary.
+
+Consider the highlighted call to `skip_field` above. For many serialization targets (e.g. JSON), the way to skip serializing a field is simply to *not* serialize it. That's why the default implementation of `skip_field` [does nothing](https://github.com/serde-rs/serde/blob/31000e1874ff01362f91e7b53794e402fab4fc78/serde/src/ser/mod.rs#L1869-L1876) (as you would expect) and `serde_json` does not override it.
+
+Likewise, consider the computation of the number of fields also highlighted above. The JSON serializer doesn't need such a thing either, and simply ignores this value. Ditto the name of the type.
+
+But in creating an intermediate representation — you have to create a representation rich enough to be able to handle all possible (de)serialization targets. Some of them will need the number of fields in advance or will need to leave a hole for skipped fields. So `serde` needs to provide for such.
+
+In C++, we just don't. The serializer for any given target can just directly do all the operations that it needs to do — because it directly has all the information at this disposal. No abstraction necessary. Introspection is a pretty powerful tool.
+
 ## This is not the End
 
 I wanted to end by pointing out that there are a few language features, in different languages, that are somewhat closely related:
@@ -643,7 +687,7 @@ I wanted to end by pointing out that there are a few language features, in diffe
 
 All of them involve writing code — and then passing that code into a function to produce new code. Metaclasses and decorators actually replace the original code, whereas the derive macro only injects new code (although other procedural macros can also replace).
 
-The annotation proposal looks, in spirit, related to these — but it's a very different mechanism and shouldn't be confused for them.
+The annotation proposal looks, in spirit, related to these — but it's a very different mechanism and shouldn't be confused for them. It's not injecting code at all, it's simply enhancing introspection abilities.
 
 Which isn't to say that annotations aren't useful! As I've hopefully demonstrated, it promises to be an incredibly useful facility that allows for writing the kinds of user-friendly library APIs that were unthinkable in C++ before now.
 
