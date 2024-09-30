@@ -151,7 +151,7 @@ struct std::formatter<T> {
 ```
 {: .line-numbers }
 
-In a way, we're still generating code — templates are kind of a form of code generation in C++. But it's interesting that here we're achieving the same end with a very different mechanism.
+In a way, we're still generating code — templates are essentially a form of code generation in C++. But it's interesting that here we're achieving the same end with a very different mechanism.
 
 Note also that this is the _complete_ implementation. It is not a lot of code.
 
