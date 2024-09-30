@@ -162,7 +162,7 @@ Building on the debug-printing example, where we just wanted to print all the me
 This is why the [serde](https://serde.rs/) library provides a lot of attributes you can add to types and members to control the logic. Taking a simple example:
 
 ```rust
-se serde::Serialize;
+use serde::Serialize;
 use serde_json;
 
 #[derive(Serialize)]
@@ -584,6 +584,9 @@ struct [[=derive<serde::Serialize>]] Person {
 The Rust version is only 74 characters. It's not _much_ shorter, but it's at least comfortably on the left side of the 80 column mark.
 
 On the flip side though, it's useful to note what Rust pays for to achieve this. With the C++ annotations design, the annotations are *just* values. There's only a little bit of new grammar to learn (specifically the use of prefix `=`), but other than that you can already see what's going on here. The contents of an annotation aren't some incantation whose meaning is purely defined by the library, they are actual C++ values. Syntax highlighting already does the right thing. It's *just* code. If you don't know what `serde::skip_serializing_if` means, you can just go to its definition.
+
+> Of course, in my simple implementation the definition doesn't tell you anything. It's just a class template with one data member. But in a real library, there would presumably be at least a comment.
+{:.prompt-info}
 
 One thing you might have noticed that I did not comment on when going through the implementations of these examples was how to parse the values out of the annotations. This is because I did not need to actually do any parsing at all! The compiler does it for me. The only work I had to do was to parse the annotations I care about from a list of annotations — but that's simply picking out values from a list. There's no actual parsing involved. Rust libraries have to _actually parse_ these token streams. For serde, that's [nearly 2,000 lines of code](https://github.com/serde-rs/serde/blob/31000e1874ff01362f91e7b53794e402fab4fc78/serde_derive/src/internals/attr.rs). That's a lot of logic that C++ annotation-based libraries will simply not have to ever write. And that matters.
 
