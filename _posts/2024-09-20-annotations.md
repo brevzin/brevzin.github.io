@@ -675,7 +675,9 @@ Likewise, consider the computation of the number of fields also highlighted abov
 
 But in creating an intermediate representation — you have to create a representation rich enough to be able to handle all possible (de)serialization targets. Some of them will need the number of fields in advance or will need to leave a hole for skipped fields. So `serde` needs to provide for such.
 
-In C++, we just don't. The serializer for any given target can just directly do all the operations that it needs to do — because it directly has all the information at this disposal. No abstraction necessary. Introspection is a pretty powerful tool.
+In C++, we just don't. The serializer for any given target can just directly do all the operations that it needs to do — because it directly has all the information at this disposal. No abstraction necessary. As a result, the C++ equivalent of the `serde` library would probably just be a list of types usable as annotations, the `parse_attrs_from()` function, and maybe a couple other little helpers.
+
+Introspection is a pretty powerful tool.
 
 ## This is not the End
 
