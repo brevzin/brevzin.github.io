@@ -6,7 +6,6 @@ tags:
  - c++
  - c++26
  - reflection
-pubdraft: yes
 ---
 
 One of the things I like to do is compare how different languages solve the same problem — especially when they end up having very different approaches. It's always educational. In this case, a bunch of us have been working hard on trying to get reflection — a really transformative language feature — into C++26. Fundamentally, reflection itself can be divided into two pieces:
