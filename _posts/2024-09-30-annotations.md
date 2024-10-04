@@ -23,6 +23,8 @@ Now, C++ does have one code generation facility today: C macros. It's just a ver
 On the other hand, if we look at Rust — Rust does not actually have any introspection facilities *at all*, but it does have a mature code generation facility in the form of its declarative and procedural macros. Today, this post is just going to look at procedural macros — specifically the derive macro. We're going to look at two problems solved by using the derive macro, how those actually work, and how we are proposing to solve the same problems in a very different way for C++26.
 
 > Now, I'm not a Rust programmer, so I apologize in advance for getting things wrong here. Please let me know if I make any egregious mistakes.
+>
+> As an update, since this blog post was published it has been pointed out that I made a few mistakes, which I have now corrected. Those were suggesting that Rust attributes could not accept arbitrary values (they can, `serde` is just older and chooses not to) and that there exists a better way to parse attributes than what `serde` does (everyone does what `serde` does, more or less). Apologies.
 {:.prompt-warning}
 
 ## Pretty-Printing a Struct
@@ -349,7 +351,7 @@ This should look familiar after the formatting implementation — since we're b
 
 Adding support for `skip_serializing_if` isn't that much more work, and I think helps really illustrate the difference between the C++ and Rust approaches. In Rust, you provide a string — that is injected to be invoked internally. In C++, we'd just provide a callable.
 
-> This is because Rust's attribute grammar can't support a callable here.
+> I originally was under the mistaken impression that this is because Rust's attribute grammar can't support a callable here, but it appears to be more that `serde` predates that support.
 {:.prompt-info}
 
 That requires adding a new annotation type:
@@ -590,7 +592,7 @@ On the flip side though, it's useful to note what Rust pays for to achieve this.
 
 One thing you might have noticed that I did not comment on when going through the implementations of these examples was how to parse the values out of the annotations. This is because I did not need to actually do any parsing at all! The compiler does it for me. The only work I had to do was to parse the annotations I care about from a list of annotations — but that's simply picking out values from a list. There's no actual parsing involved. Rust libraries have to _actually parse_ these token streams. For serde, that's [nearly 2,000 lines of code](https://github.com/serde-rs/serde/blob/31000e1874ff01362f91e7b53794e402fab4fc78/serde_derive/src/internals/attr.rs). That's a lot of logic that C++ annotation-based libraries will simply not have to ever write. And that matters.
 
-> To be fair, `serde` is an older library, and newer Rust has something called [derive macro helper attributes](https://doc.rust-lang.org/reference/procedural-macros.html#derive-macro-helper-attributes) which will make this easier to do. Nevertheless, it is still up to the Rust library to do the kind of parsing that we will not have to do in C++.
+> `serde` isn't unique in this regard. Rust libraries just have to do attribute parsing, although many are just simpler. In clap, it's closer to [200 lines](https://github.com/clap-rs/clap/blob/d2874a50cf594ace49a9dfa644e734f83491a403/clap_derive/src/attr.rs). It's not difficult code to follow, and it helps that the parsing library seems quite nice, but it is still code that you have to write in Rust that you don't have to write in C++.
 >
 > Also, I didn't pick `serde` just because it has a particularly large parsing component — I picked it because it's so well-known and widely used as a library that even I, not a Rust programmer, am aware of it.
 {:.prompt-info}
