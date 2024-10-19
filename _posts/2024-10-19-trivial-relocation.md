@@ -304,6 +304,34 @@ I used lambdas here since I think it's a slightly more expressive way to show th
 
 ## Conclusion
 
-In the end, I cannot _precisely_ implement the design in P2786. The last heuristic is based on overload resolution, which we cannot yet do in the reflection design. But I can probably get close enough for real use, in roughly [125 lines of code](https://godbolt.org/z/1vG15f5zr) (the contents of `namespace N` there). The other difference from the design is that since it's easy to provide both opt-in and opt-out, I did so.
+In the end, I cannot _precisely_ implement the design in P2786. The last heuristic is based on overload resolution, which we cannot yet do in the reflection design. But I can probably get close enough for real use, in roughly [125 lines of code](https://godbolt.org/z/EoT8bzKMc) (the contents of `namespace N` there). The other difference from the design is that since it's easy to provide both opt-in and opt-out, I did so.
 
-But, overall, I think this is a fairly cool demonstration of the kind of power that reflection can provide, and why I'm so excited for it as a language feature.
+Now, lots of libraries have _some_ approach to implementing trivial relocation, with some opt-in or opt-out. So having some way to opt-in to `unique_ptr<T>` isn't, in of itself, all that impressive:
+
+```cpp
+// a unique_ptr-like type, which has to opt-in
+// to being trivially relocatable since it has
+// user-provided move operations and destructor
+class [[=N::trivially_relocatable]] C {
+    int* p;
+public:
+    C(C&&) noexcept;
+    C& operator=(C&&) noexcept;
+    ~C();
+};
+
+// would be false without the annotation
+static_assert(N::is_trivially_relocatable(^^C));
+```
+
+But making a type like this (correctly) automatically trivially relocatable without any annotation at all, that's something completely new:
+
+```cpp
+struct F {
+    int i;
+    C c;
+};
+static_assert(N::is_trivially_relocatable(^^F));
+```
+
+Overall, I think this is a fairly cool demonstration of the kind of power that reflection can provide, and why I'm so excited for it as a language feature.
