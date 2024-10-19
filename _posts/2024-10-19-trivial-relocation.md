@@ -274,22 +274,20 @@ consteval auto is_trivially_relocatable_class_type(std::meta::info type)
     auto p31 = [&]{
         if (move_ctor) {
             return is_allowed(*move_ctor);
-        } else if (copy_ctor) {
-            return is_allowed(*copy_ctor)
-               and other_ctor.empty();
         } else {
-            return false;
+            return copy_ctor
+               and is_allowed(*copy_ctor)
+               and other_ctor.empty();
         }
     };
 
     auto p32 = [&]{
         if (move_ass) {
             return is_allowed(*move_ass);
-        } else if (copy_ass) {
-            return is_allowed(*copy_ass)
-               and other_ass.empty();
         } else {
-            return false;
+            return copy_ass
+               and is_allowed(*copy_ass)
+               and other_ass.empty();
         }
     };
 
@@ -300,7 +298,7 @@ consteval auto is_trivially_relocatable_class_type(std::meta::info type)
     return p31() and p32() and p33();
 }
 ```
-{: data-line="23-64" .line-numbers  }
+{: data-line="23-62" .line-numbers  }
 
 I used lambdas here since I think it's a slightly more expressive way to show the three sub-bullets without losing lazy evaluation.
 
