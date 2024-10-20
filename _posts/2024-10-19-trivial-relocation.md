@@ -9,7 +9,12 @@ tags:
 pubdraft: true
 ---
 
-One of the reasons that I'm excited for Reflection in C++ is that it can permit you to implement, as a library, many things that previously required language features. In this post, I'm going to walk through implementing [P2786R8](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2786r8.pdf) ("Trivial Relocatability For C++26"). The goal here is not to say that the design is right or wrong (although the syntax certainly is), but rather to show the kinds of things that reflection can solve.
+One of the reasons that I'm excited for Reflection in C++ is that it can permit you to implement, as a library, many things that previously required language features. In this post, I'm going to walk through implementing [P2786R8](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2786r8.pdf) ("Trivial Relocatability For C++26").
+
+> Or, at least, just the trivial relocation trait. The library stuff is built on that anyway.
+{:.prompt-info}
+
+The goal here is not to say that the design is right or wrong (although the syntax certainly is suspect), but rather to show the kinds of things that reflection can solve.
 
 We'll just go straight to the wording and translate it into code as we go:
 
@@ -50,6 +55,9 @@ consteval auto is_trivially_relocatable(std::meta::info type)
 
 Ok cool. Next.
 
+> Note here that every `std::meta::type_meow` function is a direct translation into the consteval reflection domain of the type trait `std::meow` (e.g. `type_remove_cv(type)` performs the same operation as `std::remove_cv_t<type>`, except that the former takes an `info` and returns an `info` while the latter takes a type and returns a type). Unfortunately we cannot simply bring them in while preserving all of the names because of a few name clashes — `is_function(f)` needs to return whether `f` is a reflection of a function but the type trait `std::is_function<F>` checks if `F` is a function type. For now, our design is to prefix _all_ of the traits with `type_` so that we get something easy to remember. This hasn't been discussed yet though, so the naming convention might still change.
+{:.prompt-info}
+
 ## Eligible for Trivial Relocation
 
 > A class is *eligible for trivial relocation* unless it has
@@ -79,7 +87,7 @@ consteval auto is_eligible_for_trivial_relocation(std::meta::info type)
 }
 ```
 
-This is another fairly literal translation. I used `is_trivially_relocatable` instead of `is_trivially_relocatable_class_type` in the first case simply because it's shorter.
+This is another fairly literal translation. I used `is_trivially_relocatable` instead of `is_trivially_relocatable_class_type` in the first case simply because it's shorter. Your mileage may vary as to whether you find this more readable as a call to `none_of()` or a negated call to `any_of()`, especially for the non-static data member check.
 
 Onto the next one.
 
@@ -118,6 +126,7 @@ consteval auto is_trivially_relocatable_class_type(std::meta::info type)
     // TODO
 }
 ```
+{: data-line="4-6" .line-numbers  }
 
 Now, in the paper, a *class-trivially-relocatable-specifier* is the context-sensitive keyword `memberwise_trivially_relocatable` that you put _after_ the class. But that only lets you unconditionally opt-in, and plus is just kind of a floating word after the class name, so we're going better than that here.
 
@@ -162,9 +171,13 @@ consteval auto is_trivially_relocatable_class_type(std::meta::info type)
     if (auto specifier = annotation_of<TriviallyRelocatable>(type)) {
         return specifier->value;
     }
+
+    // TODO
 }
 ```
 {: data-line="8-11" .line-numbers  }
+
+The call to `annotation_of<TriviallyRelocatable>(type)` returns an `optional<TriviallyRelocatable>`, which either refers to the value of `TriviallyRelocatable` annotated on the type — or a disengaged optional if there's no such annotation.
 
 This isn't quite what's specified in the proposal because I'm also allowing explicit opt-out here, since it's easy to do, and the proposal clearly demonstrates such a need anyway.
 
@@ -196,6 +209,8 @@ consteval auto is_trivially_relocatable_class_type(std::meta::info type)
         })) {
         return true;
     }
+
+    // TODO
 }
 ```
 {: data-line="13-21" .line-numbers  }
