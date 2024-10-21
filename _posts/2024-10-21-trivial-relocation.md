@@ -127,6 +127,8 @@ consteval auto is_trivially_relocatable_class_type(std::meta::info type)
 ```
 {: data-line="4-6" .line-numbers  }
 
+### Case 1
+
 Now, in the paper, a *class-trivially-relocatable-specifier* is the context-sensitive keyword `memberwise_trivially_relocatable` that you put _after_ the class. But that only lets you unconditionally opt-in, and plus is just kind of a floating word after the class name, so we're going better than that here.
 
 We're going to introduce an annotation ([P3394](https://wg21.link/p3394)), but we're also going to allow it to have an extra `bool` value:
@@ -180,6 +182,8 @@ The call to `annotation_of<TriviallyRelocatable>(type)` returns an `optional<Tri
 
 This isn't quite what's specified in the proposal because I'm also allowing explicit opt-out here, since it's easy to do, and the proposal clearly demonstrates such a need anyway.
 
+### Case 2
+
 Cool, let's move on to case 2:
 
 > is a union with no user-declared special member functions
@@ -213,6 +217,8 @@ consteval auto is_trivially_relocatable_class_type(std::meta::info type)
 }
 ```
 {: data-line="13-21" .line-numbers  }
+
+### Case 3
 
 The third case is more involved because it's specified in terms of overload resolution, and we don't have anything in the reflection design right now that does something like that:
 
