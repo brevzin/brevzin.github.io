@@ -326,7 +326,7 @@ I used lambdas here since I think it's a slightly more expressive way to show th
 
 In the end, I cannot _precisely_ implement the design in P2786. The last heuristic is based on overload resolution, which we cannot yet do in the reflection design. But I can probably get close enough for real use, in roughly [125 lines of code](https://godbolt.org/z/EoT8bzKMc) (the contents of `namespace N` there). The other difference from the design is that since it's easy to provide both opt-in and opt-out, I did so.
 
-Now, lots of libraries have _some_ approach to implementing trivial relocation, with some opt-in or opt-out. So having some way to opt-in to `unique_ptr<T>` isn't, in of itself, all that impressive:
+Now, lots of libraries have _some_ approach to implementing trivial relocation, with some opt-in or opt-out. So having some way to opt `std::unique_ptr<T>` into being trivially relocatable isn't, in of itself, all that impressive:
 
 ```cpp
 // a unique_ptr-like type, which has to opt-in
