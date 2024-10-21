@@ -6,7 +6,6 @@ tags:
  - c++
  - c++26
  - reflection
-pubdraft: true
 ---
 
 One of the reasons that I'm excited for Reflection in C++ is that it can permit you to implement, as a library, many things that previously required language features. In this post, I'm going to walk through implementing [P2786R8](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2786r8.pdf) ("Trivial Relocatability For C++26").
