@@ -225,7 +225,7 @@ The third case is more involved because it's specified in terms of overload reso
 > satisfies all of the following:
 >
 > * when an object of type `C` is direct-initialized from an xvalue of type `C`, overload resolution would select a constructor that is neither user-provided nor deleted, and
-> * when an xvalue of type C`` is assigned to an object of type `C`, overload resolution would select an assignment operator that is neither user-provided nor deleted, and
+> * when an xvalue of type `C` is assigned to an object of type `C`, overload resolution would select an assignment operator that is neither user-provided nor deleted, and
 > * it has a destructor that is neither user-provided nor deleted.
 
 Now, what does it mean to be able to initialize a `C` from an xvalue of `C` by way of a constructor that is neither user-provided nor deleted? That means it has to call either the copy constructor or the move constructor. If the move constructor exists, then checking that is sufficient (since that will always be the best match). The real problem case is:
