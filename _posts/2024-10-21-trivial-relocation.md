@@ -32,7 +32,7 @@ consteval auto is_trivially_relocatable(std::meta::info type)
 
     return type_is_scalar(type)
         or (type_is_array(type)
-            is_trivially_relocatable(
+            and is_trivially_relocatable(
                 type_remove_all_extents(type)
             ))
         or is_trivially_relocatable_class_type(type);
