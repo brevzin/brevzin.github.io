@@ -2,6 +2,10 @@
   The common styles
 */
 
+:root {
+  font-size: 16px;
+}
+
 html {
   @media (prefers-color-scheme: light) {
     &:not([data-mode]),
@@ -24,8 +28,6 @@ html {
       @include light-scheme;
     }
   }
-
-  font-size: 16px;
 }
 
 body {
