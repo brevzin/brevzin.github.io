@@ -148,12 +148,10 @@ Another solution, with reflection, is that we can actually easily implement memb
 ```cpp
 template <class T>
 constexpr auto memberwise_eq(T const& lhs, T const& rhs) -> bool {
-    using namespace std::meta;
+    constexpr auto ctx = std::meta::access_context::unchecked();
     template for (constexpr auto m : define_static_array(
                                         nonstatic_data_members_of(
-                                            ^^T,
-                                            access_context::unchecked()
-                                        ))
+                                            ^^T, ctx))
     {
         if (not (lhs.[:m:] == rhs.[:m:])) {
             return false;
