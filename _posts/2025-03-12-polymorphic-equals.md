@@ -29,8 +29,8 @@ struct Derived : Base {
     // ...
 
     auto operator==(Base const& rhs) const -> bool override {
-        if (auto p = dynamic_cast<Derived const*>(&rhs)) {
-            return *this == *p;
+        if (typeid(rhs) == typeid(Derived)) {
+            return *this == static_cast<Derived const&>(p);
         } else {
             return false;
         }
@@ -40,7 +40,42 @@ struct Derived : Base {
 };
 ```
 
-The `override` can be easily implemented as a function template, call it `return polymorphic_equality(*this, rhs)`, to avoid that duplication, but for our purposes here we don't need to bother. We wanted to compare all the members without having to manually write them out (and potentially forget one), so defaulting equality lets us do just that. Seems pretty nice!
+> The initial version of this blog did the type check by doing `dynamic_cast<Derived const*>(&rhs)`:
+> ```cpp
+> if (auto p = dynamic_cast<Derived const*>(&rhs)) {
+>     return *this == *p;
+> } else {
+>     return false;
+> }
+> ```
+> That's not what our actual code did, was just a simplification for the blog. But that's incorrect in the presence of more-derived types.
+> ```cpp
+> struct Derived : Base { /* ... */};
+> struct SuperDerived : Derived { /* ... */ };
+>
+> Base* d = new Derived( /* ... */);
+> Base* sd = new SuperDerived( /* ... */ );
+> *d == *sd; // dynamic_cast<Derived const*> succeeds, so might return true
+> *sd == *d; // dynamic_cast<SuperDerived const*> fails, so definitely false
+> ```
+> The `typeid` check ensures the types do match.
+{:.prompt-info}
+
+
+The `override` can be easily implemented as a function template, call it `return polymorphic_equality(*this, rhs)`, to avoid that duplication:
+
+```cpp
+template <class D>
+auto polymorphic_equality(D const& lhs, Base const& rhs) -> bool {
+    if (typeid(rhs) == typeid(D)) {
+        return lhs == static_cast<D const&>(rhs)
+    } else {
+        return false;
+    }
+}
+```
+
+ We wanted to compare all the members without having to manually write them out (and potentially forget one), so defaulting equality lets us do just that. Seems pretty nice!
 
 There's just one problem with it.
 
@@ -96,17 +131,13 @@ struct Derived : Base {
     // ...
 
     auto equals(Base const& rhs) const -> bool override {
-        if (auto p = dynamic_cast<Derived const*>(&rhs)) {
-            return *this == *p;
-        } else {
-            return false;
-        }
+        return polymorphic_equality(*this, rhs);
     }
 
     auto operator==(Derived const& rhs) const -> bool = default;
 };
 ```
-{: data-line="3,4,20" .line-numbers }
+{: data-line="3,4,16" .line-numbers }
 
 We had to add an extra, defaulted comparison to `Base`, because we are still doing subobject-wise comparison — but now this no longer leads to infinite recursion. Neither via `==` nor via `equals`. So that's a solution, that loses some convenience.
 
@@ -129,11 +160,7 @@ struct Derived : Base {
     Members m;
 
     auto operator==(Base const& rhs) const -> bool override {
-        if (auto p = dynamic_cast<Derived const*>(&rhs)) {
-            return *this == *p;
-        } else {
-            return false;
-        }
+        return polymorphic_equality(*this, rhs);
     }
 
     auto operator==(Derived const& rhs) const -> bool {
@@ -141,7 +168,7 @@ struct Derived : Base {
     }
 };
 ```
-{: data-line="12,24-26" .line-numbers }
+{: data-line="12,20-22" .line-numbers }
 
 Another solution, with reflection, is that we can actually easily implement member-wise equality ourselves:
 
@@ -178,11 +205,7 @@ struct Derived : Base {
     // ...
 
     auto operator==(Base const& rhs) const -> bool override {
-        if (auto p = dynamic_cast<Derived const*>(&rhs)) {
-            return *this == *p;
-        } else {
-            return false;
-        }
+        return polymorphic_equality(*this, rhs);
     }
 
     auto operator==(Derived const& rhs) const -> bool {
@@ -190,7 +213,7 @@ struct Derived : Base {
     }
 };
 ```
-{: data-line="19-21" .line-numbers }
+{: data-line="15-17" .line-numbers }
 
 ## The Conclusion
 
