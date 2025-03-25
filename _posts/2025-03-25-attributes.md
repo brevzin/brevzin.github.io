@@ -240,7 +240,7 @@ If I wanted the compiler to ignore code that I wrote, I already have perfectly g
 > `[[` for `/*` and `]]` for `*/`. But only sometimes.
 {:.prompt-info}
 
-It just strikes me as incredibly user-hostile to ignore user code like this. I often see discussions around optimization where people anthromorphize the compiler as being a hostile entity that deliberately miscompiles user code when they mess up — when in reality it was the result of a complex interplay of optimizations, assumptions, and undefined behavior. But ignoring actual code that users wrote because attributes? That's just objectively hostile.
+It just strikes me as incredibly user-hostile to ignore user code like this. I often see discussions around optimization where people anthromorphize the compiler as being a hostile entity that deliberately miscompiles user code when they mess up — when in reality it was the result of a complex interplay of desired optimizations, reasonable assumptions, and undefined behavior. But ignoring actual code that users wrote because attributes? That's just objectively hostile.
 
 Thankfully, compilers do not *actually* behave like this. If you write this:
 
@@ -248,7 +248,7 @@ Thankfully, compilers do not *actually* behave like this. If you write this:
 [[nodicsard]] auto g(int) -> int;
 ```
 
-Both gcc and clang, even without `-Wall`, diagnose this very clearly as an unknown attribute.  MSVC warns here as well, but it requires `/W3`. Now, that is a diagnostic you can ignore if you choose to (it is `-Wattributes` on gcc and `-Wunknown-attributes` on clang). But if you *choose* to ignore it, that is a choice you are making for your own code — and that sort of thing is perfectly fine. That is very different from the compiler choosing to do it.
+Both gcc and clang, even without `-Wall`, diagnose this as an unknown attribute — with a very clear diagnostic.  MSVC warns here as well, but it requires `/W3`. Now, that is a diagnostic you can ignore if you choose to (it is `-Wattributes` on gcc and `-Wunknown-attributes` on clang). But if you *choose* to ignore it, that is a choice you are making for your own code — and that sort of thing is perfectly fine. That is very different from the compiler choosing to do it.
 
 Besides, there seems like there should be a better way to allow users to use not-yet-implemented attributes in a way that is not simply ignoring user code. This situation really only applies to certain attributes anyway (and I'll talk about another one such shortly), but perhaps a better solution would be to allow code to explicitly declare that it will use certain attributes:
 
@@ -296,7 +296,7 @@ struct unique_ptr
 };
 ```
 
-Now, I think this is already bad because other class annotations go in a different spot — `[[nodiscard]]` and `alignas` (while not an attribute anymore) go between `struct` and the class name. Technically `final` also goes after the class name, but that one is very rarely used.
+Now, I think this is already bad because other class annotations go in a different spot — `[[nodiscard]]` and `alignas` (while not an attribute anymore) go between `struct` and the class name, along with all other attributes that apply to the type. As well as [annotations](https://wg21.link/p3394), which follow the attribute rules. Technically `final` also goes after the class name, but that one is very rarely used.
 
 But where it gets worse is that this feature should have an extra piece of functionality that it doesn't — primarily because the opt-in is a contextual keyword rather than an attribute.
 
@@ -336,7 +336,9 @@ class optional trivially_relocatable_if_eligible {
 };
 ```
 
-Now, if there is one unifying aspect to all of the proposals I have ever written for C++, it is the desire to be able to directly express intent. In the C++20 timeframe, I even pushed for _two_ different language features that were _specifically_ about being able to directly express that a type conditionally has some property:
+Of course! We just have to stick a never-active member in an anonymous union.
+
+Now, if there is one unifying aspect to all of the proposals I have ever written for C++, it is the desire to be able to directly express intent. In the C++20 timeframe, I even pushed for _two_ different language features that were _specifically_ about being able to directly express that some source construct conditionally has some property:
 
 * [P0892 ("`explicit(bool)`")](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0892r2.html) — to mark a constructor as being conditionally explicit
 * [P0848 ("Conditionally Trivial Special Member Functions")](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0848r3.html) — to be able to mark a templated class as being conditionally trivially copyable, etc.
