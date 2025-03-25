@@ -26,7 +26,7 @@ But I’m here to argue something else entirely. It should be *extremely* contro
 
 ## The introduction of `[[attributes]]`
 
-The last revision of the proposal for C++11 was [N2761 (“Towards support for attributes in C++ (Revision 6)”](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2761.pdf).
+The last revision of the proposal for C++11 was [N2761 (“Towards support for attributes in C++ (Revision 6)”)](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2761.pdf).
 
 > How great is it that we changed the paper numbering system to separate number from revision — N2761 obviously was a revision of N2751 which was a revision of N2553. You just… had to know?
 {:.prompt-info}
@@ -47,7 +47,7 @@ Now maybe a slightly different syntax could have been better, like `[#[thing]]`,
 > struct [[align(64)]] C { };
 > ```
 >
-> That was changed in [N3190 (“C and C++ Alignment Compatibility*)](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2010/n3190.htm) back to a keyword — but not > because of anything having to do with ignoring attributes, it was simply due to C compatibility. Note that this paper does not make any mention of ignoring > attributes. It’s that C didn’t have attributes yet, and C1x was pursuing `_Align(...)`  so to unify the two languages, we ended up with `alignas(...)` in C++11 and > `_Alignas(...)` in C11 (C23 later adds `alignas)`.
+> That was changed in [N3190 (“C and C++ Alignment Compatibility*)](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2010/n3190.htm) back to a keyword — but not because of anything having to do with ignoring attributes, it was simply due to C compatibility. Note that this paper does not make any mention of ignoring attributes. It’s that C didn’t have attributes yet, and C1x was pursuing `_Align(...)`  so to unify the two languages, we ended up with `alignas(...)` in C++11 and `_Alignas(...)` in C11 (C23 later adds `alignas)`.
 {:.prompt-info}
 
 That paper also had some guidance on when to use an attribute:
