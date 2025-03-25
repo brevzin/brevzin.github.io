@@ -93,7 +93,7 @@ Now, sometime later, `[[override]]` was changed instead from an attribute to a c
 
 > Several experts have lamented the solution, saying that it uses attributes for semantic effects and that the language shouldn't use such semantic effects itself as that sets a bad example. Furthermore many people consider the attributes ugly.
 
-That... is not an argument. It is not close to an argument. It is about as close to being an argument as I am to being an Olympic swimmer. Sure, maybe the contours are vaguely present? But I don't particularly care that "several experts" don't like this or that "many people" consider this ugly.
+That... is not an argument. It is not close to an argument. It is about as close to being an argument as I am to being an Olympic swimmer. Sure, maybe the concepts of an argument are vaguely present? But I don't particularly care that "several experts" don't like this or that "many people" consider this ugly.
 
 The consequence is that instead of:
 
