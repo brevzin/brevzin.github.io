@@ -238,6 +238,7 @@ Allowing the compiler to ignore attributes means that the compiler will complete
 If I wanted the compiler to ignore code that I wrote, I already have perfectly good mechanisms available to me. I could write a comment. I could use the preprocessor to wrap some code in `#if`. I see no reason why we need to pretend that C++11 introduced two new digraphs into the language.
 
 > `[[` for `/*` and `]]` for `*/`. But only sometimes.
+{:.prompt-info}
 
 It just strikes me as incredibly user-hostile to ignore user code like this. I often see discussions around optimization where people anthromorphize the compiler as being a hostile entity that deliberately miscompiles user code when they mess up — when in reality it was the result of a complex interplay of optimizations, assumptions, and undefined behavior. But ignoring actual code that users wrote because attributes? That's just objectively hostile.
 
