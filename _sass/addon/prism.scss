@@ -1,26 +1,26 @@
-@import "colors/prism-light";
-@import "colors/prism-dark";
+@use "colors/prism-light";
+@use "colors/prism-dark";
 
 html {
   @media (prefers-color-scheme: light) {
     &:not([data-mode]),
     &[data-mode="light"] {
-      @include prism-light-syntax;
+      @include prism-light.prism-light-syntax;
     }
 
     &[data-mode="dark"] {
-      @include prism-dark-syntax;
+      @include prism-dark.prism-dark-syntax;
     }
   }
 
   @media (prefers-color-scheme: dark) {
     &:not([data-mode]),
     &[data-mode="dark"] {
-      @include prism-dark-syntax;
+      @include prism-dark.prism-dark-syntax;
     }
 
     &[data-mode="light"] {
-      @include prism-light-syntax;
+      @include prism-light.prism-light-syntax;
     }
   }
 }

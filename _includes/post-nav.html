@@ -1,52 +1,56 @@
-<!--
-  Navigation buttons at the bottom of the post.
--->
+<!-- Navigation buttons at the bottom of the post. -->
 
-<div class="post-navigation d-flex justify-content-between">
-  {% assign prev = page.previous %}
+<nav class="post-navigation d-flex justify-content-between" aria-label="Post Navigation">
+  {% assign previous = site.data.locales[include.lang].post.button.previous %}
+  {% assign next = site.data.locales[include.lang].post.button.next %}
+
+  {% assign prev_page = page.previous %}
   {% for counter in (0..9) %}
-    {% unless prev.url %}
+    {% unless prev_page.url %}
       {% break %}
     {% endunless %}
-    {% unless prev.pubdraft %}
+    {% unless prev_page.pubdraft %}
       {% break %}
     {% endunless %}
-    {% assign prev = prev.previous %}
+    {% assign prev_page = prev_page.previous %}
   {% endfor %}
 
-  {% assign next = page.next %}
+  {% assign next_page = page.next %}
   {% for counter in (0..9) %}
-    {% unless next.url %}
+    {% unless next_page.url %}
       {% break %}
     {% endunless %}
-    {% unless next.pubdraft %}
+    {% unless next_page.pubdraft %}
       {% break %}
     {% endunless %}
-    {% assign next = next.next %}
+    {% assign next_page = next_page.next %}
   {% endfor %}
 
-  {% if prev.url %}
-  <a href="{{ site.baseurl }}{{ prev.url }}" class="btn btn-outline-primary"
-    prompt="{{ site.data.locales[site.lang].post.button.previous }}">
-    <p>{{ prev.title | strip_html }}</p>
-  </a>
+  {% if prev_page.url %}
+    <a
+      href="{{ site.baseurl }}{{ prev_page.url }}"
+      class="btn btn-outline-primary"
+      aria-label="{{ previous }}"
+    >
+      <p>{{ prev_page.title }}</p>
+    </a>
   {% else %}
-  <div class="btn btn-outline-primary disabled"
-    prompt="{{ site.data.locales[site.lang].post.button.previous }}">
-    <p>-</p>
-  </div>
+    <div class="btn btn-outline-primary disabled" aria-label="{{ previous }}">
+      <p>-</p>
+    </div>
   {% endif %}
 
-  {% if next.url %}
-  <a href="{{ site.baseurl }}{{next.url}}" class="btn btn-outline-primary"
-    prompt="{{ site.data.locales[site.lang].post.button.next }}">
-    <p>{{ next.title | strip_html }}</p>
-  </a>
+  {% if next_page.url %}
+    <a
+      href="{{ site.baseurl }}{{next_page.url}}"
+      class="btn btn-outline-primary"
+      aria-label="{{ next }}"
+    >
+      <p>{{ next_page.title }}</p>
+    </a>
   {% else %}
-  <div class="btn btn-outline-primary disabled"
-    prompt="{{ site.data.locales[site.lang].post.button.next }}">
-    <p>-</p>
-  </div>
+    <div class="btn btn-outline-primary disabled" aria-label="{{ next }}">
+      <p>-</p>
+    </div>
   {% endif %}
-
-</div>
+</nav>
