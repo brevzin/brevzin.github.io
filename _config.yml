@@ -57,9 +57,14 @@ google_site_verification:               # fill in to your verification string
 # The end of `jekyll-seo-tag` settings
 
 analytics:
- google:
-  id: 'UA-127711000-1'
-  tag: 'G-CF3C82MM6L'
+  google:
+    id: 'UA-127711000-1'
+    tag: 'G-CF3C82MM6L'
+  goatcounter:
+    id: brevzin
+
+pageviews:
+  provider: goatcounter
 
 # Prefer color scheme setting.
 #
