@@ -6,6 +6,7 @@ tags:
  - c++
  - c++29
  - ranges
+ - reflection
 ---
 
 There was a StackOverflow question recently that led me to want to write a new post about Ranges. Specifically, I wanted to write about some situations in which Ranges do more work than it seems like they should have to. And then what we can do to avoid doing that extra work. I'll offer solutions — one sane one, which you can already use today, and one pretty crazy one, which is using a language feature we're still working on designing, which may not even exist in C++29.
