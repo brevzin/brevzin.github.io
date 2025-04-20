@@ -10,7 +10,7 @@ layout: page
 
 <div id="archives" class="pl-xl-3">
   {% for post in site.posts %}
-    {% unless post.pubdraft %}
+    {% unless jekyll.environment == 'production' and post.pubdraft %}
     {% assign cur_year = post.date | date: '%Y' %}
 
     {% if cur_year != last_year %}
@@ -28,7 +28,7 @@ layout: page
       <span class="date month small text-muted ms-1" data-ts="{{ ts }}" data-df="{{ df_dayjs_m }}">
         {{ post.date | date: df_strftime_m }}
       </span>
-      <a href="{{ post.url | relative_url }}">{{ post.title }}</a>
+      <a href="{{ post.url | relative_url }}">{{ post.title }}{%if post.pubdraft %} <span style="color:red">[DRAFT]</span>{% endif %}</a>
     </li>
 
     {% if forloop.last %}</ul>{% endif %}
