@@ -32,6 +32,10 @@
     {% continue %}
   {% endif %}
 
+  {% if post.pubdraft %}
+    {% continue %}
+  {% endif %}
+
   {% assign score = 0 %}
 
   {% for tag in post.tags %}
