@@ -6,6 +6,7 @@ tags:
  - c++
  - c++23
  - constexpr
+ - formatting
 pubdraft: yes
 permalink: consteval-propagation
 ---
@@ -82,6 +83,9 @@ In file included from /opt/compiler-explorer/libs/fmt/trunk/include/fmt/format.h
     5 |         fmt::print("x={}");
       |         ~~~~~~~~~~^~~~~~~~
 ```
+
+> Note that [clang's error's](https://godbolt.org/z/6Y3zPd9d9) still prominently includes relevant information.
+{:.prompt-info}
 
 Now the only information we get is that the call to `fmt::print` is bad. We no longer have a diagnostic pointing to the line which at least had the call `report_error("argument not found")`. The former wasn't an amazing error, but at least we had a hint. We don't even have a hint anymore.
 
@@ -257,7 +261,7 @@ I would say no. While the rules themselves are more complicated and harder to un
 
 And sometimes the reason for why it didn't work is itself very complicated. That's why one of my most read blog posts is about something as simple as [taking the size of an array at compile time]({% post_url 2020-02-05-constexpr-array-size %}).
 
-That's why I think it's valuable to constantly push to widen what's allowed during constant evaluation. That's why Hana Dusíková [writes](https://wg21.link/p3367) [all](https://wg21.link/p3372) [these](https://wg21.link/p3378) [papers](https://wg21.link/p3533) [so](https://wg21.link/p3037]) [that](https://wg21.link/p3125) [things](https://wg21.link/p3068) [just](https://wg21.link/p3349r0) [work](https://wg21.link/p3309).
+That's why I think it's valuable to constantly push to widen what's allowed during constant evaluation. That's why Hana Dusíková writes [all](https://wg21.link/p3068) [these](https://wg21.link/p3125) [papers](https://wg21.link/p3309) [so](https://wg21.link/p3367) [that](https://wg21.link/p3372) [things](https://wg21.link/p3378) [just](https://wg21.link/p3449) [work](https://wg21.link/p3533).
 
 ## How does `{fmt}` type check?
 
@@ -322,17 +326,56 @@ But now a very strange thing happens. When we evaluate the now-`consteval` lambd
 3. Note: the lambda was promoted to `consteval` because of the immediate-escalating expression `format_string<>("x={}")` (which in `{fmt}` is actually spelled `fmt::v11::fstring<>`).
 
 > The difference between [gcc 13.3 and gcc 14.2](https://godbolt.org/z/bvfchvP33) is that the latter now implemented `consteval` propagation, while the former did not.
+>
+> Also note that [clang's error's](https://godbolt.org/z/6Y3zPd9d9) still prominently includes relevant information, even while implementing `consteval` propagation — the diagnostic points to the lambda as being `consteval` now, but still points to the `report_error("argument not found")` call.
+{:.prompt-info}
+
 {:.prompt-info}
 
 Being told that `fmt::print` isn't a `constexpr` function is a strange thing to see in an error message when of course you know that and you are not even trying to do any compile-time printing! And then we lose all information about _why_ the format string initialization wasn't constant.
 
 Importantly, `consteval` propagation does not ever take previously valid code and make it invalid. It only takes previously invalid code and make it valid. However, in this case, it took previously invalid code which remains invalid — but the diagnostic quality got significantly worse.
 
-Can this situation be improved?
+
+### Where `consteval` propagation _really_ goes wrong?
+
+Now, the main example in the blog post is a case where `consteval` propagation can't actually help. The format string is going to be invalid no matter how many things we make `consteval`.
+
+But while `consteval` propagation cannot make that initialization constant, it can, perhaps surprisingly, avoid it altogether. Consider this example:
+
+```cpp
+#include <fmt/format.h>
+
+int main() {
+    []{
+        if not consteval {
+            fmt::print("x={}");
+        }
+    }();
+}
+```
+
+We have the following sequence of events:
+
+1. The initial evaluation of the lambda's call operator is not constant-evaluated, so we evaluate `fmt::print("x={}")`
+2. Within that call, the initialization of `fmt::format_string<>` with `"x={}"` fails to be a constant expression, so we escalate.
+3. Causing the lambda's call operator to become `consteval`.
+4. Meaning that the evaluation of the lambda call operator now _must be_ constant-evaluated.
+5. Causing that `if not consteval` branch to not be taken.
+6. Which results in the whole expression becoming basically a no-op.
+
+That is, constant evaluation failure in the call to `fmt::print` caused that call to not have even happened in the first place.
+
+This is... very much not the intended behavior of `consteval` escalation.
+
 
 ## Where to go from here?
 
-It would be nice if we could do better: have both the benefits of `consteval` propagation and also the benefits of having type-checking errors that are at least possible to make sense of.
+It would be nice if we could do better: have both the benefits of `consteval` propagation and also the benefits of having type-checking errors that are at least possible to make sense of. It would be _particularly_ nice if `consteval` propagation didn't simply _undo_ expressions entirely.
+
+Let's talk about some things we can do differently — whether on the language or compiler front.
+
+### Narrowing `consteval` propagation, I
 
 Initially, my first reaction is that we could go a little narrower on the `consteval` propagation front. After all, the cause of our failure is:
 
@@ -393,7 +436,32 @@ static_assert(attempt_to([]{ throw_up(); }));
 
 Currently, `throw_up()` is immediate-escalating, causing the appropriate specialization of `attempt_to` to become `consteval`. And at that point, that specialization is actually a constant expression (that returns `true`). If we did not allow that exception-throwing to escalate, then the call would become ill-formed. Which suggests that exception-throwing _must_ be allowed to escalate — which means that even if we prune the escalation of non-`constexpr` function calls, the exception throwing will remain, and a hypothetical future implementation of `{fmt}` that diagnoses invalid format strings by throwing will still have the same diagnostic problems.
 
-## An alternate approach
+Simply _not_ escalating in general isn't the right answer. There are times when not escalating is correct (e.g. invoking a non-`constexpr` function) and times when it's not (e.g. `throw`ing an exception). We could try to be precise in which kinds of constant evaluation failures we don't escalate, but it's not a panacea.
+
+### Narrowing `consteval` propagation, II
+
+Let's say we did have some immediate-escalating expression `E` — that's some `consteval` call that needs to be constant but isn't. We then do the `consteval` propagation dance and mark some number of functions `consteval` that previously were not.
+
+There are several things that could happen at this point. And depending on which thing happens, we might want to react differently.
+
+First, if we escalate out from a _not taken_ `if consteval` branch (as in [this wild example](#where-consteval-propagation-really-goes-wrong)), which would cause us to switch which branch we're taken, we really should stop there. I think that's clearly unintended and undesired behavior.
+
+> I would love to see an example of real code where this kind of switch is _desired_. I cannot immediately come up with one.
+{:.prompt-info}
+
+If we stop propagation at that point, then we just fail. That means the wild example never marks the lambda's call operator `consteval` and we're still just ill-formed directly at the point of `format_string<>` initialization.
+
+Second, if we escalate all the way out and we're _still not constant_, what do we do? At this point, reporting the top-level function as not being constant is arbitrarily far removed from the real problem and is unlikely to be helpful to the user. We _could_ say that actually `consteval` escalation never happened in this case. Or we could stop escalation if the top-level call ever becomes non-constant for a reason _other than_ `E` being non-constant (in this case, `fmt::print` not being `constexpr` takes precedences over the `fmt::format_string<>` initialization, so that's not the same original reason).
+
+I think it's probably enough to just encourage GCC to diagnose the root cause of the issue (the `format_string<>` initialization) and not the downstream error (the lambda invocation not being constant due to `fmt::print` not being `constexpr`). Clang already does this, so maybe this part doesn't actually need any language changes.
+
+Lastly, if we succeed in becoming constant — for reasons _other than_ the `if consteval` switch I already discussed — then that's the ideal scenario. That's the `none_of` motivating example: we took ill-formed code and made it well-formed, doing the expected thing.
+
+So perhaps the issue really is that we need to still reject the first case and diagnose the second case better.
+
+But you've read this far, so let's talk about other language solutions...
+
+### Alternate language approaches
 
 Ultimately, in Victor's original draft, he's hinting at the real issue. He wrote:
 
@@ -442,4 +510,110 @@ opt/compiler-explorer/libs/fmt/trunk/include/fmt/base.h:2438:48: error: call to 
       |                                    ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
 ```
 
-Insert lots more paragraphs of insightful content here.
+Of course, nobody is going to write that directly, that is both very tedious and also error-prone — since you have to get the types of the arguments correct. There needs to be a non-tedious way to write this.
+
+And there are two.
+
+### `constexpr` function parameters
+
+One approach is to be able to declare `print` this way:
+
+```cpp
+template <class... Args>
+auto print(constexpr format_string<Args...> fmt, Args const&... args) -> void;
+```
+
+This would ensure that `print("x={}")` would have to initialize the `constexpr` parameter, which is an initialization that _cannot_ escalate — sidestepping everything I've talked about in this blog so far.
+
+There was a proposal for `constexpr` function parameters more than five years ago ([P1045](https://wg21.link/p1045)), but it hasn't been updated in a long time. This actually mirrors the way that print is [implemented in Zig](https://ziglang.org/documentation/master/#Case-Study-print-in-Zig):
+
+```zig
+/// Calls print and then flushes the buffer.
+pub fn print(self: *Writer, comptime format: []const u8, args: anytype) anyerror!void {
+    /// ...
+}
+```
+
+Even if we had `constexpr` function parameters, I think it's not entirely certain that `{fmt}` would want to use them in this context — because we'd probably want to avoid a distinct function template specialization for each format string. `print("x={}", 42)` and `print("y={}", 42)` right now invoke the same specialization of `print`, but if the format string were a `constexpr` function parameter, they would have to be distinct. And that's not necessary here — we don't actually need the _contents_ of the format string as a constant, just the initialization to be.
+
+### Better macros
+
+To start with, this is of course double as a C macro:
+
+```cpp
+template <class... Args>
+auto deduce_format_string(Args&&...) -> fmt::format_string<Args...>;
+
+#define PRINT(fmt, ...) do {                                    \
+    using __FMT = decltype(deduce_format_string(__VA_ARGS__));  \
+    constexpr auto __fmt = __FMT(fmt);                          \
+    fmt::print(__fmt __VA_OPT__(,) __VA_ARGS__);                \
+} while(false)
+```
+
+But that's not what I want to talk about here.
+
+Swift recently added a macro system, which works in a very interesting way:
+
+* on the _declaration_ side of the macro, it looks like a regular function or function template
+* on the _definition_ side of the macro, you basically take raw tokens and produce raw tokens.
+
+For example, [in the proposal](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0382-expression-macros.md), they have an example where they're implementing a macro `#stringify(x + y)` which produces the tuple `(x + y, "x + y")`. That is declaerd like this:
+
+```swift
+@freestanding(expression)
+macro stringify<T>(_: T) -> (T, String) =
+  #externalMacro(module: "ExampleMacros", type: "StringifyMacro")
+```
+
+and defined like this:
+
+```swift
+public struct StringifyMacro: ExpressionMacro {
+  public static func expansion(
+    of node: some FreestandingMacroExpansionSyntax,
+    in context: some MacroExpansionContext
+  ) -> ExprSyntax {
+    guard let argument = node.argumentList.first?.expression else {
+      fatalError("compiler bug: the macro does not have any arguments")
+    }
+
+    return "(\(argument), \(literal: argument.description))"
+  }
+}
+```
+
+There's a lot of Swift details I don't even pretend to know.
+
+But imagine if we could do the same in C++:
+
+```cpp
+template <class... Args>
+macro print(string_view sv, Args&&... args) {
+    return ^^{
+        do {
+            constexpr auto fmt = fmt_string<Args...>(\(sv));
+            ::fmt::vprint(fmt.str(), make_format_args(\(args))...);
+        }
+    };
+};
+```
+
+This way `print!("x={}")` would evaluate to the `do`-expression:
+
+```cpp
+do {
+    constexpr auto fmt = fmt_string<>("x={}");
+    ::fmt::vprint(fmt.str());
+}
+```
+
+Which again gives us our desired semantic: we're initializing a `constexpr` variable, which cannot propagate, without incurring additional template instantiation overhead.
+
+## Conclusion
+
+`consteval` propagation was a new language feature I pushed for C++23 that enables a lot of value-based Reflection to just work. But it has some surprising consequences, both in the sense of making diagnostics more challenging and even allowing some code that it really shouldn't.
+
+There's still a little bit of work that needs to be done on this front. We should prevent escalation flipping `if consteval` branches, and we should come up with a good way to help compilers diagnose the correct error for users. The latter might not need language changes.
+
+And I think it's certainly worth considering how to solve this problem in a way that doesn't even rely upon `consteval` in this same way. Token sequence macros in particular are a future I'm pretty excited about, but they are a long way away, and still require plenty of design work.
