@@ -207,7 +207,7 @@ constexpr auto ranges::none_of(R&& r, Pred pred) -> bool {
 ```
 {: data-line="6" .line-numbers }
 
-The status quo was that if `pred` were a call to a `consteval` function (whether it's a function pointer or a function object with a `consteval operator()`, doesn't matter), then that expression _had_ to be a constant expression. Here, `pred(*first)` would have to be constant. But it _cannot_ be. So the call failed.
+The status quo was that if `pred` were a call to a `consteval` function, then that expression _had_ to be a constant expression. Here, `pred(*first)` would have to be constant. But it _cannot_ be. So the call failed.
 
 > Obligatory pedantic aside: Well, I mean, sure — your iterator could have an `operator*()` that reads no state at all and just returns `42`. In that case, this would work just fine. But most iterators are actually at least a _little bit_ more interesting and useful than that.
 {:.prompt-info }
@@ -254,6 +254,8 @@ As C++26 is getting ready to ship, the rules are _much_ more complicated. [\[exp
 It's worth asking: is this bad?
 
 I would say no. While the rules themselves are more complicated and harder to understand (I even occasionally struggle with rules that I myself added), the consequence of having them is that actually fewer people have to even think about what the rules are. At a first approximation, nobody cares what the `constexpr` rules actually are. You just write your code, and if it works during constant evaluation, you just move on with your life. You're not going to stop to think about _why_ it worked. It's only when it _doesn't_ work that you have to take the time to understand why it _didn't_.
+
+And sometimes the reason for why it didn't work is itself very complicated. That's why one of my most read blog posts is about something as simple as [taking the size of an array at compile time]({% post_url 2020-02-05-constexpr-array-size %}).
 
 That's why I think it's valuable to constantly push to widen what's allowed during constant evaluation. That's why Hana Dusíková [writes](https://wg21.link/p3367) [all](https://wg21.link/p3372) [these](https://wg21.link/p3378) [papers](https://wg21.link/p3533) [so](https://wg21.link/p3037]) [that](https://wg21.link/p3125) [things](https://wg21.link/p3068) [just](https://wg21.link/p3349r0) [work](https://wg21.link/p3309).
 
@@ -367,7 +369,7 @@ This example deliberately is indirectly `throw`ing the message, since we might a
       |                 ^
 ```
 
-I bring up exception because while invoking a non-`constexpr` function is just never going to be constant if you widen out, `throw`ing an exception might actually _become constant_ if you do so.
+I bring up exceptions because while invoking a non-`constexpr` function is just never going to be constant if you widen out, `throw`ing an exception might actually _become constant_ if you do so.
 
 Consider:
 
@@ -440,3 +442,4 @@ opt/compiler-explorer/libs/fmt/trunk/include/fmt/base.h:2438:48: error: call to 
       |                                    ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
 ```
 
+Insert lots more paragraphs of insightful content here.
