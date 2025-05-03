@@ -1,0 +1,13 @@
+#draft-warning {
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	background: red;
+	color: white;
+	font-size: 40px;
+	padding: 10px 100px;
+	box-shadow: 0 0 3px black;
+	text-transform: uppercase;
+	transform: translateY(-30px) translateX(80px) rotate(-45deg);
+	z-index: 1000;
+}
