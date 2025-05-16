@@ -14,10 +14,11 @@ Sampling of accepted standards proposals:
   * [constexpr *INVOKE*](https://wg21.link/p1065)
   * [if consteval](https://wg21.link/p1938)
   * [Missing constexpr in std::optional and std::variant](https://wg21.link/p2231)
-  * [Using unknown references in constant expressions](https://wg21.link/p2280)
-  * [Relaxing some constexpr restrictions](https://wg21.link/p2448) (from my post on the [constexpr array size problem]({% post_url 2020-02-05-constexpr-array-size %}))
+  * [Using unknown references in constant expressions](https://wg21.link/p2280) (from my post on the [constexpr array size problem]({% post_url 2020-02-05-constexpr-array-size %}))
+  * [Relaxing some constexpr restrictions](https://wg21.link/p2448)
   * [consteval needs to propagate up](https://wg21.link/p2564)
   * [Permitting static constexpr variables in constexpr functions](https://wg21.link/p2647)
+  * [constexpr placement new](https://wg21.link/p2747)
 * Ranges-related
   * [*forwarding-range*&lt;T> is too subtle](https://wg21.link/p1870)
   * [Concept traits should be named after concepts](https://wg21.link/p1871)
