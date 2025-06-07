@@ -35,7 +35,7 @@ The Reflection TS (whose draft you can find [here](https://cplusplus.github.io/r
 
 The design was a _type-based_ model. It introduced a new operator, `reflexpr(E)`, which which gave you a _unique_ type. What I mean by unique is that `reflexpr(A)` and `reflexpr(B)` are the same type if and only if `A` and `B` are the same entity.
 
-That is only new part of the language, which only yields types. THe library side includes a bunch of template metafunctions to use for queries. For instance, the first example in the paper is, of course, enum-to-string:
+That is only new part of the language, which only yields types. The library side includes a bunch of template metafunctions to use for queries. For instance, the first example in the paper is, of course, enum-to-string:
 
 ```cpp
 enum E { first, second };
@@ -45,7 +45,7 @@ using first_m = get_element_t<0, get_enumerators_t<E_m>>;
 std::cout << get_name_v<first_m> << std::endl; // prints "first"
 ```
 
-This example also demonstrates the other important concept to point out in the Reflection TS: what is `get_enumerators_t<E_m>`? In TS terms, that is called an _object sequence_ (whereas `E_m` is just an _object_). An object sequence is basically a typelist of objects — except that they're not strictly specified as such. Instead, the TS came with other metafunctions to manipulate them.
+This example also demonstrates the other important concept to point out in the Reflection TS: what is `get_enumerators_t<E_m>`? In TS terms, that is called an _object sequence_ (whereas `E_m` is just an _object_). An object sequence is basically a typelist of objects — except that they're not strictly specified as such (and in the one implementation of the TS that I'm aware of, they're not implemented as such either). Instead, the TS came with other metafunctions to manipulate them.
 
 That's basically the design in a nutshell:
 
@@ -53,11 +53,11 @@ That's basically the design in a nutshell:
 * the library comes with a lot of queries on reflection types
 * some of those queries return values (like `get_name_v`), some return types — which can be reflection types (like `get_element_t`), and some return object sequences (like `get_enumertors_t`).
 
-On the whole, the above should be fairly familiar. It's regular template metaprogramming.
+On the whole, the above should be fairly familiar. It's regular template metaprogramming. It's simple.
 
 ## Implementing the Reflection TS
 
-It occurred to me last week that I could actually implement the Reflection TS on top of the [p2996 design](https://wg21.link/p2996). I'm not going to implement the whole thing, I will instead do just enough to solve the problem I posed at the beginning of this blog post. But I'll walk through how to do that, which should help shine light both on how the TS works and how the p2996 design works.
+It occurred to me recently that I could actually implement the Reflection TS on top of the [p2996 design](https://wg21.link/p2996). I'm not going to implement the whole thing, I will instead do just enough to solve the problem I posed at the beginning of this blog post. But I'll walk through how to do that, which should help shine light both on how the TS works and how the p2996 design works.
 
 To start with, we need a reflection operator which returns a unique type per entity. We can do that with a macro:
 
@@ -74,7 +74,7 @@ namespace std::reflect {
 
 In the value-based reflection model, `^^E` gives us a unique value for each entity, with uniqueness defined exactly how we need it. So we simply need to lift that into a type.
 
-The other fundamental piece we need is an object sequence, which I will just just implement as a type-list (although I will not rely on it being such — I will elaborate on this shortly):
+The other fundamental piece we need is an object sequence, which I will just just implement as a type-list (even though, as mentioned, it's not specified as such):
 
 ```cpp
 namespace std::reflect {
@@ -116,9 +116,6 @@ namespace std::reflect {
 {: data-line="12-19" .line-numbers }
 
 Note here that we don't have universal template parameters, but we can use reflection parameters as a close enough substitute. As an implementation detail, it works well enough.
-
-> The other design choice is that `ObjectSequence` is _not_ specified to actually be a typelist. It is in my implementation above, but I'm not going to rely on that when I'm using it. The TS came with utilities for how to interact with an `ObjectSequence` — that's all I will use.
-{:.prompt-info}
 
 The rest of the hierarchy of concepts that we'll need is based on properties what the `Object` in question represents. We have queries for all of those, so we can just use them:
 
@@ -193,7 +190,10 @@ namespace std::reflect {
 
 The next piece we need for the example is `get_enumerators_t`. This takes an `Enum` and yields an `ObjectSequence` of enumerators. In order to implement this, we need to use a function which is one of the most surprisingly useful functions in the value-based design: `substitute`.
 
-`substitute` is actually quite simple. It takes a reflection of a template and a sequence of reflections of template arguments and gives back a reflection of the specialization. For instance, `substitute(^^std::vector, {^^int})` gives you back `^^std::vector<int>`. Or, `substitute(^^std::array, {^^int, reflect_constant(4)})` gives you back `std::array<int, 4>`. The call to `reflect_constant` is necessary because we need to provide _reflections_ to `substitute`, so we need to take our `4` and produce a reflection of the value `4`. That's what `reflect_constant` does.
+`substitute` is actually quite simple. It takes a reflection of a template and a sequence of reflections of template arguments and gives back a reflection of the specialization. For instance, `substitute(^^std::vector, {^^int})` gives you back `^^std::vector<int>`. Or, `substitute(^^std::array, {^^int, std::meta::reflect_constant(4)})` gives you back `std::array<int, 4>`. The call to `std::meta::reflect_constant` is necessary because we need to provide _reflections_ to `substitute`, so we need to take our `4` and produce a reflection of the value `4`. That's what `reflect_constant` does.
+
+> For C++26, we do not yet have reflections of _expressions_. It's possible that a future extension would simply allow `^^(4)` there. The parentheses might be necessary because unlike the reflection syntax, which isn't that bad, C++ has plenty of actually really bad syntax. Consider `^^int()` — what should that give you a reflection of? Obviously, a reflection of the _type_ "function with no parameters that returns `int`." Were you expecting something else?
+{:.prompt-info}
 
 For this particular metafunction, we need to start with a sequence of enumerators and use them to produce a specialization of `Sequence`, whose template parameters are specializations of `Reflection`. Put differently, if we had a pack `E...` of the reflections of the enumerators of `T`, then we need to give back the type `Sequence<Reflection<E>...>`.
 
@@ -247,7 +247,7 @@ namespace std::reflect {
 }
 ```
 
-> Note that all the sequence algorithms take any appropriate range of reflections, so the `transform` just works. You don't have to turn it into `vector<meta::info>` at the end or any specific container.
+> Note that all the sequence algorithms take any appropriate range of reflections, so the `transform` just works. You don't have to turn it into `vector<meta::info>` at the end or any specific container. Earlier revisions of the design took a `span<info const>`, but this proved cumbersome in practice.
 {:.prompt-info}
 
 ### `get_name_v`
@@ -275,9 +275,7 @@ namespace std::reflect {
 > ```
 {:.prompt-info}
 
-And with that, we can test out our implementation to see if it works ([it does](https://compiler-explorer.com/z/W3b8x56z8)).
-
-https://compiler-explorer.com/z/qvhe6GT3e
+And with that, we can test out our implementation to see if it works ([it does](https://compiler-explorer.com/z/Ys37ToTb5)).
 
 ### A First Comparison
 
@@ -296,7 +294,7 @@ consteval auto first_enum_value() -> std::string_view {
 }
 ```
 
-The first thing to notice is that there is a direct one-to-one correspondence for all of the operations:
+The first thing to notice is that there is a direct one-to-one correspondence for all of the operations. This shouldn't be too surprising, since the type-based design heavily informed the value-based design:
 
 |type-based|value-based|
 |-|-|
@@ -399,7 +397,7 @@ Now, this solution wasn't quite what I expected. When I'd started implementing t
 |`get_type_t<R>`|`type_of(r)`|
 |`get_reflected_type_t<R>` ??|`[: r :]`|
 
-`type_of` takes a reflection of a typed entity and produces a _reflection_ of a type. But `get_type_t` takes a reflection of a typed entity and produces _the type_ directly. What I mean is:
+The function `std::meta::type_of(r)` takes a reflection of a typed entity and produces a _reflection_ of a type. But the metafunction `std::reflect::get_type_t<R>` takes a reflection of a typed entity and produces _the type_ directly. What I mean is:
 
 ```cpp
 // let's take some variable
@@ -655,7 +653,7 @@ consteval auto is_structural(std::meta::info type) -> bool;
 
 It turns out that, while we have new syntax for getting into (`^^e`) and out of (`[: e :]`) the value domain, once you're in the value domain — it's nice to just stay there. And so I expect the most common approach will just be... functions. Functions are, after all, simpler. And, for problems like this, it cannot be specialized — which isn't a huge benefit, since I don't think people specializing things they shouldn't be is necessarily a big problem, but it's nice. The syntax on the call side is slightly different — `is_structural<T>` vs `is_structural(^^T)` — but that's not really a big deal right now. And you could always just add a variable template that itself defers to the function.
 
-That premise — the desire to stay in the value domain — is why we're also adding consteval function versions of all the type traits (as you'll see shortly). Most of those new functions have the same name as the existing type trait, except that predicates whose name was `is_meow` become `is_meow_type`. Quick table:
+That premise — the desire to stay in the value domain — is why we're also adding consteval function versions of all the type traits (as you'll see shortly, and may have noticed me already using). Most of those new functions have the same name as the existing type trait, except that predicates whose name was `is_meow` become `is_meow_type`. Quick table:
 
 |Existing Type Trait|New Function
 |-|-|
@@ -717,7 +715,7 @@ We're doing reflection stuff here, but this really looks like regular code. We j
 
 ## Comparing type-based to value-based
 
-Let's compare again the two implementations of `is_structural`
+Let's compare again the two implementations of `is_structural` (which you can find [here](https://compiler-explorer.com/z/benPWqe19), including the not-quite-100 line implementation of the TS and the other examples I mentioned earlier):
 
 ```cpp
 template <class T>
@@ -776,6 +774,14 @@ consteval auto is_structural(std::meta::info type) -> bool {
 {: .line-numbers }
 
 C++26 reflection does bring with it new syntax and a bunch of new semantics. But the benefit is that a lot of metaprogramming starts to look more like regular programming. There is a lot _less_ syntax in the implementation side of things. For instance, there are no `<`s or `>`s in the value-based implementation at all. The solution isn't just half as long, it's also significantly less complicated, and doesn't require an extra library specifically tailored to solve the problem.
+
+Even when we do have to use more syntax, I think it's an improvement. Consider any reflection problem that requires iterating over the members of a type. Eventually, you'll have some reflection representing a non-static data member and you have to combine that with the object in order to read the member. What does that look like?
+
+|Type-Based|Value-Based|
+|-|-|
+|`obj.*std::reflect::get_pointer_v<R>`|`obj.[: r :]`|
+
+In the type-based model, we have a metafunction (because everything is a metafunction) that gives you a pointer-to-member. Even separate from syntax preferences, this already had the problem that it wouldn't work for bit-fields and reference members. In the value-based model, we require novel syntax — but it's significantly terser, works for all non-static data member kinds, and also makes the fact that we're coming out of the reflection domain much clearer. I think that's a win.
 
 Another distinction to point out is that template metaprogramming cannot do any mutation — all solutions have to be functional. That's why Boost.Hana looks like the way it does. That's why Boost.Mp11 is such a superior library for metaprogramming than Boost.MPL — its approach fits the problem space better. But with value-based reflection, you can write imperative code too. I used `std::ranges::all_of()` in my solution since it's exactly the algorithm for the job — but it's not the _only_ solution. You could write this in a series of regular `if` statements and regular `for` loops too if that's what you prefer:
 
