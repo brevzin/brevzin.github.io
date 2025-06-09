@@ -29,9 +29,9 @@ There is no trait for this in the standard library today. How would we write one
 
 ## The Reflection TS
 
-The Reflection TS (whose draft you can find [here](https://cplusplus.github.io/reflection-ts/draft.pdf)) was published in March, 2020. It came the work done by Matúš Chochlík, Axel Naumann, and David Sankel in [P0194](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0194r6.html).
+The Reflection TS (whose draft you can find [here](https://cplusplus.github.io/reflection-ts/draft.pdf)) was published in March, 2020. It came from the work done by Matúš Chochlík, Axel Naumann, and David Sankel in [P0194](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0194r6.html).
 
-The design was a _type-based_ model. It introduced a new operator, `reflexpr(E)`, which which gave you a _unique_ type. What I mean by unique is that `reflexpr(A)` and `reflexpr(B)` are the same type if and only if `A` and `B` are the same entity.
+The design was a _type-based_ model. It introduced a new operator, `reflexpr(E)`, which gave you a _unique_ type. What I mean by unique is that `reflexpr(A)` and `reflexpr(B)` are the same type if and only if `A` and `B` are the same entity.
 
 That is the only new part of the language, which only yields types. The library side includes a bunch of template metafunctions to use for queries. For instance, the first example in the paper is, of course, enum-to-string:
 
@@ -231,7 +231,7 @@ This pattern is going to come up a few times in the TS, so I will refactor it th
 
 ```cpp
 namespace std::reflect {
-    inline constexpr auto into_ref = [](meta::info r){
+    inline constexpr auto into_reflection = [](meta::info r){
         return substitute(^^Reflection, {meta::reflect_constant(r)});
     };
 
@@ -277,7 +277,7 @@ And with that, we can test out our implementation to see if it works ([it does](
 
 ### A First Comparison
 
-We haven't yet implemented all the pieces we need to implement `is_structural` using the Reflection TS, but we have this first example. Let's compare what it would look like to write a function that takes an `enum` and returns the string name of its first enumerator. It may not be the most compelling reflection use-case, but it still requires interesting things.
+We haven't yet implemented all the pieces we need to implement `is_structural` using the Reflection TS, but we have for this first example. Let's compare what it would look like to write a function that takes an `enum` and returns the string name of its first enumerator. It may not be the most compelling reflection use-case, but it still requires interesting things.
 
 ```cpp
 template <class T>
