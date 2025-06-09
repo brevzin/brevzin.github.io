@@ -6,8 +6,6 @@ tags:
  - c++
  - c++26
  - reflection
-pubdraft: yes
-permalink: reflection-ts
 ---
 
 Frequently, whenever the topic of Reflection comes up, I see a lot of complains specifically about the new syntax being added to support Reflection in C++26. I've always thought of that as being largely driven by unfamiliarity — this syntax is new, unfamiliar, and thus bad. I thought I'd take a different tactic in this post: let's take a problem that can only be solved with Reflection and compare what the solution would look like between:
