@@ -305,7 +305,7 @@ Now, with the type-based model, all the names have to either be qualified or bro
 
 The other thing to notice is that we had to use a metafunction to pull out the first element in the type-based model, but in the value-based one we didn't have to use a dedicated reflection function — we were able to just used the index operator. That's pretty nice.
 
-### `get_bases_classes_t` and `get_data_members_t`
+### `get_base_classes_t` and `get_data_members_t`
 
 Getting back to the problem I wanted to implement, there are a few more pieces we need. The definition of structural relies on recursing through base classes and non-static data members, so we will need the ability to do so. Now that we've provided a nice utility for converting a reflection range into a object sequence, we can simply reuse that:
 
