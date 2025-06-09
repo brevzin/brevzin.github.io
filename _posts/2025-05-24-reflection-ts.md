@@ -35,7 +35,7 @@ The Reflection TS (whose draft you can find [here](https://cplusplus.github.io/r
 
 The design was a _type-based_ model. It introduced a new operator, `reflexpr(E)`, which which gave you a _unique_ type. What I mean by unique is that `reflexpr(A)` and `reflexpr(B)` are the same type if and only if `A` and `B` are the same entity.
 
-That is only new part of the language, which only yields types. The library side includes a bunch of template metafunctions to use for queries. For instance, the first example in the paper is, of course, enum-to-string:
+That is the only new part of the language, which only yields types. The library side includes a bunch of template metafunctions to use for queries. For instance, the first example in the paper is, of course, enum-to-string:
 
 ```cpp
 enum E { first, second };
@@ -51,7 +51,7 @@ That's basically the design in a nutshell:
 
 * `reflexpr(E)` gives you a unique type representing properties of `E`
 * the library comes with a lot of queries on reflection types
-* some of those queries return values (like `get_name_v`), some return types — which can be reflection types (like `get_element_t`), and some return object sequences (like `get_enumertors_t`).
+* some of those queries return values (like `get_name_v`), some return types — which can be reflection types (like `get_element_t`), and some return object sequences (like `get_enumerators_t`).
 
 On the whole, the above should be fairly familiar. It's regular template metaprogramming. It's simple.
 
