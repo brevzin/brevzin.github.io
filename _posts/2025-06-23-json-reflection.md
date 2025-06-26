@@ -21,7 +21,7 @@ Last week, C++26 was finalized in Sofia, Bulgaria — and C++26 will include al
 
 Those are in the order in which they were adopted, not in the order of their impact (otherwise splicing base classes would go last). This is a pretty incredible achievement that couldn't have happened without lots of people's work, but no one person is more responsible for Reflection in C++26 than Dan Katz.
 
-So today I wanted to talk about a very cool example that Dan put together on the flight home from Sofia, while I was unconscious a few seats over: the ability to, at compile, ingest a JSON file and turn it into a C++ object. That is, given a file `test.json` that looks like this:
+So today I wanted to talk about a very cool example that Dan put together on the flight home from Sofia, while I was unconscious a few seats over: the ability to, at compile time, ingest a JSON file and turn it into a C++ object. That is, given a file `test.json` that looks like this:
 
 ```json
 {
@@ -41,7 +41,7 @@ constexpr const char data[] = {
 constexpr auto v = json_to_object<data>;
 ```
 
-And the result of that code is that now we have an object `v`, whose type shaped like:
+And the result of that code is that now we have an object `v`, whose type is shaped like:
 
 ```cpp
 struct {
@@ -61,7 +61,7 @@ static_assert(v.inner.number == 2996);
 static_assert(v.inner.field == "yes"sv);
 ```
 
-Which is, [very cool](https://godbolt.org/z/fMdhY4eY8).
+Which is, [incredibly, majestically cool](https://godbolt.org/z/fMdhY4eY8).
 
 The remainder of this post will be walking through how to make this happen.
 
