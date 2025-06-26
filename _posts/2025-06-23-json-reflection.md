@@ -6,7 +6,6 @@ tags:
  - c++
  - c++26
  - reflection
-pubdraft: true
 ---
 
 Last week, C++26 was finalized in Sofia, Bulgaria — and C++26 will include all of the reflection papers that we were pushing for:
@@ -61,7 +60,7 @@ static_assert(v.inner.number == 2996);
 static_assert(v.inner.field == "yes"sv);
 ```
 
-Which is, [incredibly, majestically cool](https://godbolt.org/z/fMdhY4eY8).
+Which is, [incredibly, majestically cool](https://godbolt.org/z/7Wvxs6jee).
 
 The remainder of this post will be walking through how to make this happen.
 
@@ -399,7 +398,7 @@ And that's *it*. Or at least, that would be it if we could use Boost.JSON.
 
 ## Wrapping It Up
 
-In Dan's [actual implementation](https://godbolt.org/z/fMdhY4eY8) (with some edits), `parse_json` took a `string_view` and actually had to, well, parse all the JSON:
+In Dan's [actual implementation](https://godbolt.org/z/7Wvxs6jee) (with some edits), `parse_json` took a `string_view` and actually had to, well, parse all the JSON:
 
 ```cpp
 consteval auto parse_json(std::string_view json) -> std::meta::info {
@@ -410,23 +409,37 @@ consteval auto parse_json(std::string_view json) -> std::meta::info {
 It followed the same structure I presented here though. There's one last thing we have to do: provide a slightly nicer façade:
 
 ```cpp
-template <char const* data>
-inline constexpr auto json_to_object = [: parse_json(data) :];
+struct JSONString {
+    std::meta::info Rep;
+    consteval JSONString(const char *Json) : Rep{parse_json(Json)} {}
+};
+
+template <JSONString json>
+consteval auto operator""_json() {
+    return [:json.Rep:];
+}
+
+template <JSONString json>
+inline constexpr auto json_to_object = [: json.Rep :];
 ```
 
-And that's that. We can pull in an arbitrary JSON file using the new `#embed`:
+And that's that. We can pull in an arbitrary JSON file using the new `#embed` and immediately turn that into a C++ object:
 
 ```cpp
 constexpr const char data[] = {
     #embed "test.json"
     , 0
 };
+
+constexpr auto v = json_to_object<data>;
 ```
 
-and immediately turn that into a C++ object:
+Or we an even operate directly on string literals using the UDL:
 
 ```cpp
-constexpr auto v = json_to_object<data>;
+static_assert(
+    R"({"field": "yes", "number": 2996})"_json
+    .number == 2996);
 ```
 
 We've basically implemented an [F# JSON type providers](https://fsprojects.github.io/FSharp.Data/library/JsonProvider.html) as a fairly short library. Granted, it's not precisely the same interface — but the F# design is really only a slight refactor on top of what's presented here.
