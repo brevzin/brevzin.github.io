@@ -106,7 +106,7 @@ consteval auto parse(std::string_view key, int value)
 > We're wrapping both values in `reflect_constant` — even though `data_member_spec` is already a `meta::info`. This is because shortly we need to unwrap one layer of reflection. I could add the `reflect_constant` later — but when I make the example more complicated, it'll make more sense to keep it here.
 {:.prompt-info}
 
-Next, the only real reason to to have `data_member_spec`s is to pass them into `define_aggregate`. That one just needs a class type for us to complete. Here, our `parse` isn't a template, and we need a distinct type for each `member` (since `{"x": 1}` and `{"y": 1}` need to lead to different types). The clever solution here (courtesy of Dan) is as follows:
+Next, the only real reason to have `data_member_spec`s is to pass them into `define_aggregate`. That one just needs a class type for us to complete. Here, our `parse` isn't a template, and we need a distinct type for each `member` (since `{"x": 1}` and `{"y": 1}` need to lead to different types). The clever solution here (courtesy of Dan) is as follows:
 
 ```cpp
 template <std::meta::info ...Ms>
@@ -319,7 +319,7 @@ consteval auto parse(boost::json::object object)
 
 Next, strings. Strings actually pose an interesting problem because we need to be able to pass the initializer as a constant template argument. Those cannot be string literals. Additionally, when we start creating nested objects, we need those inner objects to be usable as constant template arguments too. That means we can't use `string_view` — it's not a structural type yet.
 
-> Sorry, I tried.
+> Sorry, [I tried](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3380r1.html).
 {:.prompt-info}
 
 So we're going to stick with `char const*`. Thankfully, we have precisely a function that we can use to take a string value and get a reflection of a null-terminated, static storage duration constexpr array of `char` with those contents: `std::meta::reflect_constant_string`:
