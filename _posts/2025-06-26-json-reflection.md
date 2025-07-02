@@ -60,7 +60,7 @@ static_assert(v.inner.number == 2996);
 static_assert(v.inner.field == "yes"sv);
 ```
 
-Which is, [incredibly, majestically cool](https://godbolt.org/z/7Wvxs6jee).
+Which is, [incredibly, majestically cool](https://godbolt.org/z/Kn5b46T8j).
 
 The remainder of this post will be walking through how to make this happen.
 
@@ -398,7 +398,7 @@ And that's *it*. Or at least, that would be it if we could use Boost.JSON.
 
 ## Wrapping It Up
 
-In Dan's [actual implementation](https://godbolt.org/z/7Wvxs6jee) (with some edits), `parse_json` took a `string_view` and actually had to, well, parse all the JSON:
+In Dan's [actual implementation](https://godbolt.org/z/Kn5b46T8j) (with some edits), `parse_json` took a `string_view` and actually had to, well, parse all the JSON:
 
 ```cpp
 consteval auto parse_json(std::string_view json) -> std::meta::info {
