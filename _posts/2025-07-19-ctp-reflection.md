@@ -9,7 +9,7 @@ tags:
 mermaid: true
 ---
 
-## C++26 Status
+## C++26 Status Quo
 
 I'd previously written about how difficult it is to extend support for using [class types as constant template parameters]({% post_url 2024-08-15-cnttp %}).
 
@@ -190,7 +190,7 @@ And `std::meta::reflect_constant_string(s)` gives you a reflection representing 
 > This works for our purposes because `some_array<'b', 'a', 'r', 'r', 'y'>` is definitely the _same_ object across _all_ TUs. Effectively, we have taking our `std::string`, serialized it via `Cs...` (and it is that serialization that is used to compare different objects — since they are the same object iff they have the same template arguments), and deserialized it via the array construction.
 {:.prompt-info}
 
-In general with this design, we can serialize our type any way we want, as long as `serialize` and `deserialize` are with each other. So here `serialize` for `std::string` gives back a reflection of an object that is an array of `char`s with the same contents of the `std::string`, null-terminated. So we can `extract` out the `char const*` from that object, to reconstruct a new `std::string`.
+In general with this design, we can serialize our type any way we want, as long as `serialize` and `deserialize` agree with each other. So here `serialize` for `std::string` gives back a reflection of an object that is an array of `char`s with the same contents of the `std::string`, null-terminated. So we can `extract` out the `char const*` from that object, to reconstruct a new `std::string`.
 
 There's only one problem. It doesn't really work.
 
@@ -338,6 +338,9 @@ namespace ctp {
             return object;
         }
     };
+
+    template <class T>
+    Param(T) -> Param<T>;
 }
 ```
 {: data-line="7,10,14" .line-numbers }
@@ -880,69 +883,75 @@ template <size_t I, std::meta::info R>
 static constexpr auto the_object = target_type(std::in_place_index<I>, [:R:]);
 ```
 
-That is, after all, exactly what we want to do. So how about we just... let ourselves do that. Instead of having the extension point unconditionally do:
+That is, after all, exactly what we want to do. So how about we just... let ourselves do that. Instead of having the extension point unconditionally evaluate `Reflect<T>::deserialize(Is...)`, we'll give the user three options:
 
-```cpp
-inline constexpr auto reflect_constant =
-    []<class T>(T const& v){
-        if constexpr (is_structural_type(^^T)) {
-            return std::meta::reflect_constant(v);
-        } else {
-            // For non-structural types, customize via Reflect<T>::serialize
-            auto s = Serializer(^^T);
-            Reflect<T>::serialize(s, v);
-            return s.finalize();
-        }
-    };
-```
+1. `deserialize<Is...>()`
+2. `deserialize(Is...)`
+3. `deserialize_constants([:Is:]...)`
 
-We allow the user to take complete control:
-
-```cpp
-inline constexpr auto reflect_constant =
-    []<class T>(T const& v){
-        if constexpr (is_structural_type(^^T)) {
-            return std::meta::reflect_constant(v);
-        } else {
-            // For non-structural types, customize via Reflect<T>::serialize
-            if constexpr (requires { Reflect<T>::serialize(v); }) {
-                return Reflect<T>::serialize(v);
-            } else {
-                auto s = Serializer(^^T);
-                Reflect<T>::serialize(s, v);
-                return s.finalize();
-            }
-        }
-    };
-```
-{: data-line="7-9" .line-numbers }
-
-It's one thing to provide a simple and convenient API. But if it's _too_ simple, it might cause other problems. That allows the `variant` implementation to do this:
+This allows the `variant` deserialization to get the constants it needs:
 
 ```cpp
 template <class... Ts>
 struct Reflect<std::variant<Ts...>> {
     using target_type = std::variant<target<Ts>...>;
 
-    template <size_t I, std::meta::info R>
-    static constexpr auto the_object = target_type(std::in_place_index<I>, [:R:]);
-
-    static consteval auto serialize(std::variant<Ts...> const& v) -> std::meta::info {
-        size_t idx = v.index();
-        std::meta::info r = v.visit([&](auto const& e){
-            return reflect_constant(e);
-        });
-
-        return substitute(^^the_object, {reflect_constant(idx), reflect_constant(r)});
+    template <std::meta::info I, std::meta::info R>
+    static consteval auto deserialize() -> target_type {
+        return target_type(std::in_place_index<([:I:])>, [:R:]);
     }
 };
 ```
 
-Which is quite a bit more straightforward than any of the earlier workarounds I suggested.
+While this third form I'm adding also simplifies some of the other customizations we've already seen. For instance, `tuple` looked like this:
+
+```cpp
+static consteval auto deserialize(auto... rs) -> target_type {
+    return target_type(extract<target_or_ref<Ts> const&>(rs)...);
+}
+```
+
+and becomes:
+
+```cpp
+static consteval auto deserialize_constants(target_or_ref<Ts> const&... vs)
+    -> target_type
+{
+    return target_type(vs...);
+}
+```
+
+Which maybe doesn't seem like a huge improvement until I point out that this latter one is completely correct but the former was actually wrong. If one of the `meta::info`s represented a _value_ (e.g. we're doing `tuple<int>`, that `int` passed through `reflect_constant` becomes a reflection of a value as opposed to an object), then we cannot do `extract<int const&>(r)` — because there's no object. That's possible to work around, by introducing a new kind of `extract_maybe_ref<T>` that for scalar types does `extract<T>` and for class types does `extract<T const&>`... but this way we just don't have to.
+
+It's maybe more obviously better if we do a type like `std::reference_wrapper<T>`, where we can just deserialize a `T&`:
+
+```cpp
+template <class T>
+struct Reflect<std::reference_wrapper<T>> {
+    using target_type = std::reference_wrapper<T>;
+
+    static consteval auto serialize(Serializer& s, std::reference_wrapper<T> r) -> void {
+        s.push_object(r.get());
+    }
+
+    static consteval auto deserialize_constants(T& r) -> target_type {
+        return r;
+    }
+};
+```
+
+And we'll see another case where it's obviously better in a bit.
 
 ### Supporting string literals
 
-The last one I'll do for this blog post is string literals. String literals are not usable as constant template arguments today, because:
+The last one I'll do for this blog post is string literals. Having a value usable as a constant template argument has two components:
+
+* its type has to be _structural_ (which I'm extending here), and
+* the value has to meet certain requirements ([\[temp.arg.nontype\]/6](https://eel.is/c++draft/temp#arg.nontype-6)).
+
+One of those requirements, by far the most common one people will run into, is that no part of the value (recursively all the way down) points or refers to a string literal (or a subobject thereof).
+
+Why aren't string literals usable? Let's take the simplest possible case:
 
 ```cpp
 template <char const*> X { };
@@ -951,10 +960,204 @@ X<"hello"> a;
 X<"hello"> b;
 ```
 
-There is a _very strong_ expectation that `a` and `b` have the same type, but the language does _not_ guarantee that multiple evaluations of the same string literal produce the same pointer — certainly not across multiple translation units. And that is what you would need to have happen in order for this to work.
+There is a _very strong_ expectation that `a` and `b` have the same type, but the language does _not_ guarantee that multiple evaluations of the same string literal produce the same pointer — certainly not across multiple translation units. If you happened to get different pointers, you'd get different types — because template-argument-equivalence for two `char const*`s is checking if they're the same pointer value. You would need to guarantee that the same string literal reliably produces the same pointer value.
 
-Thankfully, we can solve this problem too. The standard library also has a function `std::is_string_literal`.
+Thankfully, we can fix this in the library too.
+
+Right now, for structural types, we have this specialization of `Param`:
+
+```cpp
+template <class T> requires (is_structural_type(^^T))
+struct Param<T> {
+    T value;
+
+    consteval Param(T const& v) : value(v) { }
+    consteval auto get() const -> T const& { return value; }
+};
+```
+
+The problem is, `Param<char const*>("hello")` will initialize the pointer just fine, but `value` will point to a string literal, and that's not allowed. We need to change it to something else. Which we have the power to do — we've already seen a use of `std::meta::reflect_constant_string` and we also have `std::define_static_string`. But we cannot _unconditionally_ invoke that:
+
+```cpp
+template <ctp::Param V>
+struct C {
+    static constexpr auto const& object = V.value;
+};
+
+constexpr char const msg[] = "hello";
+C<"hello"> a;
+C<msg> b;
+```
+
+We want `a` to work, by promoting the string literal `"hello"` to static storage. But `msg` is _already_ a valid constant template parameter. We expect that `b.object == msg` and that `a` and `b` have different types. How do we differentiate these cases?
+
+One of the other new C++26 functions is `std::is_string_literal` — which precisely answers this question. That allows us to conditionally promote only the string literals. That is:
+
+```cpp
+consteval auto normalize_pointer(char const* p) -> char const* {
+    if (std::is_string_literal(p)) {
+        return std::define_static_string(std::string_view(p));
+    } else {
+        return p;
+    }
+}
+```
+
+That's enough to make string literals work (I'll show where this slots in shortly). But it seems incomplete to me. Consider:
+
+```cpp
+constexpr char const* p = "stop";
+C<p> stop;
+C<p+1> top;
+```
+What _should_ we be able to say about `stop.object` vs `top.object`? With the `normalize_pointer` implementation, we cannot say anything except that they're definitely different pointers. But maybe we should be able to expect that `stop.object + 1 == top.object`?
+
+I implemented, but have not yet even proposed, a more general function called `std::string_literal_from(p)`. What this does is return `nullptr` if `p` isn't a string literal, but if it is, it returns a pointer to the first character. That allows me to normalize like this:
+
+```cpp
+consteval auto normalize_pointer(char const* p) -> char const* {
+    if (auto root = std::string_literal_from(p)) {
+        char const* global = std::define_static_string(std::string_view(root));
+        return p = global + (p - root);
+    } else {
+        return p;
+    }
+}
+```
+
+That is, instead of promoting `p` we promote from the `root` and apply the same offset to `global`. That gives us `stop.object + 1 == top.object`, by construction, since both promote `"stop"` and offset into it (by `0` and `1`, respectively).
+
+We can fit this into the library by adding a new function object:
+
+```cpp
+inline constexpr auto normalize =
+    []<class T>( T& v) -> void {
+        if constexpr (requires { std::is_string_literal(v); }) {
+            if (char const* root = std::string_literal_from(v)) {
+                char const* global = std::define_static_string(std::string_view(root));
+                v = global + (v - root);
+            }
+        }
+    };
+```
+
+And invoking it:
+
+```cpp
+template <class T> requires (is_structural_type(^^T))
+struct Param<T> {
+    T value;
+
+    consteval Param(T const& v) : value(v) { ctp::normalize(value); }
+    consteval auto get() const -> T const& { return value; }
+};
+```
+{: data-line="5" .line-numbers }
+
+That's enough already to support string literals:
+
+```cpp
+template <ctp::Param V> struct X { };
+
+X<"hello"> a;  // ok
+X<"hello"> b;  // ok, same type as a
+X<"other"> c;  // ok, different type from a and b
+```
+
+But we can do one better. If we _also_ `normalize` in `reflect_constant`:
+
+```cpp
+inline constexpr auto reflect_constant =
+    []<class T>(T v){
+        if constexpr (is_structural_type(^^T)) {
+            normalize(v);
+            return std::meta::reflect_constant(v);
+        } else {
+            // For non-structural types, customize via Reflect<T>::serialize
+            return impl::default_serialize(v);
+        }
+    };
+```
+{: data-line="4" .line-numbers }
+
+Then we're already, basically for free, supporting `tuple<char const*>`, `optional<char const*>`, and `vector<char const*>` — if any of those `char const*`s anywhere are string literals.
+
+It _also_ lets us very easily support `std::string_view`:
+
+```cpp
+template <>
+struct Reflect<std::string_view> {
+    using target_type = std::string_view;
+
+    static consteval auto serialize(Serializer& s, std::string_view sv) -> void {
+        s.push_constant(sv.data());
+        s.push_constant(sv.size());
+    }
+
+    static consteval auto deserialize_constants(char const* data, size_t size)
+        -> std::string_view
+    {
+        return std::string_view(data, size);
+    }
+};
+```
+
+And I think that's a pretty good stopping point for description. So far we've walked through supporting `string`, `vector<T>`, `optional<T>`, `tuple<Ts...>`, `variant<Ts...>`, `reference_wrapper<T>`, string literals (including inside of any of the previous ones), and `string_view`. That's pretty spectacular.
 
 ## Introducing `ctp`
 
-Hell yeah.
+Now that we've gotten this far, it's time to formally introduce the library. I implemented the above in a library I'm uncreatively calling `ctp`, for `c`onstant `t`emplate `p`arameters. You can find it [here](https://github.com/brevzin/ctp).
+
+One way to think about the library is that it is a generalization of existing language and library features by way of extension:
+
+|C++26|With `ctp`|
+|-|-|
+|`std::meta::reflect_constant(v)`|`ctp::reflect_constant(v)`|
+|`std::meta::reflect_constant_array(r)`|`ctp::reflect_constant_array(v)`|
+|`std::define_static_object(v)`|`ctp::define_static_object(v)`|
+|`template <auto V>`|`template <ctp::Param V>`|
+|`template <T V>`|`template <ctp::Param<T> V>`|
+
+It's really as simple as that. If you wanted a `std::string` template parameter, you cannot write this:
+
+```cpp
+template <std::string S> // ill-formed
+struct C {
+    // would use S here
+};
+```
+
+But you can now write this:
+
+```cpp
+template <ctp::Param<std::string> S>
+struct C {
+    // use S.value or S.get() here
+};
+```
+
+If you want to add support for your own (non-C++20 structural) type, you can do so by specializing `ctp::Reflect<T>`, which has to have three public members:
+
+1. A type named `target_type`. This is you are going to deserialize as, which can be just the very same `T`. But if `T` requires allocation, then it cannot be, and you'll have to come up with an approximation (e.g. for `std::string`, the `target_type` is `std::string_view`).
+2. The function `static consteval auto serialize(Serializer&, T const&) -> void;`, which pushes an arbitrary amount of reflections onto the `Serializer`. These reflections define template-argument-equivalence for `T`: two values that serialize the same reflections will produce the same object.
+3. A deserialization function, which is going to take as its input each reflection that was serialized by `serialize`, in one of three forms. Choose the one most appropriate for your type:
+
+    ```cpp
+    // 1. Take each serialization as a constant template parameter
+    template <meta::info R1, meta::info R2, ...>
+    static consteval auto deserialize() -> target_type;
+
+    // 2. Take each serialization as a function parameter
+    static consteval auto deserialize(meta:info R1, meta::info R2, ...) -> target_type;
+
+    // 3. Take the splice of serialization as a function parameter
+    static consteval auto deserialize_constants(T1 t1, T2 t2, ...) -> target_type;
+    ```
+
+    In the library, `variant` uses the first form, `vector` and `string` use the second, and `optional`, `tuple`, `reference_wrapper`, and `string_view` use the third.
+
+This library achieves two things.
+
+First, it is just, in general, very useful. I'm hoping to productionalize it more once Reflection gets implemented in more than just the Bloomberg fork of Clang that Dan Katz implemented.
+
+Second, I think it demonstrates the power of Reflection. There are so many problems that were not possible in C++23 that become solvable in C++26. We're going to spend the next several years discovering those, and that makes it a pretty exciting time for C++.
