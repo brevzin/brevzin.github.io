@@ -7,6 +7,7 @@ tags:
  - c++26
  - reflection
 mermaid: true
+pubdraft: true
 ---
 
 ## C++26 Status Quo
@@ -1135,6 +1136,8 @@ struct C {
     // use S.value or S.get() here
 };
 ```
+
+The library (as of this writing) supports: `std::string_view` and `std::string`, `std::optional<T>` and `std::variant<Ts...>`, `std::tuple<Ts...>`, `std::reference_wrapper<T>`, and `std::vector<T>`.
 
 If you want to add support for your own (non-C++20 structural) type, you can do so by specializing `ctp::Reflect<T>`, which has to have three public members:
 
