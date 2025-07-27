@@ -19,13 +19,13 @@ I'd previously written about how difficult it is to extend support for using [cl
 
 That blog post followed on from a paper I wrote with Richard Smith ([P2484](https://wg21.link/p2484)), and was followed by another paper on this subject ([P3380](https://wg21.link/p3380)). The blog post (and subsequent paper) was based a brilliant insight from Faisal Vali that reflection offers an interesting solution to solving the serialization problem: `std::meta::info` can represent anything.
 
-In the Sofia meeting, all of the reflection-related papers were adopted in the working draft for C++26, and it is very excited to me to be able to now see all of the wording show up on in the draft itself (e.g. [\[meta.reflection\]](http://eel.is/c++draft/meta.reflection)). However, my solution for extending support for constant template parameters will not be C++26. Nor is any solution to the [non-transient constexpr allocation problem]({% post_url 2024-07-24-constexpr-alloc %}). So we're still stuck with the same strict limits on what types we can use as constant template parameters for another cycle.
+In the Sofia meeting, all of the reflection-related papers were adopted in the working draft for C++26, and it is very exciting to me to be able to now see all of the wording show up on in the draft itself (e.g. [\[meta.reflection\]](http://eel.is/c++draft/meta.reflection)). However, my solution for extending support for constant template parameters will not be C++26. Nor is any solution to the [non-transient constexpr allocation problem]({% post_url 2024-07-24-constexpr-alloc %}). So we're still stuck with the same strict limits on what types we can use as constant template parameters for another cycle.
 
 Or... are we?
 
 ## Towards a Library Solution
 
-The fundamental idea of the paper is that we take some value `V`, break it down into its constituent parts, define template-argument-equivalence in terms of those parts, and then reconstitute some new value `V'` out of those parts to ensure consistency and avoid any ODR issues. That serialization and deserialization can be arbitrary complicated, but that's what it boils down too:
+The fundamental idea of the paper is that we take some value `V`, break it down into its constituent parts, define template-argument-equivalence in terms of those parts, and then reconstitute some new value `V'` out of those parts to ensure consistency and avoid any ODR issues. That serialization and deserialization can be arbitrary complicated, but that's what it boils down to:
 
 ```mermaid
 graph LR
@@ -114,7 +114,7 @@ Similarly, `std::span<std::meta::info const>` helps the second problem but not t
 
 What else can we try?
 
-Well, it turns out that while we cannot use `vector` or `span` here. Nor can we use something like a `std::array<std::meta::info, N>` or `std::meta::info[N]` because we don't have a way of knowing what `N` is. But we can have a _single_ `std::meta::info` that itself represents an object whose type is `std::meta::info`. And two objects of type `std::meta::info` are template-argument-equivalent if they're equal, and one of the ways in which they can be equal is if both represent the same object.
+Well, it turns out that we cannot use `vector` or `span` here. Nor can we use something like a `std::array<std::meta::info, N>` or `std::meta::info[N]` because we don't have a way of knowing what `N` is. But we can have a _single_ `std::meta::info` that itself represents an object whose type is `std::meta::info[N]`. And two objects of type `std::meta::info` are template-argument-equivalent if they're equal, and one of the ways in which they can be equal is if both represent the same object.
 
 We can achieve that with `std::meta::reflect_constant_array`. If we have some customization point `ctp::serialize()` that takes an arbitrary `T` and returns a `std::vector<std::meta::info>`, then our representation can be:
 
@@ -230,12 +230,17 @@ namespace ctp {
         static consteval auto deserialize(std::meta::info r)
             -> std::string_view
         {
-            return std::string_view(extract<char const*>(r));
+            return std::string_view(
+                extract<char const*>(r),
+                extent(type_of(r)) - 1
+                );
         }
     };
 }
 ```
-{: data-line="4,13,15" .line-numbers }
+{: data-line="4,13,15-18" .line-numbers }
+
+The `- 1` there is because the array that `r` represents is null-terminated, e.g. `{'h', 'e', 'l', 'l', 'o', '\0'}` for `"hello"s`. We want a `string_view` that doesn't include the null-terminator.
 
 And change what `Param` looks like to account for this:
 
@@ -293,7 +298,7 @@ namespace ctp {
 ```
 {: data-line="10,14" .line-numbers }
 
-This is, I think, an improvement because we now just uniformly return a `underling<T> const&`, and moreover our `get()` basically doesn't do anything except a simple access.
+This is, I think, an improvement because we now just uniformly return a `target<T> const&`, and moreover our `get()` basically doesn't do anything except a simple access.
 
 Of course, we have a name for this sort of thing already — take a value and produce a reflection representing it? That's `std::meta::reflect_constant`. And, if you think about, that is precisely the operation that we're seeking to generalize. Today, `std::meta::reflect_constant()` only supports values of C++20 structural type. But here I'm trying to support more types. So we'll call this customization point `ctp::reflect_constant`:
 
@@ -519,8 +524,6 @@ namespace ctp {
     };
 }
 ```
-
-The `- 1` there is because the array that `r` represents is null-terminated, e.g. `{'h', 'e', 'l', 'l', 'o', '\0'}` for `"hello"s`. We want a `string_view` that doesn't include the null-terminator.
 
 ### Summarizing the Design
 
