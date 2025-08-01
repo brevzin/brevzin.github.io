@@ -1205,20 +1205,22 @@ One way to think about the library is that it is a generalization of existing la
 It's really as simple as that. If you wanted a `std::string` template parameter, you cannot write this:
 
 ```cpp
-template <std::string S> // ill-formed
-struct C {
-    // would use S here
+template <std::string S1> // ill-formed
+struct C1 {
+    // would use S1 here
 };
 ```
 
 But you can now write this:
 
 ```cpp
-template <ctp::Param<std::string> S>
-struct C {
-    // use S.value or S.get() here
+template <ctp::Param<std::string> S2>
+struct C2 {
+    // use S1.value or S1.get() here
 };
 ```
+
+Yes, `C1` would be better for a number of reasons, including the fact that `S1` is actually a `std::string` while `S2.value` is a `std::string_view`. But I think this is a pretty small cost for the functionality, compared to the workarounds for this problem that exist today.
 
 The library (as of this writing) supports: `std::string_view` and `std::string`, `std::optional<T>` and `std::variant<Ts...>`, `std::tuple<Ts...>`, `std::reference_wrapper<T>`, `std::span<T, N>`, and `std::vector<T>`.
 
