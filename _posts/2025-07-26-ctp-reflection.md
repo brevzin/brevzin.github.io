@@ -25,7 +25,7 @@ Or... are we?
 
 ## Towards a Library Solution
 
-The fundamental idea of the paper is that we take some value `V`, break it down into its constituent parts, define template-argument-equivalence in terms of those parts, and then reconstitute some new value `V'` out of those parts to ensure consistency and avoid any ODR issues. That serialization and deserialization can be arbitrary complicated, but that's what it boils down to:
+The fundamental idea of [P3380](https://wg21.link/p3380) is that we take some value `V`, break it down into its constituent parts, define template-argument-equivalence in terms of those parts, and then reconstitute some new value `V'` out of those parts to ensure consistency and avoid any ODR issues. That serialization and deserialization can be arbitrary complicated, but that's what it boils down to:
 
 ```mermaid
 graph LR
@@ -206,7 +206,7 @@ namespace ctp {
     };
 }
 ```
-{: data-line="8,11-12" .line-numbers }
+{: data-line="4,8,11-12" .line-numbers }
 
 This is, I think, an improvement. We're getting an lvalue and now our `get()` basically doesn't do anything except for a simple access.
 
@@ -1190,7 +1190,7 @@ And I think that's a pretty good stopping point for description. So far we've wa
 
 ## Introducing `ctp`
 
-Now that we've gotten this far, it's time to formally introduce the library. I implemented the above in a library I'm uncreatively calling `ctp`, for `c`onstant `t`emplate `p`arameters. You can find it [here](https://github.com/brevzin/ctp).
+Now that we've gotten this far, it's time to formally introduce the library. I implemented the above in a library I'm uncreatively calling `ctp`, for `c`onstant `t`emplate `p`arameters. You can find it [here](https://github.com/brevzin/ctp) and see an example on [compiler explorer](https://compiler-explorer.com/z/7MT5Ksrx7).
 
 One way to think about the library is that it is a generalization of existing language and library features by way of extension:
 
