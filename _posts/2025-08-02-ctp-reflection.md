@@ -7,7 +7,6 @@ tags:
  - c++26
  - reflection
 mermaid: true
-pubdraft: true
 ---
 
 ## C++26 Status Quo
