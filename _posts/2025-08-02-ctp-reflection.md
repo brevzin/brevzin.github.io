@@ -285,8 +285,8 @@ We need to customize what `ctp::reflect_constant(v)` does for a value of type `T
 ```cpp
 template <class T>
 struct Reflect {
-    consteval auto serialize(T const&) -> /* ??? */;
-    consteval auto deserialize(/* ??? */) -> T;
+    static consteval auto serialize(T const&) -> /* ??? */;
+    static consteval auto deserialize(/* ??? */) -> T;
 };
 ```
 
@@ -495,7 +495,7 @@ namespace ctp {
         consteval Param(T const& v)
             : value(std::meta::reflect_constant(v))
         { }
-        consteval auto get() -> T const& { return value; }
+        consteval auto get() const -> T const& { return value; }
     };
 
     inline constexpr auto reflect_constant =
@@ -516,7 +516,7 @@ namespace ctp {
             if constexpr (is_structural_type(^^T)) {
                 return *std::define_static_object(v);
             } else {
-                auto r = reflect_constant(v);
+                auto r = ctp::reflect_constant(v);
                 return extract<target<T> const&>(r);
             }
         };
@@ -639,18 +639,17 @@ inline constexpr target<T> the_array[] = {[:Is:]...};
 and then
 
 ```cpp
-inline constexpr auto reflect_constant_array =
+inline constexpr auto (reflect_constant)_array =
     []<std::ranges::input_range R>(R&& r){
         std::vector<std::meta::info> elems;
         elems.push_back(^^std::ranges::range_value_t<R>);
         for (auto&& e : r) {
-            elems.push_back(reflect_constant(reflect_constant(e)));
+            elems.push_back(
+                ctp::reflect_constant(ctp::reflect_constant(e)));
         }
         return substitute(^^impl::the_array, elems);
     };
 ```
-
-Here `reflect_constant` is `ctp::reflect_constant` (both times), not `std::meta::reflect_constant`.
 
 Once we have this, then the actual customization for `std::vector<T>` looks nearly the same as for `std::string`:
 
@@ -693,7 +692,7 @@ struct Reflect<std::optional<T>> {
         -> void
     {
         if (o) {
-            s.push(reflect_constant(*o));
+            s.push(ctp::reflect_constant(*o));
         }
     }
 
