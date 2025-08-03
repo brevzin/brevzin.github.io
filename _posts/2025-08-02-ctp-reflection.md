@@ -735,7 +735,7 @@ static consteval auto serialize(Serializer& s,
 However, what if we actually _did_ want to support `std::optional<T&>`? Here, the rules are different:
 
 * If we have `optional<T>`, we want to serialize the constant `T` because we may need to round-trip. We end up with an `std::optional<target<T>>`.
-* If we have `optional<T&>`, then we want to serialize the _object_ `T&`, and we _do not_ change type — we stick with `std::optional<T&>`.
+* If we have `optional<T&>`, then we want to serialize the the _reference_ to the object, not the object itself, and we _do not_ change type — we stick with `std::optional<T&>`.
 
 That is:
 
@@ -828,7 +828,7 @@ struct Reflect<std::tuple<Ts...>> {
         -> void
     {
         auto& [...elems] = t;
-        (s.push_constant_or_object(^^decltype(elems), elems), ...);
+        (s.push_constant_or_object(^^Ts, elems), ...);
     }
 
     static consteval auto deserialize(auto... rs) -> target_type {
@@ -836,7 +836,7 @@ struct Reflect<std::tuple<Ts...>> {
     }
 };
 ```
-Here, I'm also using the new C++26 feature that allows introducing a pack in structured bindings, and relying on a quirk of what `decltype` actually means on a structured binding to differentiate reference types from non-reference types. This does the right thing.
+Here, I'm also using the new C++26 feature that allows introducing a pack in structured bindings.
 
 ### Supporting `std::variant`
 
