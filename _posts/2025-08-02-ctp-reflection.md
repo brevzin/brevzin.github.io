@@ -735,7 +735,7 @@ static consteval auto serialize(Serializer& s,
 However, what if we actually _did_ want to support `std::optional<T&>`? Here, the rules are different:
 
 * If we have `optional<T>`, we want to serialize the constant `T` because we may need to round-trip. We end up with an `std::optional<target<T>>`.
-* If we have `optional<T&>`, then we want to serialize the the _reference_ to the object, not the object itself, and we _do not_ change type — we stick with `std::optional<T&>`.
+* If we have `optional<T&>`, then we want to serialize the _reference_ to the object, not the object itself, and we _do not_ change type — we stick with `std::optional<T&>`.
 
 That is:
 
