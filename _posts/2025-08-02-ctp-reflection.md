@@ -329,7 +329,7 @@ struct Reflect<std::string> {
     {
         std::vector<std::meta:::info> v;
         for (char c : s) {
-            s.push_back(std::meta::reflect_constant(c));
+            v.push_back(std::meta::reflect_constant(c));
         }
         return v;
     }
@@ -1224,7 +1224,7 @@ The library (as of this writing) supports: `std::string_view` and `std::string`,
 
 If you want to add support for your own (non-C++20 structural) type, you can do so by specializing `ctp::Reflect<T>`, which has to have three public members:
 
-1. A type named `target_type`. This is you are going to deserialize as, which can be just the very same `T`. But if `T` requires allocation, then it cannot be, and you'll have to come up with an approximation (e.g. for `std::string`, the `target_type` is `std::string_view`).
+1. A type named `target_type`. This is you what are going to deserialize as, which can be just the very same `T`. But if `T` requires allocation, then it cannot be, and you'll have to come up with an approximation (e.g. for `std::string`, the `target_type` is `std::string_view`).
 2. The function
 
    ```cpp
