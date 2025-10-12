@@ -67,6 +67,31 @@ The remainder of this post will be walking through how to make this happen.
 > I attempted to rewrite Dan's example using Boost.JSON, since the actual JSON parsing part of this example isn't the interesting part at all. But Boost.JSON doesn't have `constexpr` support. And neither does `nlohmann::json`. So instead, for the purposes of exposition, I'm going to pretend Boost.JSON works — but you can see the real code in the compiler explorer link.
 {:.prompt-info}
 
+> Update in Oct 2025: the [DAW json library](https://github.com/beached/daw_json_link) now supports [this too](https://godbolt.org/z/1MPf7WxMd):
+> ```cpp
+> struct JSONString {
+>     std::meta::info Rep;
+>     consteval JSONString(const char *Json)
+>       : Rep{parse(daw::json::json_value>(Json))}
+>     {}
+> };
+>
+> template <JSONString json>
+> consteval auto operator""_json() {
+>     return [:json.Rep:];
+> }
+>
+> template <JSONString json>
+> inline constexpr auto json_to_object = [: json.Rep :];
+>
+> using namespace std::literals;
+>
+> constexpr auto x = R"({"A": 1, "B" : { "C" : "h" }})"_json;
+> static_assert(x.A == 1);
+> static_assert(x.B.C == "h"sv);
+> ```
+{:.prompt-info}
+
 ## Let's Start Simple
 
 Rather than starting from the full example, let's instead start with a very abbreviated form — that will be good enough to demonstrate everything interesting. We're going to parse a version of JSON object in which we just have one key and one value and that one value is an `int`:
@@ -273,7 +298,7 @@ consteval auto parse(boost::json::object object)
             members.push_back(reflect_constant(
                 data_member_spec(^^int, {.name=key})));
             inits.push_back(reflect_constant(
-                value.to_number<int>()))
+                value.to_number<int>()));
         } else {
             // ...
         }
@@ -305,7 +330,7 @@ consteval auto parse(boost::json::object object)
         if (value.is_number()) {
             add_member(^^int);
             inits.push_back(reflect_constant(
-                value.to_number<int>()))
+                value.to_number<int>()));
         } else {
             // ...
         }
@@ -342,7 +367,7 @@ consteval auto parse(boost::json::object object)
         if (value.is_number()) {
             add_member(^^int);
             inits.push_back(reflect_constant(
-                value.to_number<int>()))
+                value.to_number<int>()));
         } else if (auto s = value.if_string()) {
             add_member(^^char const*);
             inits.push_back(std::meta::reflect_constant_string(*s));
@@ -377,7 +402,7 @@ consteval auto parse(boost::json::object object)
         if (value.is_number()) {
             add_member(^^int);
             inits.push_back(reflect_constant(
-                value.to_number<int>()))
+                value.to_number<int>()));
         } else if (auto s = value.if_string()) {
             add_member(^^char const*);
             inits.push_back(std::meta::reflect_constant_string(*s));
