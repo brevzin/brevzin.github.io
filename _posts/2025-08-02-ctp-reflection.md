@@ -1188,7 +1188,7 @@ And I think that's a pretty good stopping point for description. So far we've wa
 
 ## Introducing `ctp`
 
-Now that we've gotten this far, it's time to formally introduce the library. I implemented the above in a library I'm uncreatively calling `ctp`, for `c`onstant `t`emplate `p`arameters. You can find it [here](https://github.com/brevzin/ctp) and see an example on [compiler explorer](https://compiler-explorer.com/z/7MT5Ksrx7).
+Now that we've gotten this far, it's time to formally introduce the library. I implemented the above in a library I'm uncreatively calling `ctp`, for `c`onstant `t`emplate `p`arameters. You can find it [here](https://github.com/brevzin/ctp) and see an example on [compiler explorer](https://compiler-explorer.com/z/51nj5q4G1).
 
 One way to think about the library is that it is a generalization of existing language and library features by way of extension:
 
