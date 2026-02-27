@@ -10,6 +10,7 @@ Sampling of accepted standards proposals:
 
 * Prominent features:
   * [Deducing `this`](https://wg21.link/p0847)
+  * [Packs in structured bindings](https://wg21.link/p1061)
   * [Reflection](https://wg21.link/p2996)
 * Reflection related:
   * [Splicing a base class subobject](https://wg21.link/p3293)
