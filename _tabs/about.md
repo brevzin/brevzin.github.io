@@ -10,6 +10,13 @@ Sampling of accepted standards proposals:
 
 * Prominent features:
   * [Deducing `this`](https://wg21.link/p0847)
+  * [Reflection](https://wg21.link/p2996)
+* Reflection related:
+  * [Splicing a base class subobject](https://wg21.link/p3293)
+  * [Annotations for Reflection](https://wg21.link/p3394)
+  * [`define_static_{string,object,array}`](https://wg21.link/p3491)
+  * [`std::meta::reflect_constant_{string,object,array}`](https://wg21.link/p3617)
+  * [Error Handling in Reflection](https://wg21.link/p3560)
 * `constexpr`-related
   * [constexpr *INVOKE*](https://wg21.link/p1065)
   * [if consteval](https://wg21.link/p1938)
@@ -41,5 +48,7 @@ I've given a few conference talks:
 * CppNow 2021: [Iterators and Ranges: Comparing C++ to D to Rust](https://www.youtube.com/watch?v=d3qY4dZ2r4w)
 * CPPP 2021: [Iterators and Ranges: Comparing C++ D, Rust, and Others](https://www.youtube.com/watch?v=95uT0RhMGwA) (an extended version)
 * CppCon 2022: [The Surprising Complexity of Formatting Ranges](https://www.youtube.com/watch?v=EQELdyecZlU)
+* CppNow 2023: [`take(5)`: Using the C++ Iterator Model to Take Elements from an Input Stream](https://youtu.be/dvi0cl8ccNQ).
+* CppCon 2025: [Practical Reflection](https://youtu.be/ZX_z6wzEOG0)
 
-I'm also a swimming enthusiast and data junkie, writing the occasional post for [SwimSwam](https://www.swimswam.com) and doing some work for the [DC Trident](https://www.instagram.com/dctridentisl/?hl=en) professional swim team.
+I'm also a swimming enthusiast and data junkie, writing the occasional post for [SwimSwam](https://www.swimswam.com) and used to do some work for the [DC Trident](https://www.instagram.com/dctridentisl/?hl=en) professional swim team.
