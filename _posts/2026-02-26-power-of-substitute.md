@@ -9,7 +9,8 @@ tags:
 pubdraft: yes
 ---
 
-My CppCon 2025 talk, [Practical Reflection](https://youtu.be/ZX_z6wzEOG0), is now online. Check it out!
+> My CppCon 2025 talk, [Practical Reflection](https://youtu.be/ZX_z6wzEOG0), is now online. Check it out!
+{:.prompt-info}
 
 Over winter break, I started working on proposal for [string interpolation](https://wg21.link/p3951). It was a lot of fun to work through implementing, basically an hour a day during my daughter's nap time. The design itself is motivated by wanting to have a lot more functionality other than just formatting — and one of the examples in the paper was implementing an algorithm that does highlighting of the interpolations, such that:
 
@@ -485,8 +486,10 @@ auto highlight_print(fmt::text_style style,
     fmt.impl(style, (Ts&&)args...);
 }
 ```
+{: data-line="5" .line-numbers }
 
-And [we're done](https://compiler-explorer.com/z/6TacheKsv). It actually works.
+
+And [we're done](https://compiler-explorer.com/z/zMPnsaqfa). It actually works.
 
 ## Conclusion
 
