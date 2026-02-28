@@ -188,7 +188,7 @@ consteval auto parse_information(std::string_view sv)
 
 How do we produce the `fmt::detail::type[]` array that we need for the `fmt::detail::compile_parse_context` constructor if we don't have a parameter pack of types? We just have a `span<meta::info const>`?
 
-That's that `std::meta::substitute` is for.
+That's what `std::meta::substitute` is for.
 
 We cannot splice `types[0]` to get the type that it represents — because in order to splice, you need a constant expression, and function parameters are not constant. However, let's say we had a suitably-shaped template lying around. In this case, we want a variable template:
 
@@ -469,10 +469,15 @@ struct highlight_format_string {
             >(func_refl);
     }
 
+    // I usually put my data members at the top of the class
+    // but that would ruin the dramatic reveal in this case
     auto (*impl)(fmt::text_style, Ts&&...) -> void;
 }
 ```
 {: .line-numbers }
+
+> This has to be a template because it is our only entry point into getting the types (`Ts...`). Otherwise, we'd just get the format string, but wouldn't know how to parse it.
+{:.prompt-info}
 
 For `std::format_string`/`fmt::format_string` — the `consteval` constructor simply type checks, and otherwise it stores as a member the argument that it got passed in.
 
@@ -499,3 +504,104 @@ And the main engine of this entire implementation is a function. Not a function 
 
 It is remarkable to me that this is possible. I didn't think it was as little as a couple months ago.
 
+Now, it would be tempting to call this implementation insane — probably because it is. So let's instead talk about if there's anything we could improve in the language to make this a little more direct. For instance, what would Zig do here? It turns out, that Zig has two language features that turn out to have significant benefit — and the more beneficial one probably isn't the one you're thinking.
+
+> At least, I think of these as two distinct features. It's possible Zig programmers think of it as one.
+{:.prompt-info}
+
+### 1. `constexpr` function params
+
+We have to do this dance with a non-deduced `highlight_format_string<Ts...>` type that has a `consteval` constructor so that we can use the format string in a constant-evaluated context.
+
+A more direct way to do so would be to simply declare that parameter `constexpr` (Zig calls these `comptime`{:.language-zig} parameters), as in:
+
+```cpp
+template <class... Ts>
+auto highlight_print(fmt::text_style style,
+                     constexpr std::string_view fmt,
+                     Ts&&... args) -> void {
+    // ...
+}
+```
+{: data-line="3" .line-numbers }
+
+This removes a whole layer of indirection from the solution — not just `highlight_format_string<Ts...>` but also the fact that we have to build up that reflection of a function to begin with. We could have `parse_information` simply return us an `Information` and then inline the implementation:
+
+```cpp
+template <class... Ts>
+auto highlight_print(fmt::text_style style,
+                     constexpr std::string_view fmt,
+                     Ts&&... args) -> void {
+    constexpr Information Info =
+        parse_information({remove_cvref(^^Ts)...}, fmt);
+
+    constexpr size_t N = Info.num_interpolations;
+    // ... rest of highlight_print_impl ...
+}
+```
+{: data-line="5-6" .line-numbers }
+
+Quite a bit simpler. But wait, there's more.
+
+### 2. `consteval mutable` variables
+
+Even in the above implementation, we still have one source of indirection: we have a function, `parse_information()`, which gave us an `Information` with all the relevant pieces of the format string.
+
+That's something we cannot inline into `highlight_print`, even with a `constexpr` function parameter, because we want to be printing (a fundamentally runtime operation) while we're parsing (something we want to be doing at compile-time). Zig lets us do both at the same time with `comptime var`{:.language-zig}.
+
+A hypothetical approach to C++ syntax might look something like this:
+
+```cpp
+template <class... Ts>
+auto highlight_print(fmt::text_style style,
+                     constexpr std::string_view fmt,
+                     Ts&&... args) -> void {
+    constexpr fmt::detail::type fmt_types[] = {
+        fmt::detail::mapped_type_constant<Ts, char>::value...
+    };
+    consteval mutable auto ctx =
+        fmt::detail::compile_parse_context<char>(
+            fmt,
+            sizeof...(Ts),
+            fmt_types
+        );
+    consteval mutable int start = 0;
+
+    template for (consteval mutable int i = 0; i != fmt.size(); ++i) {
+        if constexpr (fmt[i] == '{') {
+            // write the string we have
+            fmt::print("{}", std::string_view(&fmt[start], i - start));
+
+            // parse the next interpolation
+            ctx.advance_to(fmt.begin() + i + 1);
+            constexpr int index = peek_arg_id(ctx);
+            constexpr int end =
+                fmt::formatter<Ts...[index]>().parse(ctx)
+                - fmt.begin();
+            constexpr int count = peek_arg_id(ctx);
+
+            // write the next interpolation
+            constexpr auto [...J] = std::make_index_sequence<count>();
+            fmt::print(style,
+                       fmt.sub(i, end - i),
+                       args...[index + J]...);
+
+            // update state
+            start = i = end;
+        }
+    }
+
+    // write the last string
+    fmt::print("{}", std::string_view(&fmt[start], fmt.size() - start);
+}
+```
+{: data-line="16,22,25,36" .line-numbers }
+
+The more interesting things are the highlight lines: compile-time mutations. These are variables that exist entirely during constant evaluation time, that I can mutate, yet whose values I can use as constants (as in lines 23 and 27). And this capability allows me to implement this entire algorithm in one go without any indirection.
+
+> Well, assuming I wrote it correctly. I'm assuming there are multiple off-by-one errors here and there in the above implementation. But let's try to ignore those — I can't exactly check this.
+{:.prompt-info}
+
+In Zig, this just works. In fact, there's a quite similar example [in its documentation](https://ziglang.org/documentation/master/#Case-Study-print-in-Zig).
+
+Is this something we could eventually do in C++? It's certainly a good question.
