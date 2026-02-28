@@ -592,7 +592,7 @@ auto highlight_print(fmt::text_style style,
     }
 
     // write the last string
-    fmt::print("{}", std::string_view(&fmt[start], fmt.size() - start);
+    fmt::print("{}", std::string_view(&fmt[start], fmt.size() - start));
 }
 ```
 {: data-line="16,22,25,36" .line-numbers }
