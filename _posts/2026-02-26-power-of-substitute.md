@@ -576,18 +576,19 @@ auto highlight_print(fmt::text_style style,
             ctx.advance_to(fmt.begin() + i + 1);
             constexpr int index = peek_arg_id(ctx);
             constexpr int end =
-                fmt::formatter<Ts...[index]>().parse(ctx)
+                parse_replacement_field<Ts...[index]>(ctx)
                 - fmt.begin();
             constexpr int count = peek_arg_id(ctx);
 
             // write the next interpolation
             constexpr auto [...J] = std::make_index_sequence<count>();
             fmt::print(style,
-                       fmt.sub(i, end - i),
+                       fmt.substr(i, end - i),
                        args...[index + J]...);
 
             // update state
-            start = i = end;
+            start = end;
+            i = end + 1;
         }
     }
 
@@ -595,13 +596,10 @@ auto highlight_print(fmt::text_style style,
     fmt::print("{}", std::string_view(&fmt[start], fmt.size() - start));
 }
 ```
-{: data-line="16,22,25,36" .line-numbers }
+{: data-line="16,22,25,36,37" .line-numbers }
 
-The more interesting things are the highlight lines: compile-time mutations. These are variables that exist entirely during constant evaluation time, that I can mutate, yet whose values I can use as constants (as in lines 23 and 27). And this capability allows me to implement this entire algorithm in one go without any indirection.
-
-> Well, assuming I wrote it correctly. I'm assuming there are multiple off-by-one errors here and there in the above implementation. But let's try to ignore those — I can't exactly check this.
-{:.prompt-info}
+The most interesting things are the highlighted lines: compile-time mutations (`parse_replacement_field<T>` is what I'd previously called `parse_next_impl<T>`). These are variables that exist entirely during constant evaluation time, that I can mutate, yet whose values I can use as constants (as in lines 23, 25, and 27). And this capability allows me to implement this entire algorithm in one go without any indirection.
 
 In Zig, this just works. In fact, there's a quite similar example [in its documentation](https://ziglang.org/documentation/master/#Case-Study-print-in-Zig).
 
-Is this something we could eventually do in C++? It's certainly a good question.
+Is this something we could eventually do in C++? It's certainly a good question. Maybe this works. Maybe this needs some `consteval` blocks, either for the compiler to be able to properly handle the constant-time mutations, or for the user to be able to differentiate. Maybe there's some good reason this can't work. But it's certainly worth thinking about.
