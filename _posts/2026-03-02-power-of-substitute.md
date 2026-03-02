@@ -6,7 +6,6 @@ tags:
  - c++
  - c++26
  - reflection
-pubdraft: yes
 ---
 
 > My CppCon 2025 talk, [Practical Reflection](https://youtu.be/ZX_z6wzEOG0), is now online. Check it out!
