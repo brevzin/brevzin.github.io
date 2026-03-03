@@ -512,7 +512,7 @@ Now, it would be tempting to call this implementation insane — probably becaus
 
 We have to do this dance with a non-deduced `highlight_format_string<Ts...>` type that has a `consteval` constructor so that we can use the format string in a constant-evaluated context.
 
-A more direct way to do so would be to simply declare that parameter `constexpr` (Zig calls these `comptime`{:.language-zig} parameters), as in:
+A more direct way to do so would be to simply declare that parameter `constexpr` (Zig calls these `comptime`{:.language-zig} parameters, which was proposed for C++ by [P1045](https://wg21.link/p1045)), as in:
 
 ```cpp
 template <class... Ts>
