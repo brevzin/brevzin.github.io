@@ -88,7 +88,7 @@ It's not especially complicated code, but the point is that Rust programmers don
 Nevertheless, even here the result is quite informative. Why is it `&self.x` but `&&self.y`, with the extra reference? Here, Rust's inability to do introspection comes into place. In Rust, your last field can be an unsized type. An unsized type can be printed, [but needs an extra indirection](https://github.com/rust-lang/rust/blob/74fd001cdae0321144a20133f2216ea8a97da476/compiler/rustc_builtin_macros/src/deriving/debug.rs#L101-L102). The derive macro has no way of knowing whether `y` is sized or not (in this case it's an `i32`, which is `Sized`), so in an effort to support both cases, it just preemptively adds the extra indirection.
 
 
-In C++, with what we're proposing, if I try to be as familiar to the Rust syntax as possible, I can make it work [like this](https://godbolt.org/z/bcYE7nY4s):
+In C++, with what we're proposing, if I try to be as familiar to the Rust syntax as possible, I can make it work [like this](https://godbolt.org/z/Ej5czeKvs):
 
 ```cpp
 struct [[=derive<Debug>]] Point {
@@ -124,6 +124,12 @@ struct std::formatter<T> {
 And once we have that, the body of the specialization can introspect on `T` to get all the information that we need to display: we can iterate over all the non-static data members, formatting their name and value. A simplified implementation would be (the link above has a more complicated implementation):
 
 ```cpp
+consteval auto nsdms_of(std::meta::info ty) -> std::vector<std::meta::info> {
+    return nonstatic_data_members_of(
+        ty,
+        std::meta::access_context::unchecked());
+}
+
 template <class T> requires (has_annotation(^^T, derive<Debug>))
 struct std::formatter<T> {
     constexpr auto parse(auto& ctx) { return ctx.begin(); }
@@ -134,7 +140,7 @@ struct std::formatter<T> {
         *out++ = '{';
 
         bool first = true;
-        [:expand(nonstatic_data_members_of(^^T)):] >> [&]<auto nsdm>{
+        [:expand(nsdms_of(^^T)):] >> [&]<auto nsdm>{
             if (not first) {
                 *out++ = ',';
                 *out++ = ' ';
@@ -300,7 +306,7 @@ What would this look like in our annotations model? In C++, we don't really have
 
 In any event, while Rust's and C++'s formatting approaches are similar, so the resulting implementations look similar — this isn't true here. So instead of crafting a serde-like library in C++, I'm simply going to show what this might look like for serializing into Boost.JSON.
 
-We'll start with just support for `derive<Serialize>` and `rename`. That's all we need to get [this code to work](https://godbolt.org/z/WYecTKPvY):
+We'll start with just support for `derive<Serialize>` and `rename`. That's all we need to get [this code to work](https://godbolt.org/z/4Pxh5T3hW):
 
 ```cpp
 struct [[=derive<serde::Serialize>]] Point {
@@ -325,7 +331,15 @@ And this whole thing is... 21 lines of code, if I keep the same `derive` variabl
 ```cpp
 namespace serde {
     inline constexpr struct{} Serialize{};
-    struct rename { char const* field; };
+    struct rename {
+        // we need this to be usable as a constant template argument
+        // which means we cannot allow string literals
+        consteval rename(std::string_view s)
+            : field(std::define_static_string(s))
+        { }
+
+        char const* field;
+    };
 }
 
 namespace boost::json {
@@ -333,7 +347,7 @@ namespace boost::json {
         requires (has_annotation(^^T, derive<serde::Serialize>))
     void tag_invoke(value_from_tag const&, value& v, T const& t) {
         auto& obj = v.emplace_object();
-        [:expand(nonstatic_data_members_of(^^T)):] >> [&]<auto M>{
+        [:expand(nsdms_of(^^T)):] >> [&]<auto M>{
             constexpr auto field = annotation_of<serde::rename>(M)
                 .transform([](serde::rename r){
                     return std::string_view(r.field);
@@ -358,10 +372,16 @@ That requires adding a new annotation type:
 
 ```cpp
 namespace serde {
-      inline constexpr struct{} Serialize{};
-      struct rename { char const* field; };
-      template <class F> struct skip_serializing_if { F pred; };
-  }
+    inline constexpr struct{} Serialize{};
+    struct rename {
+        consteval rename(std::string_view s)
+            : field(std::define_static_string(s))
+        { }
+
+        char const* field;
+    };
+    template <class F> struct skip_serializing_if { F pred; };
+}
 ```
 
 And then the mildly annoying part is parsing it. We need to pull out an annotation that is some specialization of `serde::skip_serializing_if`. If we find one, then we try to invoke its `pred` member — skipping serializing the value if it evaluates to `true`.
@@ -378,11 +398,11 @@ constexpr auto skip_if = []() -> std::meta::info {
             // found a specialization
             // but check to make sure we haven't found two
             // different ones.
-            if (res != std::meta::info() and res != value_of(A)) {
+            if (res != std::meta::info() and res != constant_of(A)) {
                 throw "unexpected duplicate";
             }
 
-            res = value_of(A);
+            res = constant_of(A);
         }
     }
 
@@ -400,7 +420,7 @@ if constexpr (skip_if != std::meta::info()) {
 }
 ```
 
-You can see the full solution in action [here](https://godbolt.org/z/hvqra8M7K). It has now ballooned to... all of 51 lines of code (with the new logic to support `skip_serializing_if` highlighted):
+You can see the full solution in action [here](https://godbolt.org/z/MdqjGbEaY). It has now ballooned to... all of 51 lines of code (with the new logic to support `skip_serializing_if` highlighted):
 
 ```cpp
 template <auto V> struct Derive { };
@@ -408,7 +428,7 @@ template <auto V> inline constexpr Derive<V> derive;
 
 namespace serde {
     inline constexpr struct{} Serialize{};
-    struct rename { char const* field; };
+    struct rename { /* ... */ char const* field; };
     template <class F> struct skip_serializing_if { F pred; };
 }
 
@@ -417,7 +437,7 @@ namespace boost::json {
         requires (has_annotation(^^T, derive<serde::Serialize>))
     void tag_invoke(value_from_tag const&, value& v, T const& t) {
         auto& obj = v.emplace_object();
-        [:expand(nonstatic_data_members_of(^^T)):] >> [&]<auto M>{
+        [:expand(nsdms_of(^^T)):] >> [&]<auto M>{
             constexpr auto field = annotation_of<serde::rename>(M)
                 .transform([](serde::rename r){
                     return std::string_view(r.field);
@@ -433,11 +453,11 @@ namespace boost::json {
                         // found a specialization
                         // but check to make sure we haven't found
                         // two different ones.
-                        if (res != std::meta::info() and res != value_of(A)) {
+                        if (res != std::meta::info() and res != constant_of(A)) {
                             throw "unexpected duplicate";
                         }
 
-                        res = value_of(A);
+                        res = constant_of(A);
                     }
                 }
 
@@ -470,13 +490,13 @@ struct attributes {
 };
 ```
 
-That code makes use of `std::meta::define_class()`, the single API in P2996 that does code generation. It doesn't do much, but it does enough for here. Note that since we're iterating over all the members of the namespace `serde`, we have to make sure that we exclude `attributes` — which is of course in that namespace:
+That code makes use of `std::meta::define_aggregate()`, the single API in P2996 that does code generation. It doesn't do much, but it does enough for here. Note that since we're iterating over all the members of the namespace `serde`, we have to make sure that we exclude `attributes` — which is of course in that namespace:
 
 ```cpp
 struct attributes;
 consteval {
     std::vector<std::meta::info> specs;
-    for (auto m : members_of(^^serde)) {
+    for (auto m : members_of(^^serde, unchecked)) {
         if (m == ^^attributes or not has_identifier(m)) {
             continue;
         }
@@ -487,7 +507,7 @@ consteval {
             {.name=identifier_of(m)}));
     }
 
-    define_class(^^attributes, specs);
+    define_aggregate(^^attributes, specs);
 };
 ```
 
@@ -499,7 +519,7 @@ namespace boost::json {
         requires (has_annotation(^^T, derive<serde::Serialize>))
     void tag_invoke(value_from_tag const&, value& v, T const& t) {
         auto& obj = v.emplace_object();
-        [:expand(nonstatic_data_members_of(^^T)):] >> [&]<auto M>{
+        [:expand(nsdms_of(^^T)):] >> [&]<auto M>{
             constexpr auto attrs = serde::parse_attrs_from<M>();
 
             constexpr auto field = attrs.rename
@@ -526,7 +546,7 @@ namespace boost::json {
 
 Sure, we moved the most complicated logic (parsing the annotations) into a function, which I'm not including in the above code block. But this is pretty nice right?
 
-You can see the full implementation using this approach [here](https://godbolt.org/z/jaKTe57Gf). As I said, this is a bit overkill when we only have two attributes. But this approach means that all it takes to add a new `serde` attribute is to declare a new class or class template in the namespace and then just use it in the implementation.
+You can see the full implementation using this approach [here](https://godbolt.org/z/6hzvqddMo). As I said, this is a bit overkill when we only have two attributes. But this approach means that all it takes to add a new `serde` attribute is to declare a new class or class template in the namespace and then just use it in the implementation.
 
 
 ## Rust Attributes vs C++ Annotations
