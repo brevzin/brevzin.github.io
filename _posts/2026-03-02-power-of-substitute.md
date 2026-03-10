@@ -371,6 +371,9 @@ interpolations.push_back({
 
 This `substitute`/`extract`/invoke dance is remarkably powerful.
 
+> When I published this blog, Ben Deane reached out to me saying "It made me think: is anybody thinking of reflection as a monad, or is it just me?" I told him that I was going to go out on a limb and suggest it might be just him. But he has since demonstrated that [it is, in fact, a monad.](https://www.elbeno.com/blog/?p=1813). Whether anybody else has thought about this has yet to be seen.
+{:.prompt-info}
+
 ## The Rest of the Owl
 
 When we're all done with the `strings` and `interpolations`, we need to actually put together the `Information` object to return, which is just a few `define_static_array` calls away:
