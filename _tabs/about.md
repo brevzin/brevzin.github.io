@@ -51,5 +51,6 @@ I've given a few conference talks:
 * CppCon 2022: [The Surprising Complexity of Formatting Ranges](https://www.youtube.com/watch?v=EQELdyecZlU)
 * CppNow 2023: [`take(5)`: Using the C++ Iterator Model to Take Elements from an Input Stream](https://youtu.be/dvi0cl8ccNQ).
 * CppCon 2025: [Practical Reflection](https://youtu.be/ZX_z6wzEOG0)
+* CppNow 2026: [Reflection is Only Half the Story](https://youtu.be/DZTkT1Cq_aY?si=CSbPSx6T4JQSwW_N)
 
 I'm also a swimming enthusiast and data junkie, writing the occasional post for [SwimSwam](https://www.swimswam.com) and used to do some work for the [DC Trident](https://www.instagram.com/dctridentisl/?hl=en) professional swim team.
