@@ -8,7 +8,7 @@ tags:
 pubdraft: yes
 ---
 
-C++26 is all wrapped up, so time to start thinking about C++29. Of course there are many things I'd like to do in the reflection space (and I got to deliver a [keynote](https://schedule.cppnow.org/session/2026/reflection-is-only-half-the-story/) at C++Now this year giving my thoughts on that problem), but this post isn't about reflection. Instead, it's about expressions.
+C++26 is all wrapped up, so time to start thinking about C++29. Of course there are many things I'd like to do in the reflection space (and I got to deliver a [keynote](https://youtu.be/DZTkT1Cq_aY?si=CSbPSx6T4JQSwW_N) at C++Now this year giving my thoughts on that problem), but this post isn't about reflection. Instead, it's about expressions.
 
 I'm hoping C++29 will give us more expression tools, led by [pattern matching](https://wg21.link/p2688). But less significant than pattern matching are two other expression kinds that I'm working on:
 
@@ -27,9 +27,14 @@ do -> ReturnType {
         // It turns out that in C++, figuring out the best
         // way to spell this return expression is its own
         // problem (see the paper), but this post isn't about
-        // that problem either, so I'll ignore it here.
+        // that problem either, so I'll mostly ignore it here.
         return /* ... */;
     }
+
+    // This is std::forward<decltype(__r)>(__r). But I don't
+    // like that both because it's very verbose and also because
+    // it forces you to write a unary operation (forwarding)
+    // as if it were a binary operation. So I use a macro.
     *FWD(__r)
 }
 ```
@@ -225,8 +230,8 @@ Anyway, however we name this thing, the macro could instead expand into somethin
 ```cpp
 auto do_something() -> std::expected<int, std::string> {
     int value = best_of(
-        do (auto&& __r = find_interesting(get_data());)
-        // ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        do [__r = find_interesting(get_data())]
+        // ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         //            init-hoist?
             -> std::span<int const>
         {
@@ -247,7 +252,7 @@ That is, our expression-macro formulation of `TRY` could be defined as:
 
 ```cpp
 #define TRY(expr)               \
-    do (auto&& __r = expr;) {   \
+    do [__r = expr] {           \
         if (not __r) {          \
             return something;   \
         }                       \
@@ -258,6 +263,25 @@ That is, our expression-macro formulation of `TRY` could be defined as:
 No more macro trap. No more dangling.
 
 Well, no more macro trap anyway.
+
+> Interestingly enough, pattern matching offers a different way to solve this issue in a way that avoids the need for an init-hoist facility on `do` expressions. Rather than desugaring `expr?` into:
+> ```cpp
+> do [__r = expr] -> R {
+>   if (not __r) { return something; }
+>   *FWD(__r)
+> }
+> ```
+> We could desugar it into:
+> ```cpp
+> expr match -> R {
+>     let __r => do -> R {
+>         if (not __r) { return something; }
+>         *FWD(__r)
+>     }
+> }
+> ```
+> With the `match` expression, `expr` is (obviously) evaluated in the outer expression, and so any temporaries naturally last until the end of the (outer) full-expression as desired. The interesting question is: do we need to add an init-hoist feature for `do` expressions (a feature in no small part motivated by pattern matching) if pattern matching could solve it for us?
+{:.prompt-info}
 
 ## Back to the first dangling problem
 
@@ -280,6 +304,9 @@ auto f() -> std::optional<int> {
 Regardless of whether `?` is a language feature or a macro, we have to ask the question of what this actually does.
 
 Firstly, we could say that `get()?` yields an `int&&` as expected and that this just dangles. Don't do that. That's a very C++ answer. And is a little unsatisfying to me because, as I showed earlier, `TRY(auto&& var, get());` does work and not dangle.
+
+> However, given an `id()` function template that just forwards its argument, a different formulation like `TRY(auto&& var, id(get()));` would no matter what.
+{:.prompt-info}
 
 Secondly, we can just require/ensure that `expr?` is never an rvalue reference — and force this case to return `int`. That's totally fine for many cases, but it would be nice to not have to incur a move — it's completely unnecessary overhead in a lot of cases and really is only beneficial in this specific use (albeit likely a common one).
 
@@ -316,13 +343,18 @@ auto   b = get()?;     // the optional is destroyed here, doesn't dangle
 auto&& c = TRY(get()); // no special treatment, dangles
 ```
 
-That's a little underwhelming from my perspective, but perhaps not the end of the world.
+That's a little underwhelming from my perspective, but perhaps not the end of the world. Although note that this doesn't save us a lot either since, again given `id`:
+
+```cpp
+auto&& d = id(get())?;  // dangles
+auto&& e = id(get()?);  // dangles
+```
 
 Fourthly, we could come up with... some mechanism to be able to annotate the variables declared in the `do`-expression's _init-hoist_ (I'm sticking with this) such that they would get lifetime-extended if the result of the expression is bound to a reference. Which is to say, some [attribute]({% post_url 2025-03-25-attributes %}):
 
 ```cpp
 #define TRY(expr)                                  \
-    do ([[keep_me_around]] auto&& __r = expr;) {   \
+    do [ [[keep_me_around]] __r = expr] {          \
         if (not __r) {                             \
             return something;                      \
         }                                          \
@@ -362,25 +394,98 @@ It's certainly a question.
 
 If we ship `do`-expressions and a version of the `?` operator at the same time, then we don't need to worry about people implementing their own `TRY` macro, since `?` directly wouldn't have any surprises with temporary lifetimes. But that's probably far from the only situation in which the [macro trap](#the-macro-trap) would arise, just the easiest one to think of, so it's likely something we should try to preemptively solve.
 
-Reliably detecting such dangling would also be great, but I don't think we can do that.
+Of the solutions I enumerated, the simplest by far (and probably the only viable options really) are the first two, which I might summarize as:
 
-The regular, direct dangling is also something to consider. We do this quite frequently:
+1. Yeah, it might dangle, so what?
+2. You can't get a dangling rvalue reference if you can never get an rvalue reference.
 
-```cpp
-TRY(auto&& var, get());
-```
-
-It's straightforward, it works, it's efficient. It's a good default syntax, for the same reason that `for (auto&& elem : range)` is good default syntax. So it would surely be nice if it were still good default syntax here:
+In other words, the latter is desugaring `expr?` as:
 
 ```cpp
-auto&& var = get()?;
+do [__r = expr] -> decltype(auto) {
+    if (not __r) { return /* ... */; }
+    DECAY_XVALUE(*FWD(__r))
+}
 ```
 
-One argument certainly is that this is just not good default syntax, so supporting it isn't important. But then we're left without a syntax approach that efficiently handles the case when `get()?` is an lvalue.
+where `DECAY_XVALUE` is defined as:
 
-> Not the first time I've wanted the ability to declare a variable such that it's an lvalue reference if the initializer is an lvalue and a non-reference otherwise. `decltype(auto)` and `auto&&` give you an rvalue reference if the initializer were an xvalue.
+```cpp
+#define DECAY_XVALUE(expr) \
+    static_cast<[: remove_rvalue_reference(^^decltype((expr))) :]>(expr)
+```
+
+> This is simpler than it probably looks. For prvalues, this is `static_cast<T>(expr)`, which is a no-op. For lvalues, this is `static_cast<T&>(expr)`, which is a no-op. For xvalues, this is `static_cast<T>(expr)`, which is a forced move.
 {:.prompt-info}
 
-So we're left with: what's the right way to get this to not dangle? Do we want to force a value here? How much do we care about having `expr?` be able to precisely desugar into `TRY(expr)`, or can it have special powers?
+Now, the claimed benefit of "it might dangle, so what?" over "never give an rvalue reference" is efficiency — don't need to incur additional moves. But we only occur additional moves if they're not optimized out. After all, the Rust desugaring of `?` a move (two even, I think).
 
-Non-trivial questions, these.
+I thought it might be worth examining that claim. It turns out that I actually have an implementation of `do` expressions up on compiler explorer, so we can just compare the assembly. Except when doing this comparison, we will actually implement the `TRY` macro to do what I propose in the control operator paper, complete with `try_traits`. That full implementation is:
+
+```cpp
+#define TRY(e) do (auto&& __r = e;) -> decltype(auto) {             \
+    using CT = try_traits<std::remove_cvref_t<decltype(__r)>>;      \
+    using RT = try_traits<typename                                  \
+        [: return_type_of(std::meta::current_function()) :]>;       \
+    if (not CT::should_continue(__r)) {                             \
+        return RT::from_break(CT::extract_break(FWD(__r)));         \
+    }                                                               \
+    DECAY_XVALUE(CT::extract_continue(FWD(__r)))                    \
+}
+```
+
+And similar for my comparison `TRY_STMT` macro:
+
+```cpp
+#define TRY_STMT(tgt, e)                                          \
+    auto&& __r = e;                                               \
+    using CT = try_traits<std::remove_cvref_t<decltype(__r)>>;    \
+    using RT = try_traits<typename                                \
+        [: return_type_of(std::meta::current_function()) :]>;     \
+    if (not CT::should_continue(__r)) {                           \
+        return RT::from_break(CT::extract_break(FWD(__r)));       \
+    }                                                             \
+    tgt = CT::extract_continue(FWD(__r))
+```
+
+In both cases a production implementation would want to guard against name clashes, but this is good enough for now.
+
+Let's start with the simplest comparison. We have some function that gives us data (or not):
+
+```cpp
+enum class E { };
+
+template <class T>
+auto get_data() -> std::expected<T, E>;
+```
+
+If we're getting _just_ getting an `int` and just returning it (via `TRY`), that leads to [identical code-gen](https://compiler-explorer.com/z/fjM6vxjMT):
+
+```cpp
+auto NAMED(consume_int)() -> std::expected<int, E> {
+    #ifdef USE_STMT
+    TRY_STMT(auto&& data, get_data<int>());
+    #else
+    auto&& data = TRY(get_data<int>());
+    #endif
+    return data;
+}
+```
+
+> The `NAMED` macro here is just something I like to use for comparisons on compiler explorer to make sure that if I'm comparing code-gen from different configurations that I actually configured it correctly and I can clearly see in the result which one is which. In this case, I see a `consume_int_do_expr` function vs a `consume_int_stmt_macro` function.
+{:.prompt-info}
+
+Okay, that's maybe not surprising. What if we pick a type whose move construction actually _does something_? For instance: `std::unique_ptr<int>`. And let's now return `*data` instead. [That is](https://compiler-explorer.com/z/oW8xePPhK):
+
+```cpp
+auto NAMED(consume_uniq_ptr)() -> std::expected<int, E> {
+    #ifdef USE_STMT
+    TRY_STMT(auto&& data, get_data<std::unique_ptr<int>>());
+    #else
+    auto&& data = TRY(get_data<std::unique_ptr<int>>());
+    #endif
+    return *data;
+}
+```
+
+This is interesting, because one of these approaches has an unnecessary store that wasn't optimized out — a `mov qword ptr [rsp], 0`{:.lang-nasm}. But it's actually the statement macro approach, not the do expression approach.
