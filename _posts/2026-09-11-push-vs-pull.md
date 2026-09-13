@@ -210,7 +210,7 @@ auto main() -> int {
     // ...
 }
 ```
-{: data-line="14" .line-numbers }
+{: data-line="14"  }
 
 You may be surprised to learn, especially after the previous program worked, that adding this assertion [breaks the program](https://compiler-explorer.com/z/n8rr8WTnK). The error message is:
 
@@ -260,7 +260,7 @@ auto main() -> int {
 
 static_assert(std::tuple_size_v<wide_result<uint64_t>> == 2); // ok
 ```
-{: data-line="19" .line-numbers }
+{: data-line="19"  }
 
 Needless to say, this is very fragile!
 
