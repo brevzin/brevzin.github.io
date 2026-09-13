@@ -5,6 +5,7 @@ category: c++
 tags:
  - c++
  - c++29
+ - reflection
 pubdraft: yes
 ---
 
@@ -27,7 +28,7 @@ struct Point {
 }
 ```
 
-> Note that the actual spelling of the attribute as `derive<Debug>` as oppose to `print` or something is not essential. I was just trying to be cute. There is no significance to the template there.
+> Note that the actual spelling of the attribute as `derive<Debug>` as opposed to `print` or something is not essential. I was just trying to be cute. There is no significance to the template there.
 {:.prompt-info}
 
 This blog post will walk through different approaches to living up to that goal and how they... don't quite.
@@ -43,7 +44,10 @@ struct std::formatter<T> {
 };
 ```
 
-Importantly, just _similar_ behavior. Now, for the vast majority of types, that approach works great. The problem is, that's not guaranteed for _all_ types. As I pointed out in the original post, because we just added a partial specialization, if any other partial specialization matches (such as the range one), then we just have an ambiguous specialization. Even though it's arguably very clear from user-intent that adding the annotation means they want _this_ behavior, there's no way in the language to specify that.
+Now, for the vast majority of types, that approach works great. The problem is, that's not guaranteed for _all_ types. As I pointed out in the original post, because we just added a partial specialization, if any other partial specialization matches (such as the range one), then we just have an ambiguous specialization. Even though it's arguably very clear from user-intent that adding the annotation means they want _this_ behavior, there's no way in the language to specify that today.
+
+> Nor would I really know how to come up with a way to specify it tomorrow.
+{:.prompt-info}
 
 That's pretty disappointing. Works most of the time is pretty good, but I'd really want a solution that works all of the time.
 
@@ -62,7 +66,20 @@ struct derive {
 };
 
 inline constexpr auto Debug = [](std::meta::info ty){
-    // inject a specialization of formatter<\(ty)>
+    // do a bunch of work building up fmt_body that isn't
+    // strictly relevant here, and then eventually ...
+    queue_injection(^^std, ^^{
+        template <>
+        struct formatter<\(ty)> {
+            constexpr auto parse(auto& ctx) {
+                return ctx.begin();
+            }
+
+            auto format(\(ty) const& object, auto& ctx) const {
+                \(fmt_body);
+            }
+        };
+    });
 };
 
 struct [[=derive(Debug)]] Point {
@@ -142,7 +159,8 @@ consteval auto inject_structured_bindings(std::vector<std::meta::info> elems)
     queue_injection(^^{
         template <size_t I, class Self>
         constexpr auto get(this Self&& self) -> decltype(auto) {
-            return ((Self&&)self).[: \(persisted.data())[I] :];
+            // the outer parens here are actually load-bearing
+            return (((Self&&)self).[: \(persisted.data())[I] :]);
         }
     });
 }
@@ -187,6 +205,10 @@ public:
 };
 
 static_assert(std::tuple_size_v<wide_result<uint64_t>> == 2);
+
+auto main() -> int {
+    // ...
+}
 ```
 {: data-line="14" .line-numbers }
 
@@ -210,7 +232,7 @@ What do you mean undefined template `tuple_size<wide_result<uint64_t>>`. Didn't 
 
 Dan Katz's favorite part of the standard is [temp.point]: "Point of instantiation." The part of the standard that almost, but not quite, doesn't really describe anything about how templates actually work.
 
-But in short, for every template, there is a point (or set of points) at which that template is instantiated. In my implementation of `wide_result<T>` above, instantiating a particular specialization would invoke `inject_structured_bindings`, which would then inject the necessary customization points for `tuple_size`, `tuple_element`, and `get`. But that only happens _when we instantiate_ `wide_result<T>`. The expression `tuple_size_v<X> == 2` doesn't actually require instantiating `X`, so it doesn't, so our `consteval` block doesn't get evaluated, so our customization points don't get injected, and the assertion fails.
+But in short, for every template, there is a point (or set of points) at which that template is allowed to be instantiated. In my implementation of `wide_result<T>` above, instantiating a particular specialization would invoke `inject_structured_bindings`, which would then inject the necessary customization points for `tuple_size`, `tuple_element`, and `get`. But that only happens _when we instantiate_ `wide_result<T>`. The expression `tuple_size_v<X> == 2` doesn't actually require instantiating `X`, so it doesn't, so our `consteval` block doesn't get evaluated, so our customization points don't get injected, and the assertion fails.
 
 > It's actually even worse than that, since if we had a `concept` that checked to see whether `wide_result<T>` had a `tuple_size`, and we checked that concept before we instantiated `wide_result<T>`, then that `concept`'s answer would change after we instantiated it. Which means our program is ill-formed, no diagnostic required.
 {:.prompt-info}
@@ -302,3 +324,254 @@ But this leads to two questions:
 
 * how, exactly, do we inject that specialization?
 * and what, exactly, is it's definition?
+
+## Push-Me, Pull-Me I
+
+In order to inject that partial specialization properly, we need to be able to do so _earlier_. We can't have a `consteval` block within our class template, since that's not going to be evaluated yet. It seems too complicated to try to come up with rules for when a `consteval` block means "when a class is instantiated" and when it means "at the point of template definition." So we really want a signal _outside_ of the body to tell us to do this. And we have one: an annotation.
+
+```cpp
+template <class T>
+class [[=inject_bindings]] wide_result {
+    // ...
+};
+```
+
+No cute name this time. But what we do still have this time is a callback for when the entity the annotation is attached to gets completed. Except that this time, instead of type completion it'll be template definition. So something like this:
+
+```cpp
+struct inject_bindings_t {
+    consteval auto on_template_defined(std::meta::info tmpl) const -> void {
+        // ...
+    }
+};
+
+inline constexpr inject_bindings_t inject_bindings{};
+```
+
+This basically behaves as if we'd written:
+
+```cpp
+template <class T>
+class wide_result {
+    // ...
+};
+
+consteval {
+    inject_bindings.on_template_defined(^^wide_result);
+}
+```
+
+Now, we just need to inject a partial specialization of `tuple_size` that matches all specializations `wide_result`. Except all we have is... a class template. How do we know how to do that?
+
+The general C++ approach up to now is to just match a variadic class template. That would look like:
+
+```cpp
+struct inject_bindings_t {
+    consteval auto on_template_defined(std::meta::info tmpl) const -> void {
+        queue_injection(^^std, ^^{
+            template <class... Ts>
+            struct tuple_size<\(tmpl)<Ts...>> {
+                // ...
+            };
+        });
+
+        // similar for tuple_element
+    }
+};
+```
+
+This certainly works for `wide_result`, which takes some number of template parameters (one) that are all types. But it's not a general solution. It wouldn't work for types with constant template parameters or template template parameters (or, now, concept template parameters or variable template parameters). And the whole point of this point is that I do want a general solution. What would a general solution look like?
+
+This is what [universal template parameters](https://wg21.link/p2989) are for. While there are many motivating use-cases for this feature (see the paper), this one is particularly annoying since it's the simplest possible usage: we don't even care here what the template parameters actually _are_ — we will never attempt to look at them because we care only about the overall type and that it has this specific pattern. With the paper, what we'd inject would be:
+
+```cpp
+struct inject_bindings_t {
+    consteval auto on_template_defined(std::meta::info tmpl) const -> void {
+        queue_injection(^^std, ^^{
+            template <universal template... Ts>
+            struct tuple_size<\(tmpl)<Ts...>> {
+                // ...
+            };
+        });
+
+        // similar for tuple_element
+    }
+};
+```
+{: data-line="4" }
+
+That's a general solution that works for all class templates. The other approach to a general solution would be try to come up with a way to inject exactly the template-head for the specific template. That is:
+
+```cpp
+// our first not-quite-solution: only works for type parameters
+template <class... Ts>
+struct tuple_size<wide_result<Ts...>> { ... };
+
+// our second solution: works for all class templates
+template <universal template... Ts>
+struct tuple_size<wide_result<Ts...>> { ... };
+
+// third solution: write exactly the template-head
+template <class T>
+struct tuple_size<wide_result<T>> { ... };
+```
+
+In order to do that, we'd need some helpers to produce the two different parts of the signature here. We'd need a way to produce the token sequence `^^{ class T }` and a way to produce the token sequence `^^{ T }`. This would probably need to have some way of allowing us to provide a prefix for the parameter names themselves, since we need to ensure they don't clash, and the names themselves don't matter. Perhaps the signature of this function would be something like:
+
+```cpp
+struct template_head_result {
+    std::meta::token_sequence head;
+    std::meta::token_sequence args;
+};
+
+consteval auto template_head_of(std::meta::info tmpl, std::string_view prefix)
+    -> template_head_result;
+```
+
+So that our usage here would be:
+
+
+```cpp
+struct inject_bindings_t {
+    consteval auto on_template_defined(std::meta::info tmpl) const -> void {
+        auto [head, args] = template_head_of(tmpl, "p");
+
+        queue_injection(^^std, ^^{
+            template <\(head)>
+            struct tuple_size<\(tmpl)<\(args)>> {
+                // ...
+            };
+        });
+
+        // similar for tuple_element
+    }
+};
+```
+{: data-line="3,6-7" }
+
+Note that template heads can be arbitrarily complicated. They can have constrained declarations, they can re-use names. For instance, `std::integral_constant` is:
+
+```
+template <class T, T v>
+struct integral_constant;
+```
+
+So `template_head_of(^^integral_constant, "p").head` would have to produce something like `^^{ class p0, p0 p1 }` and definitely not `^^T{ class p0, T p1 }`.
+
+> I'm sure if I knew anything about programming language theory or lambda calculus, I'd talk about α-conversion or something.
+{:.prompt-info}
+
+So alright, those are our three options (just use types, universal template parameters, and dedicated reflection functions to synthesize the correct template-head) to properly _push_ the right specialization. But once we have that shape, what do we do next?
+
+## Push-Me, Pull-Me II
+
+In my initial implementation of injecting structured bindings, I passed a vector of reflections representing non-static data members into a function that did all the injections for me. That can't really work if we're driving all of this from an annotation, since the annotation lives outside of the class — before the non-static data members are declared. That means we'll have to split the work: _push_ the right specializations, but have those specializations _pull_ the data back out.
+
+That is, our usage will look something like this:
+
+```cpp
+template <class T>
+class [[=inject_bindings]] wide_result { // <== push-me
+    T hi;
+    T lo;
+
+public:
+    constexpr wide_result(T hi, T lo) : hi(hi), lo(lo) { }
+
+    static constexpr info tuple_elements[] = {^^hi, ^^lo}; // <== pull-me
+};
+```
+{: data-line="2,9" }
+
+The annotation injects all the pieces we need, the `static constexpr` data member is... the parameter for that annotation. It's a little unsatisfactory that these two are split so far apart. Then again, `tuple_elements` here could conceivably just default to `nonstatic_data_members_of(^^C)`, so perhaps that's not that big a deal.
+
+Before, pull-based customization was problematic due to having the potential for ambiguous specializations. But once we push the correct specialization out, that's no longer a problem, and pulling data is fine.
+
+Concretely, we can inject this (note that this still just injects specializations assuming all-type parameters):
+
+```cpp
+template <class T, template <class...> class Z>
+concept specializes = has_template_arguments(remove_cvref(^^T))
+                    and template_of(remove_cvref(^^T)) == ^^Z;
+
+struct inject_bindings_t {
+    consteval auto on_template_defined(std::meta::info tmpl) const -> void {
+        queue_injection(^^std, ^^{
+            template <class... Ts>
+            struct tuple_size<\(tmpl)<Ts...>>
+                : integral_constant<size_t, size(\(tmpl)<Ts...>::tuple_elements)>
+            { };
+
+            template <size_t I, class... Ts>
+            struct tuple_element<I, \(tmpl)<Ts...>> {
+                using type = [: type_of(\(tmpl)<Ts...>::tuple_elements[I]) :];
+            };
+        });
+
+        queue_injection(parent_of(tmpl), ^^{
+            template <size_t I, ::lib::specializes<\(tmpl)> Self>
+            constexpr auto get(Self&& self) -> decltype(auto) {
+                return (((Self&&)self).[: self.tuple_elements[I] :]);
+            }
+        });
+    }
+};
+```
+
+The fully qualified `::lib::specializes` is just because I'm assuming this annotation is actually in namespace `lib`. And if you're wondering how we can splice `self.tuple_elements[I]` inside of `get`, check out my post about the [constexpr array size problem]({% post_url 2020-02-05-constexpr-array-size %}).
+
+Now that implementation [works](https://compiler-explorer.com/z/T9EcMsacf), even if I put the `static_assert` before I instantiate `wide_result`.
+
+## There's Always Another Level
+
+Now, even with the above solution, it's still not quite satisfactory to me. First, there's the shape of the specialization that I've already mentioned — how we really need either universal template parameters or a mechanism to generate the correct template head for a given template. But on top of that, I'm not thrilled that we have to inject `get` into namespace scope — ideally I think we would inject it into `wide_result`, so that we're not polluting the namespace.
+
+But there's a bigger issue here, because there's always a bigger issue.
+
+Consider classes of this shape:
+
+```cpp
+template <class T>
+struct Outer {
+    struct Inner {
+        // ...
+    };
+};
+```
+
+If I want to push a specialization for some trait (whether `formatter` or `tuple_size` or some other customization point), the spelling I would end up producing, even with an oracle that would give me the correct spelling, is:
+
+```cpp
+template <class T>
+struct TRAIT<Outer<T>::Inner> {
+    // ...
+};
+```
+
+And... that doesn't work. That's never going to match anything, because that pattern is a non-deduced context. On the one hand, there are good reasons for that in general — since if `Inner` were, rather than its own type, actually `using Inner = int;`, then obviously you could not deduce `T` from that. But on the other hand, if `Inner` is _not_ an alias, then `T` is very clearly deducible.
+
+This is already a known problem in this space, which is why some libraries try to avoid nested types in these contexts — you can always just restructure your code to look like this:
+
+```cpp
+template <class T>
+struct Inner {
+    // ...
+};
+
+template <class T>
+struct Outer {
+    // ...
+};
+```
+
+It's just... annoying to have to do so, purely when considering locality. I might want `Inner` to actually be a nested class of `Outer` for any number of reasons, so having to put it outside of `Outer` to work around a language limitation is always irritating. Perhaps this would be a reason to reconsider that rule, but otherwise because `Outer<T>::Inner` is non-deducible, that means that such types can _only_ be customized pull-based — never push-based.
+
+## Next Steps
+
+I'm going to keep trying things out in this space and seeing what works. But part of my motivation with this blog post is also that I realize that while I have this implementation on compiler explorer, I haven't done much in the way of advertising its existence. I hope to have an updated token sequence injection paper in the September mailing with links to further examples. I've already have a few in this post already, but probably some of the more interesting ones I've been working through are:
+
+* [type erasure](https://compiler-explorer.com/z/5v1dvvbvq)
+* [formatting](https://compiler-explorer.com/z/Ehxrb3z13)
+* [iterator interface](https://compiler-explorer.com/z/en5bbrYW1), some early experimentation with an iterator library that is "fill in the rest of the owl for me"
+
+I'm curious what you all will come up with: what you will try to do that just works, what you will try to do that fails but should work, what you want to do that we need other (or differently shaped) tools for. Let's do this!
