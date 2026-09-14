@@ -6,7 +6,6 @@ tags:
  - c++
  - c++29
  - reflection
-pubdraft: yes
 ---
 
 Almost two years ago now, I wrote the post [Rust Attributes vs C++ Annotations]({% post_url 2024-09-30-annotations %}). That post, I walked through how in standard C++26 we could get this code:
@@ -573,6 +572,6 @@ I'm going to keep trying things out in this space and seeing what works. But par
 * [type erasure](https://compiler-explorer.com/z/5v1dvvbvq)
 * [formatting](https://compiler-explorer.com/z/Ehxrb3z13)
 * [iterator interface](https://compiler-explorer.com/z/en5bbrYW1), some early experimentation with an iterator library that is "fill in the rest of the owl for me"
-* the [final implementation]https://compiler-explorer.com/z/59c973b73) of the push/pull based structured bindings implementation (still using a variadic template head).
+* the [final implementation](https://compiler-explorer.com/z/59c973b73) of the push/pull based structured bindings implementation (still using a variadic template head).
 
 I'm curious what you all will come up with: what you will try to do that just works, what you will try to do that fails but should work, what you want to do that we need other (or differently shaped) tools for. Let's do this!
