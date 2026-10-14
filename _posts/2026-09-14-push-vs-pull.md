@@ -2,6 +2,7 @@
 layout: post
 title: "Push-based vs Pull-based Customization"
 category: c++
+series: push-vs-pull
 tags:
  - c++
  - c++29
