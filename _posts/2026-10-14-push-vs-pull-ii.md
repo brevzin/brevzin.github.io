@@ -330,17 +330,13 @@ struct Eq_t {
             };
         }
 
-        std::meta::list_builder cmp(^^{ && });
+        auto cmp = ^^{ true };
         for (std::meta::info s : subobjects) {
             if (is_array_type(type_of(s))) {
-                cmp += ^^{ ::array_eq(__lhs.\(s), __rhs.\(s)) };
+                cmp += ^^{ and ::array_eq(__lhs.\(s), __rhs.\(s)) };
             } else {
-                cmp += ^^{ (__lhs.\(s) == __rhs.\(s)) };
+                cmp += ^^{ and (__lhs.\(s) == __rhs.\(s)) };
             }
-        }
-
-        if (subobjects.empty()) {
-            cmp += ^^{ true };
         }
 
         return ^^{
@@ -359,7 +355,7 @@ struct Eq_t {
 inline constexpr Eq_t Eq{};
 ```
 
-And with that, we get [the desired behavior](https://compiler-explorer.com/z/nG9fbrEfb):
+And with that, we get [the desired behavior](https://compiler-explorer.com/z/Koq6Gozfv):
 
 ```cpp
 struct [[=Eq]] P {
